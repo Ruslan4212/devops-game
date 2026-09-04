@@ -226,6 +226,7 @@ function finishDrill(){
   if(drLearned()>=DR.length)award("drillall");
   if(DRL.best>=15)award("combo15");
   questTick("drill",DRL.ok);
+  if(DRL.ok>=8)lifeReward("drill");
   if(DRL.mode==="blitz")questTick("blitz",1);
   save();drawDrill();
 }

@@ -236,7 +236,8 @@ function drawIV(){
        <ul class="tight" style="margin-top:8px">
          <li>Техническая секция: ${IV.items.length} вопросов, проходной балл ${Math.round(j.pass*100)}%.</li>
          ${j.lab?`<li>Практическая задача: лаборатория «${LABS[j.lab].t}» ${S.labs[j.lab]?"<span style='color:var(--ok)'>— уже пройдена, зачтётся</span>":"— её нужно закрыть"}.</li>`:""}
-         <li>Провал — не блокировка: можно готовиться и приходить снова.</li></ul>
+         <li>Провал — не блокировка: можно готовиться и приходить снова.</li>
+         ${(typeof interviewBonus==="function"&&S.life&&S.life.created)?`<li>Впечатление от тебя: <b style="color:${interviewBonus()>=0?"var(--ok)":"var(--bad)"}">${interviewBonus()>=0?"+":""}${interviewBonus()}%</b> — складывается из одежды, настроения и того, голоден ли ты.</li>`:""}</ul>
        <div class="row" style="margin-top:16px"><button class="btn" data-career="ivgo">Начать собеседование</button>
        <button class="btn ghost" data-tab="career">Позже</button></div></div></div>`;return;
   }
@@ -277,7 +278,7 @@ function drawIV(){
    <div class="card res" style="border-color:${passed?"rgba(63,191,143,.5)":"rgba(226,86,90,.4)"}">
      <div class="lbl">${passed?"оффер":"отказ"}</div>
      <div class="big ${passed?"ok":"no"}">${Math.round(IV.ok/IV.items.length*100)}%</div>
-     <p class="muted" style="margin:4px 0 10px">${IV.ok} из ${IV.items.length} · проходной ${Math.round(IV.j.pass*100)}%</p>
+     <p class="muted" style="margin:4px 0 10px">${IV.ok} из ${IV.items.length} · проходной ${Math.round(IV.j.pass*100)}%${IV.bonus?` · впечатление ${IV.bonus>0?"+":""}${IV.bonus}%`:""}</p>
      ${passed?`<h2 style="font-size:22px;margin-bottom:8px">${IV.j.n} делает тебе оффер</h2>
        <p class="muted" style="max-width:54ch;margin:0 auto">${IV.j.pay} · ${gradeName(IV.j.g)}. ${IV.j.desc}</p>
        <div class="row" style="justify-content:center;margin-top:18px">
@@ -293,11 +294,14 @@ function drawIV(){
 }
 function ivFinish(){
   const j=IV.j;
-  const passed=IV.ok/IV.items.length>=j.pass;
+  const bonus=(typeof interviewBonus==="function"&&S.life&&S.life.created)?interviewBonus():0;
+  IV.bonus=bonus;
+  const score=IV.ok/IV.items.length+bonus/100;
+  const passed=score>=j.pass;
   if(passed&&j.lab&&!S.labs[j.lab]){IV.phase="task";drawIV();return}
   IV.passed=passed;IV.phase="res";
   S.interviews=(S.interviews||[]).concat([{id:j.id,passed,score:IV.ok,total:IV.items.length,d:today()}]);
-  addXP(passed?90:35);questTick("interview",1);checkDay();
+  addXP(passed?90:35);questTick("interview",1);checkDay();if(typeof lifeReward==="function")lifeReward("interview");
   if(passed)award("firstoffer");
   if((S.interviews||[]).length>=5)award("iv5");
   save();drawIV();

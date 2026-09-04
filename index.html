@@ -2993,7 +2993,7 @@ ROADMAP.splice(1,0,{n:"—",t:"Как устроена эта игра",when:"ч
 /* ================= STATE ================= */
 const KEY="pipeline_devops_v2";
 const today=()=>new Date().toISOString().slice(0,10);
-const defState=()=>({xp:0,mis:{},boss:{},labs:{},srs:{},streak:0,last:null,days:[],badges:[],repairs:0,tab:"map",openWorld:null,hintsUsed:0,mpos:{},
+const defState=()=>({xp:0,mis:{},boss:{},labs:{},srs:{},streak:0,last:null,days:[],badges:[],repairs:0,tab:"map",openWorld:null,hintsUsed:0,mpos:{},life:null,shopTab:"food",
   drill:{},drillRuns:0,drillOk:0,quests:null,storySeen:[],storyPick:{},interviews:[],job:null,rep:0});
 let S=load();
 function load(){try{const r=localStorage.getItem(KEY)||localStorage.getItem("pipeline_devops_v1");
@@ -3011,7 +3011,9 @@ function checkDay(){
 }
 const LVL=x=>Math.floor(Math.sqrt(x/60))+1;
 const lvlFloor=l=>Math.round(60*Math.pow(l-1,2));
-function addXP(n){S.xp+=n;save();renderStats();}
+function addXP(n){
+  const mult=(typeof xpMultiplier==="function"&&S.life&&S.life.created&&!S.life.dead)?xpMultiplier():1;
+  S.xp+=Math.round(n*mult);save();renderStats();}
 function award(id){if(S.badges.includes(id))return;S.badges.push(id);save();toast("Бейдж: "+((BADGES.find(b=>b.id===id)||{}).n||id));}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2800);}
 const BOX=[0,1,3,7,16,35];
@@ -3051,10 +3053,13 @@ function renderStats(){
   document.getElementById("s-xptxt").textContent=`${S.xp} / ${nxt} xp`;
   document.getElementById("s-streak").textContent=S.streak+"🔥";
 }
-const TABS=[["map","Карта"],["drill","Тренажёр"],["career","Карьера"],["hero","Персонаж"],["repair","Повторы"],["sand","Песочница"],["road","План 0→Middle"],["prof","Профиль"]];
+const TABS=[["map","Карта"],["drill","Тренажёр"],["career","Карьера"],["life","Жизнь"],["shop","Магазин"],["hero","Персонаж"],["repair","Повторы"],["sand","Песочница"],["road","План 0→Middle"],["prof","Профиль"]];
 function renderTabs(){
   document.getElementById("tabs").innerHTML=TABS.map(([k,n])=>{
+    const lf=S.life&&S.life.created?S.life:null;
+    const alarm=lf&&!lf.dead&&(lf.hunger<25||lf.health<35);
     const d=k==="repair"?dueList().length:k==="hero"?storyAvailable().length:0;
+    if(k==="life"&&(alarm||(lf&&lf.dead)))return `<button data-tab="${k}" aria-selected="${S.tab===k}">${n} <span style="color:var(--bad)">!</span></button>`;
     return `<button data-tab="${k}" aria-selected="${S.tab===k}">${n}${d?` <span style="color:var(--amber)">·${d}</span>`:""}</button>`}).join("");
 }
 function go(t){R=null;L=null;DRL=null;IV=null;S.tab=t;save();render();window.scrollTo({top:0,behavior:"smooth"});}
@@ -3065,6 +3070,9 @@ function render(){
   else if(S.tab==="repair")v.innerHTML=viewRepair();
   else if(S.tab==="road")v.innerHTML=viewRoad();
   else if(S.tab==="drill")v.innerHTML=viewDrill();
+  else if(S.tab==="life")v.innerHTML=viewLife();
+  else if(S.tab==="shop")v.innerHTML=viewShop();
+  else if(S.tab==="create")v.innerHTML=viewCreate();
   else if(S.tab==="career")v.innerHTML=viewCareer();
   else if(S.tab==="hero")v.innerHTML=viewHero();
   else if(S.tab==="sand"){v.innerHTML=viewSandbox();initSandbox();}
@@ -3416,6 +3424,7 @@ function finishDrill(){
   if(drLearned()>=DR.length)award("drillall");
   if(DRL.best>=15)award("combo15");
   questTick("drill",DRL.ok);
+  if(DRL.ok>=8)lifeReward("drill");
   if(DRL.mode==="blitz")questTick("blitz",1);
   save();drawDrill();
 }
@@ -3722,7 +3731,8 @@ function drawIV(){
        <ul class="tight" style="margin-top:8px">
          <li>Техническая секция: ${IV.items.length} вопросов, проходной балл ${Math.round(j.pass*100)}%.</li>
          ${j.lab?`<li>Практическая задача: лаборатория «${LABS[j.lab].t}» ${S.labs[j.lab]?"<span style='color:var(--ok)'>— уже пройдена, зачтётся</span>":"— её нужно закрыть"}.</li>`:""}
-         <li>Провал — не блокировка: можно готовиться и приходить снова.</li></ul>
+         <li>Провал — не блокировка: можно готовиться и приходить снова.</li>
+         ${(typeof interviewBonus==="function"&&S.life&&S.life.created)?`<li>Впечатление от тебя: <b style="color:${interviewBonus()>=0?"var(--ok)":"var(--bad)"}">${interviewBonus()>=0?"+":""}${interviewBonus()}%</b> — складывается из одежды, настроения и того, голоден ли ты.</li>`:""}</ul>
        <div class="row" style="margin-top:16px"><button class="btn" data-career="ivgo">Начать собеседование</button>
        <button class="btn ghost" data-tab="career">Позже</button></div></div></div>`;return;
   }
@@ -3763,7 +3773,7 @@ function drawIV(){
    <div class="card res" style="border-color:${passed?"rgba(63,191,143,.5)":"rgba(226,86,90,.4)"}">
      <div class="lbl">${passed?"оффер":"отказ"}</div>
      <div class="big ${passed?"ok":"no"}">${Math.round(IV.ok/IV.items.length*100)}%</div>
-     <p class="muted" style="margin:4px 0 10px">${IV.ok} из ${IV.items.length} · проходной ${Math.round(IV.j.pass*100)}%</p>
+     <p class="muted" style="margin:4px 0 10px">${IV.ok} из ${IV.items.length} · проходной ${Math.round(IV.j.pass*100)}%${IV.bonus?` · впечатление ${IV.bonus>0?"+":""}${IV.bonus}%`:""}</p>
      ${passed?`<h2 style="font-size:22px;margin-bottom:8px">${IV.j.n} делает тебе оффер</h2>
        <p class="muted" style="max-width:54ch;margin:0 auto">${IV.j.pay} · ${gradeName(IV.j.g)}. ${IV.j.desc}</p>
        <div class="row" style="justify-content:center;margin-top:18px">
@@ -3779,11 +3789,14 @@ function drawIV(){
 }
 function ivFinish(){
   const j=IV.j;
-  const passed=IV.ok/IV.items.length>=j.pass;
+  const bonus=(typeof interviewBonus==="function"&&S.life&&S.life.created)?interviewBonus():0;
+  IV.bonus=bonus;
+  const score=IV.ok/IV.items.length+bonus/100;
+  const passed=score>=j.pass;
   if(passed&&j.lab&&!S.labs[j.lab]){IV.phase="task";drawIV();return}
   IV.passed=passed;IV.phase="res";
   S.interviews=(S.interviews||[]).concat([{id:j.id,passed,score:IV.ok,total:IV.items.length,d:today()}]);
-  addXP(passed?90:35);questTick("interview",1);checkDay();
+  addXP(passed?90:35);questTick("interview",1);checkDay();if(typeof lifeReward==="function")lifeReward("interview");
   if(passed)award("firstoffer");
   if((S.interviews||[]).length>=5)award("iv5");
   save();drawIV();
@@ -3978,6 +3991,511 @@ document.addEventListener("keydown",e=>{
       else if(IV.ans!==null){IV.checked=true;if(IV.ans===IV.items[IV.i].c)IV.ok++;save();drawIV()}}
   }
 });
+/* =====================================================================
+   ЖИЗНЬ: персонаж, деньги, потребности, магазин
+   ===================================================================== */
+
+/* ---------- внешность ---------- */
+const SKIN=["#F2C9A0","#E0A97B","#C98A5E","#9C6440","#6E4526"];
+const HAIRC=["#2B2118","#6B4423","#B5793B","#D9B36B","#8E8E8E","#C7452F","#5B4BA8","#2E8B7A"];
+const HAIRS_M=["короткие","ёжик","с пробором","кудри","длинные","лысина"];
+const HAIRS_F=["каре","хвост","длинные","кудри","пучок","короткие"];
+const EYESC=["#3B2F2A","#4A6B8A","#4E7A4E","#6B5B95"];
+const FACE=["спокойное","улыбка","серьёзное"];
+
+function defLife(){return{
+  created:false,sex:"m",name:"",skin:1,hair:0,hairc:0,eyes:0,face:1,glasses:false,beard:false,cap:false,
+  money:8000,day:null,hunger:70,health:100,mood:60,
+  wear:{top:"tshirt",shoes:"sneakers_old"},
+  own:[],home:null,car:null,tech:[],
+  dead:false,deaths:0,trips:[],log:[],totalEarned:0,totalSpent:0,daysLived:0
+}}
+
+/* ---------- SVG-портрет ---------- */
+function hairPath(sex,style){
+  const S=sex==="f"?HAIRS_F:HAIRS_M;const n=S[style]||S[0];
+  const map={
+   "короткие":'<path d="M62 62c0-22 16-34 38-34s38 12 38 34c0 6-2 10-4 12-2-16-14-24-34-24s-32 8-34 24c-2-2-4-6-4-12z"/>',
+   "ёжик":'<path d="M62 64c0-24 18-36 38-36s38 12 38 36c-4-8-10-12-10-12s-4 6-8 4c-4-2-4-8-4-8s-6 8-12 6c-6-2-6-10-6-10s-8 10-14 8c-6-2-6-10-6-10s-8 10-12 12-4 10-4 10z"/>',
+   "с пробором":'<path d="M62 62c0-22 16-34 38-34s38 12 38 34c0 6-2 10-4 12-2-14-10-22-24-24-6 8-16 12-30 12-6 0-12-2-16-4-2 4-2 10-2 14-0 0-0-6 0-10z"/>',
+   "кудри":'<path d="M64 60a13 13 0 0 1 13-14 14 14 0 0 1 23-8 14 14 0 0 1 23 8 13 13 0 0 1 13 14c0 8-4 14-4 14-2-16-14-24-32-24s-30 8-32 24c0 0-4-6-4-14z"/>',
+   "длинные":'<path d="M60 66c0-24 18-38 40-38s40 14 40 38c0 20-2 34-6 46l-10 2c4-16 4-32 2-44-4-14-14-20-26-20s-22 6-26 20c-2 12-2 28 2 44l-10-2c-4-12-6-26-6-46z"/>',
+   "лысина":'<path d="M66 66c2-12 10-18 18-20-8 6-12 12-14 22-2 0-3-1-4-2z"/>',
+   "каре":'<path d="M58 70c0-26 18-42 42-42s42 16 42 42c0 14-2 26-4 34l-12 2c3-10 4-22 3-32-4-16-14-22-29-22s-25 6-29 22c-1 10 0 22 3 32l-12-2c-2-8-4-20-4-34z"/>',
+   "хвост":'<path d="M62 62c0-22 16-34 38-34s38 12 38 34c0 6-2 10-4 12-2-16-14-24-34-24s-32 8-34 24c-2-2-4-6-4-12z"/><path d="M136 58c10 4 16 14 14 26-2 12-8 20-14 24 4-10 6-20 4-30-2-8-4-14-4-20z"/>',
+   "пучок":'<path d="M62 62c0-22 16-34 38-34s38 12 38 34c0 6-2 10-4 12-2-16-14-24-34-24s-32 8-34 24c-2-2-4-6-4-12z"/><circle cx="100" cy="22" r="12"/>'
+  };
+  return map[n]||map["короткие"];
+}
+function outfitColor(top){return({
+  none:"#8892A6",tshirt:"#4A7FB5",hoodie:"#4B5563",shirt:"#E8E4DA",suit:"#2B3446",tech:"#1F6F5C"
+})[top]||"#4A7FB5"}
+function avatarSVG(L,size){
+  const s=size||200,sk=SKIN[L.skin]||SKIN[1],hc=HAIRC[L.hairc]||HAIRC[0],ec=EYESC[L.eyes]||EYESC[0];
+  const oc=outfitColor(L.wear&&L.wear.top);
+  const bg=L.home?(HOMES.find(h=>h.id===L.home)||{}).bg||"#1B2230":"#141922";
+  const mouth=L.face===1?'<path d="M88 108q12 10 24 0" stroke="#8A5A44" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    :L.face===2?'<path d="M88 110h24" stroke="#8A5A44" stroke-width="3" stroke-linecap="round"/>'
+    :'<path d="M90 108q10 6 20 0" stroke="#8A5A44" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  const dead=L.dead?'<g opacity=".55"><path d="M84 84l12 12M96 84l-12 12M104 84l12 12M116 84l-12 12" stroke="#0A0D12" stroke-width="4" stroke-linecap="round"/></g>':
+    `<g><ellipse cx="88" cy="88" rx="5" ry="6" fill="#fff"/><circle cx="89" cy="89" r="3" fill="${ec}"/>
+     <ellipse cx="112" cy="88" rx="5" ry="6" fill="#fff"/><circle cx="113" cy="89" r="3" fill="${ec}"/></g>`;
+  return `<svg viewBox="0 0 200 210" width="${s}" height="${s*1.05}" role="img" aria-label="персонаж">
+   <defs><clipPath id="cl${s}"><rect x="0" y="0" width="200" height="210" rx="14"/></clipPath></defs>
+   <g clip-path="url(#cl${s})">
+   <rect width="200" height="210" fill="${bg}"/>
+   <circle cx="100" cy="235" r="80" fill="${oc}"/>
+   ${L.wear&&L.wear.top==="suit"?'<path d="M78 168l22 22 22-22-8-14h-28z" fill="#E8E4DA"/><path d="M96 170l4 8 4-8-4-6z" fill="#8C2F39"/>':""}
+   ${L.wear&&L.wear.top==="hoodie"?'<path d="M70 172q30 14 60 0v-8q-30 12-60 0z" fill="#000" opacity=".18"/>':""}
+   <rect x="88" y="126" width="24" height="24" rx="10" fill="${sk}"/>
+   <ellipse cx="100" cy="84" rx="40" ry="44" fill="${sk}"/>
+   <ellipse cx="61" cy="86" rx="6" ry="9" fill="${sk}"/><ellipse cx="139" cy="86" rx="6" ry="9" fill="${sk}"/>
+   ${L.beard&&L.sex==="m"?`<path d="M64 92c0 26 16 40 36 40s36-14 36-40c0 0-6 22-36 22S64 92 64 92z" fill="${hc}" opacity=".85"/>`:""}
+   ${dead}
+   ${mouth}
+   <g fill="${hc}">${hairPath(L.sex,L.hair)}</g>
+   ${L.glasses?'<g fill="none" stroke="#2A3342" stroke-width="3"><circle cx="88" cy="88" r="12"/><circle cx="112" cy="88" r="12"/><path d="M100 88h0M76 86l-10-2M124 86l10-2"/></g>':""}
+   ${L.cap?`<g><path d="M58 60c0-24 18-38 42-38s42 14 42 38z" fill="#2E8B7A"/><path d="M142 60c14 0 22 4 26 10-12 4-40 4-68 4z" fill="#25705F"/></g>`:""}
+   </g></svg>`;
+}
+
+/* ---------- товары ---------- */
+const FOOD=[
+ {id:"noodles",n:"Доширак",p:60,h:12,m:-2,d:"Топливо студента. Голод уходит, самоуважение тоже."},
+ {id:"grechka",n:"Гречка с курицей",p:180,h:26,m:0,d:"Скучно, дёшево, работает. Основа рациона инженера."},
+ {id:"shawarma",n:"Шаурма у метро",p:280,h:34,m:4,d:"Быстро и сытно. Иногда — приключение."},
+ {id:"lunch",n:"Бизнес-ланч",p:520,h:45,m:6,d:"Нормальная еда в середине дня. Заметно влияет на настроение."},
+ {id:"delivery",n:"Доставка на вечер",p:900,h:55,m:10,d:"Не выходя из дома. Дорого, но после дежурства — можно."},
+ {id:"resto",n:"Ужин в ресторане",p:3200,h:70,m:22,d:"Событие, а не приём пищи. Сильно поднимает настроение."},
+ {id:"groceries",n:"Продукты на неделю",p:4200,h:100,m:5,d:"Самый выгодный вариант: сытость под завязку за половину цены доставки.",bulk:true}
+];
+const CLOTHES=[
+ {id:"tshirt",n:"Футболка",p:1500,slot:"top",iv:0,m:0,d:"База. На собеседование в стартап — сойдёт."},
+ {id:"hoodie",n:"Худи",p:4500,slot:"top",iv:2,m:3,d:"Универсальная форма инженера. В ней не стыдно на созвоне."},
+ {id:"shirt",n:"Рубашка",p:6500,slot:"top",iv:6,m:4,d:"Плюс к серьёзности на собеседовании в корпорацию."},
+ {id:"suit",n:"Костюм",p:38000,slot:"top",iv:12,m:8,d:"Банк и энтерпрайз оценят. Заметный бонус на интервью."},
+ {id:"sneakers_old",n:"Старые кроссовки",p:0,slot:"shoes",iv:0,m:0,d:"Уже есть. Видали лучшие дни.",owned:true},
+ {id:"sneakers",n:"Нормальные кроссовки",p:9000,slot:"shoes",iv:3,m:5,d:"Ходить приятнее, выглядит опрятно."},
+ {id:"boots",n:"Ботинки",p:14000,slot:"shoes",iv:5,m:4,d:"Под рубашку и костюм."}
+];
+const HOMES=[
+ {id:"hostel",n:"Койка в хостеле",buy:0,rent:9000,mood:-2,bg:"#1A1F2B",d:"Дёшево и шумно. Спать можно, отдыхать — нет."},
+ {id:"room",n:"Комната в квартире",buy:0,rent:16000,mood:1,bg:"#1B2230",d:"Своя дверь. Уже человеческие условия."},
+ {id:"studio",n:"Студия",buy:5200000,rent:32000,mood:4,bg:"#1C2534",d:"Своё пространство. Настроение восстанавливается быстрее."},
+ {id:"flat2",n:"Двушка",buy:9800000,rent:55000,mood:7,bg:"#1E2A3A",d:"Есть где поставить второй монитор и жить."},
+ {id:"house",n:"Дом за городом",buy:21000000,rent:0,mood:12,bg:"#1C2C28",d:"Тишина, воздух, свой кабинет. Цель, к которой идут годами."}
+];
+const CARS=[
+ {id:"bike",n:"Велосипед",p:28000,up:0,mood:4,xp:0,d:"Дешёвый транспорт и немного здоровья. Расходов нет."},
+ {id:"used",n:"Подержанная машина",p:420000,up:9000,mood:6,xp:3,d:"Экономит время в дороге. Обслуживание и бензин — каждый месяц."},
+ {id:"new",n:"Новая машина",p:2400000,up:14000,mood:12,xp:5,d:"Комфорт и статус. И постоянная строка расходов."}
+];
+const TECH=[
+ {id:"kbd",n:"Механическая клавиатура",p:12000,xp:3,m:3,d:"Печатать приятнее. +3% к получаемому опыту."},
+ {id:"monitor",n:"Второй монитор",p:26000,xp:5,m:4,d:"Логи слева, документация справа. +5% к опыту."},
+ {id:"laptop",n:"Мощный ноутбук",p:140000,xp:10,m:6,d:"Кластер в minikube больше не тормозит. +10% к опыту."},
+ {id:"chair",n:"Нормальное кресло",p:45000,xp:4,m:8,d:"Спина скажет спасибо через год. +4% к опыту, +настроение."}
+];
+const TRIPS=[
+ {id:"weekend",n:"Выходные в горах",p:35000,m:30,d:"Два дня без ноутбука. Настроение возвращается."},
+ {id:"sea",n:"Неделя на море",p:140000,m:60,d:"Полноценный отпуск. Перезагрузка после тяжёлого квартала."},
+ {id:"asia",n:"Две недели в Азии",p:290000,m:90,d:"Далеко, долго, дорого — и запоминается на годы."}
+];
+const UTILITY_DAY=170;   // коммуналка и связь в день при своём или съёмном жилье
+const STREET_MOOD=-14;   // штраф к настроению без жилья
+const STREET_HEALTH=-6;
+
+/* ---------- экономика ---------- */
+function LF(){S.life=S.life||defLife();return S.life}
+function dailySalary(){
+  if(!S.job)return 0;
+  const j=JOBS.find(x=>x.id===S.job.id); if(!j)return 0;
+  return Math.round(parseInt(j.pay.replace(/\D/g,""),10)/30);
+}
+function dailyCosts(){
+  const l=LF();let c=0;
+  if(l.home){const h=HOMES.find(x=>x.id===l.home);
+    if(h&&!l.own.includes("home:"+h.id))c+=Math.round(h.rent/30);
+    c+=UTILITY_DAY;}
+  if(l.car){const car=CARS.find(x=>x.id===l.car);if(car)c+=Math.round(car.up/30)}
+  return c;
+}
+function techXPBonus(){const l=LF();return l.tech.reduce((a,id)=>a+((TECH.find(t=>t.id===id)||{}).xp||0),0)
+  +(l.car?((CARS.find(c=>c.id===l.car)||{}).xp||0):0)}
+function moodXPMod(){const m=LF().mood;return m>=80?10:m>=40?0:m>=20?-10:-25}
+function xpMultiplier(){return 1+(techXPBonus()+moodXPMod())/100}
+function interviewBonus(){
+  const l=LF();let b=0;
+  ["top","shoes"].forEach(sl=>{const it=CLOTHES.find(c=>c.id===l.wear[sl]);if(it)b+=it.iv});
+  if(l.mood>=70)b+=3; if(l.mood<25)b-=5;
+  if(l.hunger<20)b-=5;
+  return b;
+}
+function lifeAdd(txt,sum){
+  const l=LF();
+  l.log.unshift({d:today(),t:txt,s:sum||0});
+  if(l.log.length>40)l.log.length=40;
+}
+function earn(sum,why){const l=LF();l.money+=sum;l.totalEarned+=sum;if(why)lifeAdd(why,sum);save()}
+function spend(sum,why){const l=LF();if(l.money<sum)return false;l.money-=sum;l.totalSpent+=sum;lifeAdd(why,-sum);save();return true}
+
+/* ---------- суточный тик ---------- */
+function lifeTick(){
+  const l=LF(); if(!l.created)return null;
+  const t=today();
+  if(!l.day){l.day=t;save();return null}
+  if(l.day===t)return null;
+  let days=Math.round((new Date(t)-new Date(l.day))/864e5);
+  const skipped=days>3?days-3:0;
+  days=Math.min(days,3);            // за долгое отсутствие штрафуем максимум за три дня
+  const r={days,skipped,earned:0,spent:0,events:[]};
+  for(let i=0;i<days;i++){
+    if(l.dead)break;
+    l.daysLived++;
+    const sal=dailySalary();
+    if(sal){l.money+=sal;l.totalEarned+=sal;r.earned+=sal}
+    const cost=dailyCosts();
+    if(cost){
+      if(l.money>=cost){l.money-=cost;l.totalSpent+=cost;r.spent+=cost}
+      else{l.money=0;l.mood-=10;r.events.push("Не хватило денег на счета: настроение упало")}
+    }
+    l.hunger-=30;
+    if(l.hunger<0){l.health+=Math.round(l.hunger/2);l.hunger=0;r.events.push("Голодный день: здоровье падает")}
+    const h=l.home?HOMES.find(x=>x.id===l.home):null;
+    l.mood+=h?(h.mood-3):STREET_MOOD;
+    if(!h){l.health+=STREET_HEALTH;r.events.push("Ночёвка без жилья бьёт по здоровью")}
+    if(l.hunger>60&&l.health<100)l.health+=4;
+    l.mood=Math.max(0,Math.min(100,l.mood));
+    l.hunger=Math.max(0,Math.min(100,l.hunger));
+    l.health=Math.max(0,Math.min(100,l.health));
+    if(l.health<=0){lifeDeath();r.events.push("Организм не выдержал");break}
+  }
+  l.day=t;
+  if(r.earned)lifeAdd("Зарплата за "+days+" дн.",r.earned);
+  if(r.spent)lifeAdd("Жильё, коммуналка, авто",-r.spent);
+  save();
+  return r;
+}
+function lifeDeath(){
+  const l=LF();
+  l.dead=true;l.deaths++;
+  l.money=0;l.car=null;
+  if(l.home&&!l.own.includes("home:"+l.home))l.home=null;   // съёмное теряется, купленное остаётся
+  S.job=null;
+  lifeAdd("Истощение. Работа потеряна, накопления ушли на лечение",0);
+  save();
+}
+function lifeRevive(){
+  const l=LF();
+  l.dead=false;l.health=45;l.hunger=55;l.mood=35;l.money=6000;
+  lifeAdd("Выписан из больницы. Начинаем заново",0);
+  award("secondchance");save();
+}
+function eat(id){
+  const l=LF(),f=FOOD.find(x=>x.id===id); if(!f)return "нет такого";
+  if(l.money<f.p)return "не хватает денег";
+  spend(f.p,"Еда: "+f.n);
+  l.hunger=Math.min(100,l.hunger+f.h);
+  l.mood=Math.max(0,Math.min(100,l.mood+f.m));
+  if(l.hunger>50&&l.health<100)l.health=Math.min(100,l.health+3);
+  save();return null;
+}
+function buyItem(kind,id){
+  const l=LF();
+  if(kind==="clothes"){const it=CLOTHES.find(x=>x.id===id);if(!it)return "нет";
+    if(!l.own.includes("cl:"+id)&&!it.owned){if(!spend(it.p,"Одежда: "+it.n))return "не хватает денег";l.own.push("cl:"+id)}
+    l.wear[it.slot]=id;l.mood=Math.min(100,l.mood+(it.m||0));save();return null}
+  if(kind==="tech"){const it=TECH.find(x=>x.id===id);if(!it)return "нет";
+    if(l.tech.includes(id))return "уже куплено";
+    if(!spend(it.p,"Техника: "+it.n))return "не хватает денег";
+    l.tech.push(id);l.mood=Math.min(100,l.mood+(it.m||0));save();return null}
+  if(kind==="car"){const it=CARS.find(x=>x.id===id);if(!it)return "нет";
+    if(!spend(it.p,"Транспорт: "+it.n))return "не хватает денег";
+    l.car=id;l.mood=Math.min(100,l.mood+(it.mood||0));save();return null}
+  if(kind==="rent"){const it=HOMES.find(x=>x.id===id);if(!it||!it.rent)return "нельзя снять";
+    const first=Math.round(it.rent*2);   // первый месяц плюс залог
+    if(!spend(first,"Аренда: "+it.n+" (месяц + залог)"))return "не хватает на въезд";
+    l.home=id;l.own=l.own.filter(x=>!x.startsWith("home:"));save();return null}
+  if(kind==="buy"){const it=HOMES.find(x=>x.id===id);if(!it||!it.buy)return "не продаётся";
+    if(!spend(it.buy,"Покупка жилья: "+it.n))return "не хватает денег";
+    l.home=id;if(!l.own.includes("home:"+id))l.own.push("home:"+id);
+    l.mood=Math.min(100,l.mood+15);award("homeowner");save();return null}
+  if(kind==="trip"){const it=TRIPS.find(x=>x.id===id);if(!it)return "нет";
+    if(!spend(it.p,"Поездка: "+it.n))return "не хватает денег";
+    l.trips.push(id);l.mood=Math.min(100,l.mood+it.m);
+    if(l.trips.length>=3)award("traveler");save();return null}
+  return "неизвестная категория";
+}
+/* =====================================================================
+   ЭКРАНЫ ЖИЗНИ: создание персонажа, статус, магазин
+   ===================================================================== */
+BADGES.push(
+ {id:"secondchance",ic:"✚",n:"Второй шанс",d:"Пережил истощение и вернулся"},
+ {id:"homeowner",ic:"⌂",n:"Своё жильё",d:"Купил квартиру или дом"},
+ {id:"traveler",ic:"✈",n:"Отпускник",d:"Три поездки"},
+ {id:"millionaire",ic:"◆",n:"Первый миллион",d:"На счету миллион рублей"});
+
+const money=n=>new Intl.NumberFormat("ru-RU").format(Math.round(n))+" ₽";
+function statBar(label,val,color,warn){
+  return `<div style="flex:1;min-width:120px">
+    <div class="row" style="justify-content:space-between;margin-bottom:3px">
+      <span class="lbl">${label}</span><span class="mono" style="color:${warn?"var(--bad)":color}">${Math.round(val)}</span></div>
+    <div class="xpbar" style="width:100%"><i style="width:${Math.max(0,Math.min(100,val))}%;background:${warn?"var(--bad)":color}"></i></div></div>`;
+}
+
+/* ---------- создание персонажа ---------- */
+let ED=null;
+function viewCreate(){
+  const l=ED||(ED=Object.assign(defLife(),LF().created?LF():{}));
+  const hairs=l.sex==="f"?HAIRS_F:HAIRS_M;
+  const pick=(t,arr,key,render)=>`<div style="margin-bottom:14px"><div class="lbl" style="margin-bottom:6px">${t}</div>
+    <div class="row" style="gap:6px">${arr.map((x,i)=>`<button class="btn ghost sm" data-ed="${key}:${i}"
+      style="${l[key]===i?"border-color:var(--amber);background:rgba(240,135,63,.12)":""}${render?render(x):""}">${render?"":x}</button>`).join("")}</div></div>`;
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">персонаж</div>
+    <h1 style="font-size:26px;margin:4px 0 8px">${LF().created?"Изменить внешность":"Кто ты"}</h1>
+    <p class="muted" style="margin:0;max-width:62ch">Это твой аватар в игре. Он будет менять одежду по мере покупок, а фон — по мере переезда в жильё получше. Внешность можно поменять в любой момент бесплатно.</p>
+  </section>
+  <div class="lab">
+    <div class="card pad" style="text-align:center">
+      ${avatarSVG(l,220)}
+      <div class="lbl" style="margin-top:10px">предпросмотр</div>
+    </div>
+    <div class="card pad">
+      <div style="margin-bottom:14px"><div class="lbl" style="margin-bottom:6px">имя</div>
+        <div class="term"><div class="in"><span>›</span><input id="edname" value="${esc(l.name||"")}" placeholder="как тебя зовут" maxlength="20"></div></div></div>
+      ${pick("пол",["парень","девушка"],"sexIdx")}
+      ${pick("тон кожи",SKIN,"skin",c=>`;background:${c};width:34px;height:34px;padding:0;border-radius:8px`)}
+      ${pick("причёска",hairs,"hair")}
+      ${pick("цвет волос",HAIRC,"hairc",c=>`;background:${c};width:34px;height:34px;padding:0;border-radius:8px`)}
+      ${pick("глаза",EYESC,"eyes",c=>`;background:${c};width:34px;height:34px;padding:0;border-radius:8px`)}
+      ${pick("выражение",FACE,"face")}
+      <div class="lbl" style="margin-bottom:6px">детали</div>
+      <div class="row" style="gap:6px;margin-bottom:16px">
+        <button class="btn ghost sm" data-ed="glasses" style="${l.glasses?"border-color:var(--amber);background:rgba(240,135,63,.12)":""}">очки</button>
+        ${l.sex==="m"?`<button class="btn ghost sm" data-ed="beard" style="${l.beard?"border-color:var(--amber);background:rgba(240,135,63,.12)":""}">борода</button>`:""}
+        <button class="btn ghost sm" data-ed="cap" style="${l.cap?"border-color:var(--amber);background:rgba(240,135,63,.12)":""}">кепка</button>
+      </div>
+      <div class="row"><button class="btn" data-ed="save">${LF().created?"Сохранить":"Начать жизнь"}</button>
+      ${LF().created?`<button class="btn ghost" data-ed="cancel">Отмена</button>`:""}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- главный экран жизни ---------- */
+function viewLife(){
+  const l=LF();
+  if(!l.created)return viewCreate();
+  if(l.dead)return `<div class="runner"><div class="card res" style="border-color:rgba(226,86,90,.5)">
+    <div style="opacity:.7;display:flex;justify-content:center">${avatarSVG(l,180)}</div>
+    <div class="lbl" style="color:var(--bad);margin-top:10px">истощение</div>
+    <h1 style="font-size:26px;margin:8px 0">Организм не выдержал</h1>
+    <p class="muted" style="max-width:56ch;margin:0 auto 6px">Несколько дней без еды закончились больницей. Работа потеряна, накопления ушли на лечение. Купленное жильё осталось, съёмное — нет.</p>
+    <p style="color:var(--ok);max-width:56ch;margin:12px auto">Знания никуда не делись: миссии, лаборатории, навыки и тренажёр остались при тебе. Заново начинается только бытовая часть.</p>
+    <div class="row" style="justify-content:center;margin-top:18px">
+      <button class="btn" data-life="revive">Выписаться из больницы</button></div></div></div>`;
+
+  const sal=dailySalary(),cost=dailyCosts(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
+  const h=l.home?HOMES.find(x=>x.id===l.home):null;
+  const car=l.car?CARS.find(x=>x.id===l.car):null;
+  const balance=sal-cost;
+  const warnHunger=l.hunger<25,warnHealth=l.health<35;
+  return `<section class="hero" style="margin-bottom:16px">
+    <div class="card pad">
+      <div class="row" style="align-items:flex-start;gap:18px">
+        <div style="flex:none">${avatarSVG(l,150)}</div>
+        <div style="flex:1;min-width:220px">
+          <div class="lbl">${rank().n}</div>
+          <h1 style="font-size:24px;margin:2px 0 6px">${esc(l.name||"Безымянный")}</h1>
+          <p class="muted" style="margin:0 0 10px;font-size:13.5px">
+            ${j?`${j.n} · ${j.pay}`:"Без работы — дохода нет"}<br>
+            ${h?`${h.n}${l.own.includes("home:"+h.id)?" (своё)":" (аренда)"}`:"Без жилья"}${car?` · ${car.n}`:""}</p>
+          <div class="row" style="gap:12px">
+            ${statBar("сытость",l.hunger,"var(--amber)",warnHunger)}
+            ${statBar("здоровье",l.health,"var(--ok)",warnHealth)}
+            ${statBar("настроение",l.mood,"var(--violet)",l.mood<25)}
+          </div>
+        </div>
+      </div>
+      ${warnHunger||warnHealth||!h?`<div class="fb no" style="margin-top:14px">
+        <b>Внимание</b>${warnHunger?"Ты голоден: без еды здоровье начнёт падать каждый день. ":""}${warnHealth?"Здоровье низкое — при нуле персонаж попадёт в больницу. ":""}${!h?"Ты без жилья: настроение и здоровье падают быстрее. ":""}</div>`:""}
+    </div>
+    <div class="card pad">
+      <div class="lbl">кошелёк</div>
+      <b class="mono" style="font-size:28px;display:block;margin:4px 0 10px">${money(l.money)}</b>
+      <div class="tw"><table>
+        <tr><td>Зарплата в день</td><td class="mono" style="color:var(--ok)">+${money(sal)}</td></tr>
+        <tr><td>Расходы в день</td><td class="mono" style="color:var(--bad)">−${money(cost)}</td></tr>
+        <tr><td>Итого в день</td><td class="mono" style="color:${balance>=0?"var(--ok)":"var(--bad)"}">${balance>=0?"+":"−"}${money(Math.abs(balance))}</td></tr>
+        <tr><td>Дней прожито</td><td class="mono">${l.daysLived}</td></tr>
+      </table></div>
+      ${techXPBonus()||moodXPMod()?`<div class="lbl" style="margin-top:10px">опыт ×${xpMultiplier().toFixed(2)} · техника +${techXPBonus()}% · настроение ${moodXPMod()>=0?"+":""}${moodXPMod()}%</div>`:""}
+    </div>
+  </section>
+
+  <div class="lbl" style="margin-bottom:10px">быстро поесть</div>
+  <div class="row" style="margin-bottom:20px">
+    ${FOOD.slice(0,4).map(f=>`<button class="btn ghost sm" data-life="eat:${f.id}" ${l.money<f.p?"disabled":""}>${f.n} · ${money(f.p)} · +${f.h}</button>`).join("")}
+    <button class="btn sm" data-tab="shop">Весь магазин →</button>
+  </div>
+
+  <div class="grid2">
+    <div class="card pad">
+      <div class="lbl" style="margin-bottom:10px">что у тебя есть</div>
+      <div class="tw"><table>
+        <tr><td>Одежда</td><td>${["top","shoes"].map(s=>{const c=CLOTHES.find(x=>x.id===l.wear[s]);return c?c.n:"—"}).join(", ")}</td></tr>
+        <tr><td>Жильё</td><td>${h?h.n+(l.own.includes("home:"+h.id)?" · своё":" · аренда "+money(h.rent)+"/мес"):"нет"}</td></tr>
+        <tr><td>Транспорт</td><td>${car?car.n+(car.up?" · "+money(car.up)+"/мес":""):"нет"}</td></tr>
+        <tr><td>Техника</td><td>${l.tech.length?l.tech.map(id=>(TECH.find(t=>t.id===id)||{}).n).join(", "):"нет"}</td></tr>
+        <tr><td>Поездки</td><td>${l.trips.length?l.trips.map(id=>(TRIPS.find(t=>t.id===id)||{}).n).join(", "):"пока никуда"}</td></tr>
+      </table></div>
+      <div class="row" style="margin-top:12px"><button class="btn ghost sm" data-life="edit">Изменить внешность</button></div>
+    </div>
+    <div class="card pad">
+      <div class="lbl" style="margin-bottom:10px">последние события</div>
+      ${l.log.length?l.log.slice(0,12).map(e=>`<div class="row" style="justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)">
+        <span>${e.t}</span><span class="mono" style="color:${e.s>0?"var(--ok)":e.s<0?"var(--bad)":"var(--faint)"}">${e.s?(e.s>0?"+":"−")+money(Math.abs(e.s)):""}</span></div>`).join("")
+        :`<p class="muted" style="margin:0">Пока пусто.</p>`}
+    </div>
+  </div>`;
+}
+
+/* ---------- магазин ---------- */
+function shopCard(title,desc,price,action,disabled,note,owned){
+  return `<div class="card pad" style="border-color:${owned?"rgba(63,191,143,.45)":"var(--line)"}">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div style="flex:1;min-width:180px">
+        <b style="font-size:15px">${title}</b>
+        <p class="muted" style="margin:6px 0 0;font-size:13px">${desc}</p>
+        ${note?`<div class="lbl" style="margin-top:6px">${note}</div>`:""}
+      </div>
+      <div style="text-align:right">
+        <div class="mono" style="font-size:15px;margin-bottom:8px">${price?money(price):"бесплатно"}</div>
+        ${owned?`<span class="chip done">есть</span>`:`<button class="btn ${disabled?"ghost":""} sm" data-life="${action}" ${disabled?"disabled":""}>купить</button>`}
+      </div>
+    </div></div>`;
+}
+function viewShop(){
+  const l=LF();
+  if(!l.created)return viewCreate();
+  const tab=S.shopTab||"food";
+  const tabs=[["food","Еда"],["clothes","Одежда"],["home","Жильё"],["car","Транспорт"],["tech","Техника"],["trip","Поездки"]];
+  let body="";
+  if(tab==="food")body=FOOD.map(f=>shopCard(f.n,f.d,f.p,"eat:"+f.id,l.money<f.p,`сытость +${f.h}${f.m?` · настроение ${f.m>0?"+":""}${f.m}`:""}`)).join("");
+  if(tab==="clothes")body=CLOTHES.map(c=>{const has=l.own.includes("cl:"+c.id)||c.owned;const on=l.wear[c.slot]===c.id;
+    return `<div class="card pad" style="border-color:${on?"rgba(240,135,63,.5)":"var(--line)"}">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:180px"><b style="font-size:15px">${c.n}</b>${on?` <span class="chip done">надето</span>`:""}
+          <p class="muted" style="margin:6px 0 0;font-size:13px">${c.d}</p>
+          <div class="lbl" style="margin-top:6px">${c.iv?`собеседование +${c.iv}`:"без бонуса на интервью"}</div></div>
+        <div style="text-align:right"><div class="mono" style="font-size:15px;margin-bottom:8px">${has?"куплено":money(c.p)}</div>
+          <button class="btn ${on?"ghost":""} sm" data-life="wear:${c.id}" ${(!has&&l.money<c.p)||on?"disabled":""}>${has?"надеть":"купить и надеть"}</button></div>
+      </div></div>`}).join("");
+  if(tab==="home")body=HOMES.map(h=>{const own=l.own.includes("home:"+h.id),cur=l.home===h.id;
+    return `<div class="card pad" style="border-color:${cur?"rgba(63,191,143,.45)":"var(--line)"}">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:200px"><b style="font-size:15px">${h.n}</b>${cur?` <span class="chip done">здесь живёшь</span>`:""}
+          <p class="muted" style="margin:6px 0 0;font-size:13px">${h.d}</p>
+          <div class="lbl" style="margin-top:6px">настроение ${h.mood>0?"+":""}${h.mood}/день · коммуналка ${money(UTILITY_DAY*30)}/мес</div></div>
+        <div style="text-align:right;min-width:170px">
+          ${h.rent?`<div class="mono" style="font-size:14px">${money(h.rent)}/мес</div>
+            <div class="lbl" style="margin:2px 0 6px">въезд: ${money(h.rent*2)}</div>
+            <button class="btn ghost sm" data-life="rent:${h.id}" ${l.money<h.rent*2||cur?"disabled":""}>снять</button>`:""}
+          ${h.buy?`<div class="mono" style="font-size:14px;margin-top:8px">${money(h.buy)}</div>
+            ${own?`<span class="chip done">в собственности</span>`:`<button class="btn sm" data-life="buy:${h.id}" ${l.money<h.buy?"disabled":""}>купить</button>`}`:""}
+        </div></div></div>`}).join("");
+  if(tab==="car")body=CARS.map(c=>shopCard(c.n,c.d,c.p,"car:"+c.id,l.money<c.p,
+    `${c.up?`обслуживание ${money(c.up)}/мес · `:"без расходов · "}настроение +${c.mood}${c.xp?` · опыт +${c.xp}%`:""}`,l.car===c.id)).join("");
+  if(tab==="tech")body=TECH.map(t=>shopCard(t.n,t.d,t.p,"tech:"+t.id,l.money<t.p,`опыт +${t.xp}% · настроение +${t.m}`,l.tech.includes(t.id))).join("");
+  if(tab==="trip")body=TRIPS.map(t=>shopCard(t.n,t.d,t.p,"trip:"+t.id,l.money<t.p,`настроение +${t.m}`,false)).join("");
+
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between">
+      <div><div class="lbl">магазин</div><h1 style="font-size:24px;margin:4px 0 0">На что потратить</h1></div>
+      <div style="text-align:right"><div class="lbl">в кошельке</div><b class="mono" style="font-size:22px">${money(l.money)}</b></div>
+    </div>
+    <p class="muted" style="margin:10px 0 0;max-width:66ch">Деньги приходят с работы каждый день, поэтому сначала работа, потом покупки. Еда держит персонажа живым, одежда помогает на собеседованиях, техника ускоряет обучение, жильё и поездки поднимают настроение — а от настроения зависит, сколько опыта ты получаешь.</p>
+  </section>
+  <nav class="tabs" style="margin-top:0">${tabs.map(([k,n])=>`<button data-shoptab="${k}" aria-selected="${tab===k}">${n}</button>`).join("")}</nav>
+  <div style="display:flex;flex-direction:column;gap:10px">${body}</div>`;
+}
+
+/* ---------- сводка за прошедшие дни ---------- */
+function lifeReport(r){
+  if(!r||(!r.days))return;
+  const l=LF();
+  let msg=`Прошло ${r.days} ${r.days===1?"день":"дн."}`;
+  if(r.skipped)msg+=` (тебя не было дольше, но списываем не больше трёх дней)`;
+  const parts=[];
+  if(r.earned)parts.push("заработано "+money(r.earned));
+  if(r.spent)parts.push("потрачено "+money(r.spent));
+  if(parts.length)msg+=": "+parts.join(", ");
+  toast(msg);
+  if(r.events.length)setTimeout(()=>toast(r.events[0]),3000);
+}
+/* =====================================================================
+   ИНТЕГРАЦИЯ ЖИЗНИ: события, деньги за прогресс, бонусы
+   ===================================================================== */
+
+/* деньги за учебные достижения: подработка, премия, повышение квалификации */
+function lifeReward(kind){
+  const l=LF(); if(!l.created||l.dead)return 0;
+  const base={mission:150,lab:900,boss:2500,quest:400,drill:80,interview:600}[kind]||0;
+  if(!base)return 0;
+  const k=S.job?1:0.35;                    // без работы это подработки — платят меньше
+  const sum=Math.round(base*k);
+  if(sum)earn(sum,{mission:"Подработка: закрыл задачу",lab:"Разбор инцидента на фрилансе",
+    boss:"Премия за экзамен",quest:"Бонус за задания дня",drill:"Мелкая подработка",
+    interview:"Компенсация за собеседование"}[kind]);
+  if(l.money>=1000000)award("millionaire");
+  return sum;
+}
+
+/* ---------- обработчики жизни ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-life],[data-ed],[data-shoptab]");
+  if(!t)return;
+  if(t.dataset.shoptab){S.shopTab=t.dataset.shoptab;save();render();return}
+  const ed=t.dataset.ed;
+  if(ed){
+    const l=ED||(ED=Object.assign(defLife(),LF().created?LF():{}));
+    if(ed==="save"){
+      const inp=document.getElementById("edname");
+      l.name=(inp&&inp.value.trim())||"Инженер";
+      const wasCreated=LF().created;
+      l.created=true;
+      if(wasCreated){Object.assign(S.life,{name:l.name,sex:l.sex,skin:l.skin,hair:l.hair,hairc:l.hairc,eyes:l.eyes,face:l.face,glasses:l.glasses,beard:l.beard,cap:l.cap})}
+      else{S.life=l;S.life.day=today();lifeAdd("Начало пути",0)}
+      ED=null;save();S.tab="life";render();
+      toast(wasCreated?"Внешность обновлена":"Добро пожаловать. Первое дело — найти работу");
+      return;
+    }
+    if(ed==="cancel"){ED=null;S.tab="life";render();return}
+    if(ed==="glasses"||ed==="beard"||ed==="cap"){l[ed]=!l[ed];render();return}
+    const [k,v]=ed.split(":");
+    if(k==="sexIdx"){l.sex=+v===1?"f":"m";l.hair=0}
+    else l[k]=+v;
+    render();return;
+  }
+  const a=t.dataset.life;
+  if(!a)return;
+  if(a==="edit"){ED=Object.assign(defLife(),LF());S.tab="create";render();return}
+  if(a==="revive"){lifeRevive();render();toast("Ты снова на ногах. Сначала еда, потом работа");return}
+  const [kind,id]=a.split(":");
+  let err=null;
+  if(kind==="eat")err=eat(id);
+  else if(kind==="wear")err=buyItem("clothes",id);
+  else if(kind==="tech")err=buyItem("tech",id);
+  else if(kind==="car")err=buyItem("car",id);
+  else if(kind==="rent")err=buyItem("rent",id);
+  else if(kind==="buy")err=buyItem("buy",id);
+  else if(kind==="trip")err=buyItem("trip",id);
+  if(err)toast(err); else {
+    const names={eat:"Съедено",wear:"Надето",tech:"Куплено",car:"Куплено",rent:"Заехал",buy:"Поздравляю с покупкой",trip:"Хорошей поездки"};
+    toast(names[kind]||"Готово");
+  }
+  render();
+});
 /* ================= RUNNER: миссии, боссы, повторы ================= */
 let R=null,L=null;
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -4084,8 +4602,8 @@ function uiRes(){
   let extra="";
   if(R.done!==true){
     R.done=true;let xp=0;
-    if(R.mode==="mis"){xp=right*12;if(!S.mis[R.m.id]){S.mis[R.m.id]=1;award("first");questTick("mission",1)}if(R.wrong===0)award("flawless")}
-    else if(R.mode==="boss"&&win){xp=120;S.boss[R.w.id]=1;award(R.w.id);
+    if(R.mode==="mis"){xp=right*12;if(!S.mis[R.m.id]){S.mis[R.m.id]=1;award("first");questTick("mission",1);lifeReward("mission")}if(R.wrong===0)award("flawless")}
+    else if(R.mode==="boss"&&win){xp=120;S.boss[R.w.id]=1;award(R.w.id);lifeReward("boss");
       if(R.w.id==="cloudsec"){award("hired");extra=`<p style="max-width:56ch;margin:12px auto 0" class="muted">Финальный раунд пройден. Собери пет-проект из блока 10 плана, отрепетируй ответы вслух — и иди на настоящие собеседования.</p>`}}
     else if(R.mode==="rep"){xp=right*8;S.repairs+=right;if(S.repairs>=20)award("repair");questTick("repair",1)}
     R.xp=xp; if(xp){addXP(xp);checkDay()} save();
@@ -4144,7 +4662,7 @@ function drawLab(){
     if(!S.labs[L.id]){S.labs[L.id]=1;award("lab1");
       const n=Object.keys(S.labs).length; if(n>=5)award("lab5"); if(n>=Object.keys(LABS).length)award("laball");
       if(L.hints===0)award("nohint");
-      addXP(L.def.xp);checkDay();questTick("lab",1);
+      addXP(L.def.xp);checkDay();questTick("lab",1);lifeReward("lab");
       if(IV&&IV.pendingLab===L.id)toast("Тестовое задание зачтено — возвращайся к вакансии");}
     save();
   }
@@ -4289,5 +4807,8 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Enter"){e.preventDefault();R.checked?nextItem():((it.t!=="q"||R.ans!==null)&&checkAnswer());return}
   if(it.t==="q"&&!R.checked&&/^[1-9]$/.test(e.key)){const i=+e.key-1;if(i<it.a.length){R.ans=i;drawRunner()}}
 });
-checkDay();render();
+checkDay();
+const _lr=(typeof lifeTick==="function")?lifeTick():null;
+render();
+if(_lr)setTimeout(()=>lifeReport(_lr),600);
 </script>

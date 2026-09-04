@@ -9,7 +9,7 @@ ROADMAP.splice(1,0,{n:"—",t:"Как устроена эта игра",when:"ч
 /* ================= STATE ================= */
 const KEY="pipeline_devops_v2";
 const today=()=>new Date().toISOString().slice(0,10);
-const defState=()=>({xp:0,mis:{},boss:{},labs:{},srs:{},streak:0,last:null,days:[],badges:[],repairs:0,tab:"map",openWorld:null,hintsUsed:0,mpos:{},
+const defState=()=>({xp:0,mis:{},boss:{},labs:{},srs:{},streak:0,last:null,days:[],badges:[],repairs:0,tab:"map",openWorld:null,hintsUsed:0,mpos:{},life:null,shopTab:"food",
   drill:{},drillRuns:0,drillOk:0,quests:null,storySeen:[],storyPick:{},interviews:[],job:null,rep:0});
 let S=load();
 function load(){try{const r=localStorage.getItem(KEY)||localStorage.getItem("pipeline_devops_v1");
@@ -27,7 +27,9 @@ function checkDay(){
 }
 const LVL=x=>Math.floor(Math.sqrt(x/60))+1;
 const lvlFloor=l=>Math.round(60*Math.pow(l-1,2));
-function addXP(n){S.xp+=n;save();renderStats();}
+function addXP(n){
+  const mult=(typeof xpMultiplier==="function"&&S.life&&S.life.created&&!S.life.dead)?xpMultiplier():1;
+  S.xp+=Math.round(n*mult);save();renderStats();}
 function award(id){if(S.badges.includes(id))return;S.badges.push(id);save();toast("Бейдж: "+((BADGES.find(b=>b.id===id)||{}).n||id));}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2800);}
 const BOX=[0,1,3,7,16,35];
@@ -67,10 +69,13 @@ function renderStats(){
   document.getElementById("s-xptxt").textContent=`${S.xp} / ${nxt} xp`;
   document.getElementById("s-streak").textContent=S.streak+"🔥";
 }
-const TABS=[["map","Карта"],["drill","Тренажёр"],["career","Карьера"],["hero","Персонаж"],["repair","Повторы"],["sand","Песочница"],["road","План 0→Middle"],["prof","Профиль"]];
+const TABS=[["map","Карта"],["drill","Тренажёр"],["career","Карьера"],["life","Жизнь"],["shop","Магазин"],["hero","Персонаж"],["repair","Повторы"],["sand","Песочница"],["road","План 0→Middle"],["prof","Профиль"]];
 function renderTabs(){
   document.getElementById("tabs").innerHTML=TABS.map(([k,n])=>{
+    const lf=S.life&&S.life.created?S.life:null;
+    const alarm=lf&&!lf.dead&&(lf.hunger<25||lf.health<35);
     const d=k==="repair"?dueList().length:k==="hero"?storyAvailable().length:0;
+    if(k==="life"&&(alarm||(lf&&lf.dead)))return `<button data-tab="${k}" aria-selected="${S.tab===k}">${n} <span style="color:var(--bad)">!</span></button>`;
     return `<button data-tab="${k}" aria-selected="${S.tab===k}">${n}${d?` <span style="color:var(--amber)">·${d}</span>`:""}</button>`}).join("");
 }
 function go(t){R=null;L=null;DRL=null;IV=null;S.tab=t;save();render();window.scrollTo({top:0,behavior:"smooth"});}
@@ -81,6 +86,9 @@ function render(){
   else if(S.tab==="repair")v.innerHTML=viewRepair();
   else if(S.tab==="road")v.innerHTML=viewRoad();
   else if(S.tab==="drill")v.innerHTML=viewDrill();
+  else if(S.tab==="life")v.innerHTML=viewLife();
+  else if(S.tab==="shop")v.innerHTML=viewShop();
+  else if(S.tab==="create")v.innerHTML=viewCreate();
   else if(S.tab==="career")v.innerHTML=viewCareer();
   else if(S.tab==="hero")v.innerHTML=viewHero();
   else if(S.tab==="sand"){v.innerHTML=viewSandbox();initSandbox();}

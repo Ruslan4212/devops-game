@@ -1,0 +1,63 @@
+/* =====================================================================
+   ИНТЕГРАЦИЯ ЖИЗНИ: события, деньги за прогресс, бонусы
+   ===================================================================== */
+
+/* деньги за учебные достижения: подработка, премия, повышение квалификации */
+function lifeReward(kind){
+  const l=LF(); if(!l.created||l.dead)return 0;
+  const base={mission:150,lab:900,boss:2500,quest:400,drill:80,interview:600}[kind]||0;
+  if(!base)return 0;
+  const k=S.job?1:0.35;                    // без работы это подработки — платят меньше
+  const sum=Math.round(base*k);
+  if(sum)earn(sum,{mission:"Подработка: закрыл задачу",lab:"Разбор инцидента на фрилансе",
+    boss:"Премия за экзамен",quest:"Бонус за задания дня",drill:"Мелкая подработка",
+    interview:"Компенсация за собеседование"}[kind]);
+  if(l.money>=1000000)award("millionaire");
+  return sum;
+}
+
+/* ---------- обработчики жизни ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-life],[data-ed],[data-shoptab]");
+  if(!t)return;
+  if(t.dataset.shoptab){S.shopTab=t.dataset.shoptab;save();render();return}
+  const ed=t.dataset.ed;
+  if(ed){
+    const l=ED||(ED=Object.assign(defLife(),LF().created?LF():{}));
+    if(ed==="save"){
+      const inp=document.getElementById("edname");
+      l.name=(inp&&inp.value.trim())||"Инженер";
+      const wasCreated=LF().created;
+      l.created=true;
+      if(wasCreated){Object.assign(S.life,{name:l.name,sex:l.sex,skin:l.skin,hair:l.hair,hairc:l.hairc,eyes:l.eyes,face:l.face,glasses:l.glasses,beard:l.beard,cap:l.cap})}
+      else{S.life=l;S.life.day=today();lifeAdd("Начало пути",0)}
+      ED=null;save();S.tab="life";render();
+      toast(wasCreated?"Внешность обновлена":"Добро пожаловать. Первое дело — найти работу");
+      return;
+    }
+    if(ed==="cancel"){ED=null;S.tab="life";render();return}
+    if(ed==="glasses"||ed==="beard"||ed==="cap"){l[ed]=!l[ed];render();return}
+    const [k,v]=ed.split(":");
+    if(k==="sexIdx"){l.sex=+v===1?"f":"m";l.hair=0}
+    else l[k]=+v;
+    render();return;
+  }
+  const a=t.dataset.life;
+  if(!a)return;
+  if(a==="edit"){ED=Object.assign(defLife(),LF());S.tab="create";render();return}
+  if(a==="revive"){lifeRevive();render();toast("Ты снова на ногах. Сначала еда, потом работа");return}
+  const [kind,id]=a.split(":");
+  let err=null;
+  if(kind==="eat")err=eat(id);
+  else if(kind==="wear")err=buyItem("clothes",id);
+  else if(kind==="tech")err=buyItem("tech",id);
+  else if(kind==="car")err=buyItem("car",id);
+  else if(kind==="rent")err=buyItem("rent",id);
+  else if(kind==="buy")err=buyItem("buy",id);
+  else if(kind==="trip")err=buyItem("trip",id);
+  if(err)toast(err); else {
+    const names={eat:"Съедено",wear:"Надето",tech:"Куплено",car:"Куплено",rent:"Заехал",buy:"Поздравляю с покупкой",trip:"Хорошей поездки"};
+    toast(names[kind]||"Готово");
+  }
+  render();
+});

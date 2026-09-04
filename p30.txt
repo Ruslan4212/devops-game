@@ -1,0 +1,207 @@
+/* =====================================================================
+   ЭКРАНЫ ЖИЗНИ: создание персонажа, статус, магазин
+   ===================================================================== */
+BADGES.push(
+ {id:"secondchance",ic:"✚",n:"Второй шанс",d:"Пережил истощение и вернулся"},
+ {id:"homeowner",ic:"⌂",n:"Своё жильё",d:"Купил квартиру или дом"},
+ {id:"traveler",ic:"✈",n:"Отпускник",d:"Три поездки"},
+ {id:"millionaire",ic:"◆",n:"Первый миллион",d:"На счету миллион рублей"});
+
+const money=n=>new Intl.NumberFormat("ru-RU").format(Math.round(n))+" ₽";
+function statBar(label,val,color,warn){
+  return `<div style="flex:1;min-width:120px">
+    <div class="row" style="justify-content:space-between;margin-bottom:3px">
+      <span class="lbl">${label}</span><span class="mono" style="color:${warn?"var(--bad)":color}">${Math.round(val)}</span></div>
+    <div class="xpbar" style="width:100%"><i style="width:${Math.max(0,Math.min(100,val))}%;background:${warn?"var(--bad)":color}"></i></div></div>`;
+}
+
+/* ---------- создание персонажа ---------- */
+let ED=null;
+function viewCreate(){
+  const l=ED||(ED=Object.assign(defLife(),LF().created?LF():{}));
+  const hairs=l.sex==="f"?HAIRS_F:HAIRS_M;
+  const pick=(t,arr,key,render)=>`<div style="margin-bottom:14px"><div class="lbl" style="margin-bottom:6px">${t}</div>
+    <div class="row" style="gap:6px">${arr.map((x,i)=>`<button class="btn ghost sm" data-ed="${key}:${i}"
+      style="${l[key]===i?"border-color:var(--amber);background:rgba(240,135,63,.12)":""}${render?render(x):""}">${render?"":x}</button>`).join("")}</div></div>`;
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">персонаж</div>
+    <h1 style="font-size:26px;margin:4px 0 8px">${LF().created?"Изменить внешность":"Кто ты"}</h1>
+    <p class="muted" style="margin:0;max-width:62ch">Это твой аватар в игре. Он будет менять одежду по мере покупок, а фон — по мере переезда в жильё получше. Внешность можно поменять в любой момент бесплатно.</p>
+  </section>
+  <div class="lab">
+    <div class="card pad" style="text-align:center">
+      ${avatarSVG(l,220)}
+      <div class="lbl" style="margin-top:10px">предпросмотр</div>
+    </div>
+    <div class="card pad">
+      <div style="margin-bottom:14px"><div class="lbl" style="margin-bottom:6px">имя</div>
+        <div class="term"><div class="in"><span>›</span><input id="edname" value="${esc(l.name||"")}" placeholder="как тебя зовут" maxlength="20"></div></div></div>
+      ${pick("пол",["парень","девушка"],"sexIdx")}
+      ${pick("тон кожи",SKIN,"skin",c=>`;background:${c};width:34px;height:34px;padding:0;border-radius:8px`)}
+      ${pick("причёска",hairs,"hair")}
+      ${pick("цвет волос",HAIRC,"hairc",c=>`;background:${c};width:34px;height:34px;padding:0;border-radius:8px`)}
+      ${pick("глаза",EYESC,"eyes",c=>`;background:${c};width:34px;height:34px;padding:0;border-radius:8px`)}
+      ${pick("выражение",FACE,"face")}
+      <div class="lbl" style="margin-bottom:6px">детали</div>
+      <div class="row" style="gap:6px;margin-bottom:16px">
+        <button class="btn ghost sm" data-ed="glasses" style="${l.glasses?"border-color:var(--amber);background:rgba(240,135,63,.12)":""}">очки</button>
+        ${l.sex==="m"?`<button class="btn ghost sm" data-ed="beard" style="${l.beard?"border-color:var(--amber);background:rgba(240,135,63,.12)":""}">борода</button>`:""}
+        <button class="btn ghost sm" data-ed="cap" style="${l.cap?"border-color:var(--amber);background:rgba(240,135,63,.12)":""}">кепка</button>
+      </div>
+      <div class="row"><button class="btn" data-ed="save">${LF().created?"Сохранить":"Начать жизнь"}</button>
+      ${LF().created?`<button class="btn ghost" data-ed="cancel">Отмена</button>`:""}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- главный экран жизни ---------- */
+function viewLife(){
+  const l=LF();
+  if(!l.created)return viewCreate();
+  if(l.dead)return `<div class="runner"><div class="card res" style="border-color:rgba(226,86,90,.5)">
+    <div style="opacity:.7;display:flex;justify-content:center">${avatarSVG(l,180)}</div>
+    <div class="lbl" style="color:var(--bad);margin-top:10px">истощение</div>
+    <h1 style="font-size:26px;margin:8px 0">Организм не выдержал</h1>
+    <p class="muted" style="max-width:56ch;margin:0 auto 6px">Несколько дней без еды закончились больницей. Работа потеряна, накопления ушли на лечение. Купленное жильё осталось, съёмное — нет.</p>
+    <p style="color:var(--ok);max-width:56ch;margin:12px auto">Знания никуда не делись: миссии, лаборатории, навыки и тренажёр остались при тебе. Заново начинается только бытовая часть.</p>
+    <div class="row" style="justify-content:center;margin-top:18px">
+      <button class="btn" data-life="revive">Выписаться из больницы</button></div></div></div>`;
+
+  const sal=dailySalary(),cost=dailyCosts(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
+  const h=l.home?HOMES.find(x=>x.id===l.home):null;
+  const car=l.car?CARS.find(x=>x.id===l.car):null;
+  const balance=sal-cost;
+  const warnHunger=l.hunger<25,warnHealth=l.health<35;
+  return `<section class="hero" style="margin-bottom:16px">
+    <div class="card pad">
+      <div class="row" style="align-items:flex-start;gap:18px">
+        <div style="flex:none">${avatarSVG(l,150)}</div>
+        <div style="flex:1;min-width:220px">
+          <div class="lbl">${rank().n}</div>
+          <h1 style="font-size:24px;margin:2px 0 6px">${esc(l.name||"Безымянный")}</h1>
+          <p class="muted" style="margin:0 0 10px;font-size:13.5px">
+            ${j?`${j.n} · ${j.pay}`:"Без работы — дохода нет"}<br>
+            ${h?`${h.n}${l.own.includes("home:"+h.id)?" (своё)":" (аренда)"}`:"Без жилья"}${car?` · ${car.n}`:""}</p>
+          <div class="row" style="gap:12px">
+            ${statBar("сытость",l.hunger,"var(--amber)",warnHunger)}
+            ${statBar("здоровье",l.health,"var(--ok)",warnHealth)}
+            ${statBar("настроение",l.mood,"var(--violet)",l.mood<25)}
+          </div>
+        </div>
+      </div>
+      ${warnHunger||warnHealth||!h?`<div class="fb no" style="margin-top:14px">
+        <b>Внимание</b>${warnHunger?"Ты голоден: без еды здоровье начнёт падать каждый день. ":""}${warnHealth?"Здоровье низкое — при нуле персонаж попадёт в больницу. ":""}${!h?"Ты без жилья: настроение и здоровье падают быстрее. ":""}</div>`:""}
+    </div>
+    <div class="card pad">
+      <div class="lbl">кошелёк</div>
+      <b class="mono" style="font-size:28px;display:block;margin:4px 0 10px">${money(l.money)}</b>
+      <div class="tw"><table>
+        <tr><td>Зарплата в день</td><td class="mono" style="color:var(--ok)">+${money(sal)}</td></tr>
+        <tr><td>Расходы в день</td><td class="mono" style="color:var(--bad)">−${money(cost)}</td></tr>
+        <tr><td>Итого в день</td><td class="mono" style="color:${balance>=0?"var(--ok)":"var(--bad)"}">${balance>=0?"+":"−"}${money(Math.abs(balance))}</td></tr>
+        <tr><td>Дней прожито</td><td class="mono">${l.daysLived}</td></tr>
+      </table></div>
+      ${techXPBonus()||moodXPMod()?`<div class="lbl" style="margin-top:10px">опыт ×${xpMultiplier().toFixed(2)} · техника +${techXPBonus()}% · настроение ${moodXPMod()>=0?"+":""}${moodXPMod()}%</div>`:""}
+    </div>
+  </section>
+
+  <div class="lbl" style="margin-bottom:10px">быстро поесть</div>
+  <div class="row" style="margin-bottom:20px">
+    ${FOOD.slice(0,4).map(f=>`<button class="btn ghost sm" data-life="eat:${f.id}" ${l.money<f.p?"disabled":""}>${f.n} · ${money(f.p)} · +${f.h}</button>`).join("")}
+    <button class="btn sm" data-tab="shop">Весь магазин →</button>
+  </div>
+
+  <div class="grid2">
+    <div class="card pad">
+      <div class="lbl" style="margin-bottom:10px">что у тебя есть</div>
+      <div class="tw"><table>
+        <tr><td>Одежда</td><td>${["top","shoes"].map(s=>{const c=CLOTHES.find(x=>x.id===l.wear[s]);return c?c.n:"—"}).join(", ")}</td></tr>
+        <tr><td>Жильё</td><td>${h?h.n+(l.own.includes("home:"+h.id)?" · своё":" · аренда "+money(h.rent)+"/мес"):"нет"}</td></tr>
+        <tr><td>Транспорт</td><td>${car?car.n+(car.up?" · "+money(car.up)+"/мес":""):"нет"}</td></tr>
+        <tr><td>Техника</td><td>${l.tech.length?l.tech.map(id=>(TECH.find(t=>t.id===id)||{}).n).join(", "):"нет"}</td></tr>
+        <tr><td>Поездки</td><td>${l.trips.length?l.trips.map(id=>(TRIPS.find(t=>t.id===id)||{}).n).join(", "):"пока никуда"}</td></tr>
+      </table></div>
+      <div class="row" style="margin-top:12px"><button class="btn ghost sm" data-life="edit">Изменить внешность</button></div>
+    </div>
+    <div class="card pad">
+      <div class="lbl" style="margin-bottom:10px">последние события</div>
+      ${l.log.length?l.log.slice(0,12).map(e=>`<div class="row" style="justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)">
+        <span>${e.t}</span><span class="mono" style="color:${e.s>0?"var(--ok)":e.s<0?"var(--bad)":"var(--faint)"}">${e.s?(e.s>0?"+":"−")+money(Math.abs(e.s)):""}</span></div>`).join("")
+        :`<p class="muted" style="margin:0">Пока пусто.</p>`}
+    </div>
+  </div>`;
+}
+
+/* ---------- магазин ---------- */
+function shopCard(title,desc,price,action,disabled,note,owned){
+  return `<div class="card pad" style="border-color:${owned?"rgba(63,191,143,.45)":"var(--line)"}">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div style="flex:1;min-width:180px">
+        <b style="font-size:15px">${title}</b>
+        <p class="muted" style="margin:6px 0 0;font-size:13px">${desc}</p>
+        ${note?`<div class="lbl" style="margin-top:6px">${note}</div>`:""}
+      </div>
+      <div style="text-align:right">
+        <div class="mono" style="font-size:15px;margin-bottom:8px">${price?money(price):"бесплатно"}</div>
+        ${owned?`<span class="chip done">есть</span>`:`<button class="btn ${disabled?"ghost":""} sm" data-life="${action}" ${disabled?"disabled":""}>купить</button>`}
+      </div>
+    </div></div>`;
+}
+function viewShop(){
+  const l=LF();
+  if(!l.created)return viewCreate();
+  const tab=S.shopTab||"food";
+  const tabs=[["food","Еда"],["clothes","Одежда"],["home","Жильё"],["car","Транспорт"],["tech","Техника"],["trip","Поездки"]];
+  let body="";
+  if(tab==="food")body=FOOD.map(f=>shopCard(f.n,f.d,f.p,"eat:"+f.id,l.money<f.p,`сытость +${f.h}${f.m?` · настроение ${f.m>0?"+":""}${f.m}`:""}`)).join("");
+  if(tab==="clothes")body=CLOTHES.map(c=>{const has=l.own.includes("cl:"+c.id)||c.owned;const on=l.wear[c.slot]===c.id;
+    return `<div class="card pad" style="border-color:${on?"rgba(240,135,63,.5)":"var(--line)"}">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:180px"><b style="font-size:15px">${c.n}</b>${on?` <span class="chip done">надето</span>`:""}
+          <p class="muted" style="margin:6px 0 0;font-size:13px">${c.d}</p>
+          <div class="lbl" style="margin-top:6px">${c.iv?`собеседование +${c.iv}`:"без бонуса на интервью"}</div></div>
+        <div style="text-align:right"><div class="mono" style="font-size:15px;margin-bottom:8px">${has?"куплено":money(c.p)}</div>
+          <button class="btn ${on?"ghost":""} sm" data-life="wear:${c.id}" ${(!has&&l.money<c.p)||on?"disabled":""}>${has?"надеть":"купить и надеть"}</button></div>
+      </div></div>`}).join("");
+  if(tab==="home")body=HOMES.map(h=>{const own=l.own.includes("home:"+h.id),cur=l.home===h.id;
+    return `<div class="card pad" style="border-color:${cur?"rgba(63,191,143,.45)":"var(--line)"}">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:200px"><b style="font-size:15px">${h.n}</b>${cur?` <span class="chip done">здесь живёшь</span>`:""}
+          <p class="muted" style="margin:6px 0 0;font-size:13px">${h.d}</p>
+          <div class="lbl" style="margin-top:6px">настроение ${h.mood>0?"+":""}${h.mood}/день · коммуналка ${money(UTILITY_DAY*30)}/мес</div></div>
+        <div style="text-align:right;min-width:170px">
+          ${h.rent?`<div class="mono" style="font-size:14px">${money(h.rent)}/мес</div>
+            <div class="lbl" style="margin:2px 0 6px">въезд: ${money(h.rent*2)}</div>
+            <button class="btn ghost sm" data-life="rent:${h.id}" ${l.money<h.rent*2||cur?"disabled":""}>снять</button>`:""}
+          ${h.buy?`<div class="mono" style="font-size:14px;margin-top:8px">${money(h.buy)}</div>
+            ${own?`<span class="chip done">в собственности</span>`:`<button class="btn sm" data-life="buy:${h.id}" ${l.money<h.buy?"disabled":""}>купить</button>`}`:""}
+        </div></div></div>`}).join("");
+  if(tab==="car")body=CARS.map(c=>shopCard(c.n,c.d,c.p,"car:"+c.id,l.money<c.p,
+    `${c.up?`обслуживание ${money(c.up)}/мес · `:"без расходов · "}настроение +${c.mood}${c.xp?` · опыт +${c.xp}%`:""}`,l.car===c.id)).join("");
+  if(tab==="tech")body=TECH.map(t=>shopCard(t.n,t.d,t.p,"tech:"+t.id,l.money<t.p,`опыт +${t.xp}% · настроение +${t.m}`,l.tech.includes(t.id))).join("");
+  if(tab==="trip")body=TRIPS.map(t=>shopCard(t.n,t.d,t.p,"trip:"+t.id,l.money<t.p,`настроение +${t.m}`,false)).join("");
+
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between">
+      <div><div class="lbl">магазин</div><h1 style="font-size:24px;margin:4px 0 0">На что потратить</h1></div>
+      <div style="text-align:right"><div class="lbl">в кошельке</div><b class="mono" style="font-size:22px">${money(l.money)}</b></div>
+    </div>
+    <p class="muted" style="margin:10px 0 0;max-width:66ch">Деньги приходят с работы каждый день, поэтому сначала работа, потом покупки. Еда держит персонажа живым, одежда помогает на собеседованиях, техника ускоряет обучение, жильё и поездки поднимают настроение — а от настроения зависит, сколько опыта ты получаешь.</p>
+  </section>
+  <nav class="tabs" style="margin-top:0">${tabs.map(([k,n])=>`<button data-shoptab="${k}" aria-selected="${tab===k}">${n}</button>`).join("")}</nav>
+  <div style="display:flex;flex-direction:column;gap:10px">${body}</div>`;
+}
+
+/* ---------- сводка за прошедшие дни ---------- */
+function lifeReport(r){
+  if(!r||(!r.days))return;
+  const l=LF();
+  let msg=`Прошло ${r.days} ${r.days===1?"день":"дн."}`;
+  if(r.skipped)msg+=` (тебя не было дольше, но списываем не больше трёх дней)`;
+  const parts=[];
+  if(r.earned)parts.push("заработано "+money(r.earned));
+  if(r.spent)parts.push("потрачено "+money(r.spent));
+  if(parts.length)msg+=": "+parts.join(", ");
+  toast(msg);
+  if(r.events.length)setTimeout(()=>toast(r.events[0]),3000);
+}

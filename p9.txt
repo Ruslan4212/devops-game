@@ -104,8 +104,8 @@ function uiRes(){
   let extra="";
   if(R.done!==true){
     R.done=true;let xp=0;
-    if(R.mode==="mis"){xp=right*12;if(!S.mis[R.m.id]){S.mis[R.m.id]=1;award("first");questTick("mission",1)}if(R.wrong===0)award("flawless")}
-    else if(R.mode==="boss"&&win){xp=120;S.boss[R.w.id]=1;award(R.w.id);
+    if(R.mode==="mis"){xp=right*12;if(!S.mis[R.m.id]){S.mis[R.m.id]=1;award("first");questTick("mission",1);lifeReward("mission")}if(R.wrong===0)award("flawless")}
+    else if(R.mode==="boss"&&win){xp=120;S.boss[R.w.id]=1;award(R.w.id);lifeReward("boss");
       if(R.w.id==="cloudsec"){award("hired");extra=`<p style="max-width:56ch;margin:12px auto 0" class="muted">Финальный раунд пройден. Собери пет-проект из блока 10 плана, отрепетируй ответы вслух — и иди на настоящие собеседования.</p>`}}
     else if(R.mode==="rep"){xp=right*8;S.repairs+=right;if(S.repairs>=20)award("repair");questTick("repair",1)}
     R.xp=xp; if(xp){addXP(xp);checkDay()} save();
@@ -164,7 +164,7 @@ function drawLab(){
     if(!S.labs[L.id]){S.labs[L.id]=1;award("lab1");
       const n=Object.keys(S.labs).length; if(n>=5)award("lab5"); if(n>=Object.keys(LABS).length)award("laball");
       if(L.hints===0)award("nohint");
-      addXP(L.def.xp);checkDay();questTick("lab",1);
+      addXP(L.def.xp);checkDay();questTick("lab",1);lifeReward("lab");
       if(IV&&IV.pendingLab===L.id)toast("Тестовое задание зачтено — возвращайся к вакансии");}
     save();
   }
@@ -309,5 +309,8 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Enter"){e.preventDefault();R.checked?nextItem():((it.t!=="q"||R.ans!==null)&&checkAnswer());return}
   if(it.t==="q"&&!R.checked&&/^[1-9]$/.test(e.key)){const i=+e.key-1;if(i<it.a.length){R.ans=i;drawRunner()}}
 });
-checkDay();render();
+checkDay();
+const _lr=(typeof lifeTick==="function")?lifeTick():null;
+render();
+if(_lr)setTimeout(()=>lifeReport(_lr),600);
 </script>
