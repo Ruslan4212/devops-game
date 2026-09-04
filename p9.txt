@@ -8,8 +8,19 @@ function startMission(wid,mid){
   // миссии с лесенкой сложности идут строго по порядку, остальные перемешиваются
   const graded=m.ch.some(c=>c.d);
   const items=graded?m.ch.slice().sort((a,b)=>(a.d||0)-(b.d||0)):shuffle(m.ch.slice());
-  R={mode:"mis",w,m,cards:m.cards,ci:0,items,idx:0,phase:"card",wrong:0,ans:null,checked:false};
+  // возвращаемся туда, где прервались в прошлый раз
+  const pos=(S.mpos||{})[mid]||{};
+  const ci=Math.min(pos.ci||0,m.cards.length-1);
+  R={mode:"mis",w,m,cards:m.cards,ci,items,idx:0,phase:pos.phase==="q"?"q":"card",wrong:0,ans:null,checked:false};
+  if(R.phase==="q"){const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice())}
   drawRunner();
+}
+function saveMissionPos(){
+  if(!R||R.mode!=="mis")return;
+  S.mpos=S.mpos||{};
+  if(R.phase==="res"){delete S.mpos[R.m.id]}
+  else S.mpos[R.m.id]={ci:R.ci,phase:R.phase};
+  save();
 }
 function startBoss(wid){
   const w=WORLDS.find(x=>x.id===wid);
@@ -37,7 +48,7 @@ function uiCard(){
   return `<div class="runner">
    <div class="prog"><i style="width:${R.ci/(R.cards.length+R.items.length)*100}%"></i></div>
    <div class="row" style="margin-bottom:14px"><span class="lbl">${R.w.n} · ${R.m.t}</span>
-     <span class="lbl" style="margin-left:auto">карточка ${R.ci+1}/${R.cards.length}</span></div>
+     <span class="lbl" style="margin-left:auto">теория ${R.ci+1}/${R.cards.length} · ~${Math.max(1,Math.round(R.cards.reduce((a,c)=>a+c.b.length,0)/1400))} мин чтения</span></div>
    <div class="teach"><h2>${c.h}</h2>${c.b}</div>
    <div class="row" style="margin-top:18px">
      ${R.ci>0?`<button class="btn ghost" data-nav="back">← Назад</button>`:""}
@@ -131,7 +142,7 @@ function nextItem(){
   drawRunner();
 }
 function toQuestions(){
-  R.phase="q";R.idx=0;R.ans=null;R.checked=false;
+  R.phase="q";R.idx=0;R.ans=null;R.checked=false;saveMissionPos();
   const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice());
   drawRunner();
 }
@@ -270,11 +281,11 @@ document.addEventListener("click",e=>{
   if(a==="reset"){if(confirm("Удалить весь прогресс без возможности вернуть?")){S=defState();save();render()}return}
   if(t.dataset.world){S.openWorld=S.openWorld===t.dataset.world?null:t.dataset.world;save();render();return}
   const n=t.dataset.nav;
-  if(n==="back"){R.ci--;drawRunner()}
-  else if(n==="fwd"){if(R.phase==="intro")toQuestions();else if(R.ci<R.cards.length-1){R.ci++;drawRunner()}else toQuestions()}
+  if(n==="back"){R.ci--;saveMissionPos();drawRunner()}
+  else if(n==="fwd"){if(R.phase==="intro")toQuestions();else if(R.ci<R.cards.length-1){R.ci++;saveMissionPos();drawRunner()}else toQuestions()}
   else if(n==="check")checkAnswer();
   else if(n==="next")nextItem();
-  else if(n==="quit"||n==="map"){go("map")}
+  else if(n==="quit"||n==="map"){saveMissionPos();go("map")}
   else if(n==="retry")startBoss(R.w.id);
   else if(n==="again"){if(!R.items.some(x=>x.d))R.items=shuffle(R.items);R.idx=0;R.wrong=0;R.done=false;R.phase="q";R.ans=null;R.checked=false;
     const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice());drawRunner()}
