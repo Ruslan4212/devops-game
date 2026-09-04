@@ -42,7 +42,7 @@ JSON.stringify({bad,dup,totals:totals()})
 | `p3.txt` | команды docker, kubectl, git, terraform, ansible для симулятора |
 | `p4.txt` | лаборатории: linux, сети, git, docker (объекты `LABS.*`) |
 | `p5.txt` | лаборатории: ci/cd, iac, k8s, sre + вспомогательная команда `ci`, песочница `SANDBOX` |
-| `p6.txt` | массив `WORLDS` (объявление 9 миров), `ROADMAP` база, `BADGES` база |
+| `p6.txt` | массив `WORLDS` (объявление 10 миров, включая новый `zabbix` — блок C1), `ROADMAP` база, `BADGES` база |
 | `p7.txt` | дополнительные миссии (частично устарело — Docker/CI/CD блоки закомментированы, перенесены в p21/p22) |
 | `p8.txt` | состояние игры `defState()`, сохранение, вкладки `TABS`, `render()`, экраны карты/плана обучения |
 | `p9.txt` | **раннер миссий и лабораторий** — весь UI прохождения: карточки теории, отработка (`uiTry`, `checkTry`), задания (`uiQ`), шпаргалка (`missionCheat`), платные подсказки (`hintBlock`, `HINT_COST`), обработчики кликов/клавиш, точка входа приложения (последний файл в сборке) |
@@ -65,10 +65,11 @@ JSON.stringify({bad,dup,totals:totals()})
 | `p29.txt` | жизненный слой: `defLife()`, SVG-аватар (`avatarSVG`), товары (`FOOD`/`CLOTHES`/`HOMES`/`CARS`/`TECH`/`TRIPS`), экономика (`dailySalary`, `dailyCosts`, `lifeTick`, `eat`, `buyItem`) |
 | `p30.txt` | экраны жизни: создание персонажа (`viewCreate`), главный экран (`viewLife`), магазин (`viewShop`) |
 | `p31.txt` | интеграция жизни: `lifeReward()` (деньги за учёбу), обработчики кликов данных-life/ed/shoptab |
+| `p32.txt` | **мир «Zabbix»** (новый, блок C1) — 6 миссий z1-z6 + босс, новый формат сразу |
 
 ## Ключевые глобальные объекты (для быстрого grep)
 
-- `WORLDS` — массив 9 миров, каждый `{id, n, ic, tag, desc, miss:[...], boss:{...}}`
+- `WORLDS` — массив 10 миров, каждый `{id, n, ic, tag, desc, miss:[...], boss:{...}}`
 - `LABS` — объект лабораторий по id
 - `DR` — массив команд тренажёра `{w, q, a:[варианты]}`
 - `JOBS` — вакансии карьеры
