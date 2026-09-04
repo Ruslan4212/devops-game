@@ -25,6 +25,7 @@ PARTS=(
   p33.txt  # мир «Prometheus» (новый, блок C2)
   p34.txt  # мир «Grafana» (новый, блок C3)
   p35.txt  # мир «Terraform: глубокое погружение» (новый, блок C4)
+  p36.txt  # мир «Python для DevOps» (новый, блок C5)
   p4.txt   # лаборатории: linux, сети, git, docker
   p5.txt   # лаборатории: ci/cd, iac, k8s, sre + песочница
   p12.txt  # миссии Git и GitLab CI + лаборатория с git bisect

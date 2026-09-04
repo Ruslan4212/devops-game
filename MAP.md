@@ -42,7 +42,7 @@ JSON.stringify({bad,dup,totals:totals()})
 | `p3.txt` | команды docker, kubectl, git, terraform, ansible для симулятора |
 | `p4.txt` | лаборатории: linux, сети, git, docker (объекты `LABS.*`) |
 | `p5.txt` | лаборатории: ci/cd, iac, k8s, sre + вспомогательная команда `ci`, песочница `SANDBOX` |
-| `p6.txt` | массив `WORLDS` (объявление 13 миров, включая новые `zabbix`/`prometheus`/`grafana`/`terraform` — блоки C1-C4), `ROADMAP` база, `BADGES` база |
+| `p6.txt` | массив `WORLDS` (объявление 14 миров, включая новые `zabbix`/`prometheus`/`grafana`/`terraform`/`python` — блоки C1-C5), `ROADMAP` база, `BADGES` база |
 | `p7.txt` | дополнительные миссии (частично устарело — Docker/CI/CD блоки закомментированы, перенесены в p21/p22) |
 | `p8.txt` | состояние игры `defState()`, сохранение, вкладки `TABS`, `render()`, экраны карты/плана обучения |
 | `p9.txt` | **раннер миссий и лабораторий** — весь UI прохождения: карточки теории, отработка (`uiTry`, `checkTry`), задания (`uiQ`), шпаргалка (`missionCheat`), платные подсказки (`hintBlock`, `HINT_COST`), обработчики кликов/клавиш, точка входа приложения (последний файл в сборке) |
@@ -69,10 +69,11 @@ JSON.stringify({bad,dup,totals:totals()})
 | `p33.txt` | **мир «Prometheus»** (новый, блок C2) — 6 миссий pr1-pr6 + босс, новый формат сразу |
 | `p34.txt` | **мир «Grafana»** (новый, блок C3) — 5 миссий gf1-gf5 + босс, новый формат сразу |
 | `p35.txt` | **мир «Terraform: глубокое погружение»** (новый, блок C4, отдельно от общей IaC-теории в `p23.txt`) — 5 миссий tf1-tf5 + босс |
+| `p36.txt` | **мир «Python для DevOps»** (новый, блок C5, финальный мир блока C) — 8 миссий py1-py8 + босс: синтаксис, файлы/pathlib, JSON/YAML, subprocess, requests, argparse, обработка ошибок/logging, свой exporter для Prometheus |
 
 ## Ключевые глобальные объекты (для быстрого grep)
 
-- `WORLDS` — массив 13 миров, каждый `{id, n, ic, tag, desc, miss:[...], boss:{...}}`
+- `WORLDS` — массив 14 миров, каждый `{id, n, ic, tag, desc, miss:[...], boss:{...}}`
 - `LABS` — объект лабораторий по id
 - `DR` — массив команд тренажёра `{w, q, a:[варианты]}`
 - `JOBS` — вакансии карьеры
