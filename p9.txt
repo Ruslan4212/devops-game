@@ -1,0 +1,297 @@
+/* ================= RUNNER: миссии, боссы, повторы ================= */
+let R=null,L=null;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+function startMission(wid,mid){
+  const w=WORLDS.find(x=>x.id===wid),m=w.miss.find(x=>x.id===mid);
+  R={mode:"mis",w,m,cards:m.cards,ci:0,items:shuffle(m.ch.slice()),idx:0,phase:"card",wrong:0,ans:null,checked:false};
+  drawRunner();
+}
+function startBoss(wid){
+  const w=WORLDS.find(x=>x.id===wid);
+  R={mode:"boss",w,m:w.boss,cards:[],ci:0,items:w.boss.ch.slice(),idx:0,phase:"intro",wrong:0,hp:3,ans:null,checked:false};
+  drawRunner();
+}
+function startRepair(){
+  const d=dueList(); if(!d.length)return;
+  R={mode:"rep",w:null,m:{t:"Ремонт памяти"},cards:[],ci:0,items:shuffle(d).slice(0,12),idx:0,phase:"q",wrong:0,ans:null,checked:false};
+  const it=R.items[0]; if(it.t==="o")R.ord=shuffle(it.items.slice());
+  drawRunner();
+}
+function drawRunner(){
+  const v=document.getElementById("view");
+  document.getElementById("tabs").innerHTML="";
+  if(R.phase==="card")v.innerHTML=uiCard();
+  else if(R.phase==="intro")v.innerHTML=uiIntro();
+  else if(R.phase==="q")v.innerHTML=uiQ();
+  else v.innerHTML=uiRes();
+  const inp=v.querySelector(".term input"); if(inp)inp.focus();
+  window.scrollTo({top:0});
+}
+function uiCard(){
+  const c=R.cards[R.ci];
+  return `<div class="runner">
+   <div class="prog"><i style="width:${R.ci/(R.cards.length+R.items.length)*100}%"></i></div>
+   <div class="row" style="margin-bottom:14px"><span class="lbl">${R.w.n} · ${R.m.t}</span>
+     <span class="lbl" style="margin-left:auto">карточка ${R.ci+1}/${R.cards.length}</span></div>
+   <div class="teach"><h2>${c.h}</h2>${c.b}</div>
+   <div class="row" style="margin-top:18px">
+     ${R.ci>0?`<button class="btn ghost" data-nav="back">← Назад</button>`:""}
+     <button class="btn" data-nav="fwd">${R.ci<R.cards.length-1?"Дальше →":"К заданиям →"}</button>
+     <button class="btn ghost" data-nav="quit" style="margin-left:auto">Выйти</button></div></div>`;
+}
+function uiIntro(){
+  return `<div class="runner">
+   <div class="bossband"><span class="lbl" style="color:#a99bff">босс · ${R.w.n}</span>
+   <h1 style="font-size:26px;margin:6px 0 8px">${R.m.t}</h1><p class="muted" style="margin:0">${R.m.intro}</p></div>
+   <div class="card pad"><div class="lbl">правила</div>
+   <ul class="tight" style="margin-top:8px"><li>${R.items.length} вопросов подряд.</li><li>3 жизни. Потерял все — бой заново.</li><li>Победа: +120 XP и бейдж мира.</li></ul>
+   <div class="row" style="margin-top:16px"><button class="btn" data-nav="fwd">Начать бой</button>
+   <button class="btn ghost" data-nav="quit">Позже</button></div></div></div>`;
+}
+function uiQ(){
+  const it=R.items[R.idx],n=R.cards.length+R.idx,tot=R.cards.length+R.items.length;
+  let body="";
+  if(it.t==="q"){
+    body=`<div class="opts">${it.a.map((o,i)=>{
+      let cl=""; if(R.checked){if(i===it.c)cl="right";else if(i===R.ans)cl="wrong"}else if(R.ans===i)cl="sel";
+      return `<button class="opt ${cl}" data-opt="${i}" ${R.checked?"disabled":""}><kbd>${i+1}</kbd><span>${o}</span></button>`}).join("")}</div>`;
+  }else if(it.t==="c"||it.t==="f"){
+    const pre=it.t==="f"?`<pre>${esc(it.pre).replace("___","<span class='k'>___</span>")}</pre>`:"";
+    const cl=R.checked?(R.ok?"right":"wrong"):"";
+    body=`${pre}<div class="term ${cl}">
+      <div class="ln">${it.t==="c"?"deploy@prod:~$ ":"# впиши недостающее"}</div>
+      <div class="in"><span>${it.t==="c"?"$":"›"}</span><input id="cin" autocomplete="off" autocapitalize="off" spellcheck="false" ${R.checked?"disabled":""} value="${R.ans?esc(R.ans):""}" placeholder="напиши команду и нажми Enter"></div></div>
+      ${!R.checked&&it.hint?`<div class="hint">подсказка: ${it.hint}</div>`:""}`;
+  }else if(it.t==="o"){
+    body=`<div class="ord">${R.ord.map((x,i)=>{
+      let cl=""; if(R.checked)cl=it.items[i]===x?"right":"wrong";
+      return `<div class="ordi ${cl}"><span class="n">${i+1}</span><span>${x}</span>
+      <span class="mv">${R.checked?"":`<button data-mv="${i}:-1" aria-label="выше">▲</button><button data-mv="${i}:1" aria-label="ниже">▼</button>`}</span></div>`}).join("")}</div>`;
+  }
+  const hp=R.mode==="boss"?`<div class="hp">${[0,1,2].map(i=>`<i class="${i<R.hp?"":"off"}"></i>`).join("")}</div>`:"";
+  return `<div class="runner">
+   <div class="prog"><i style="width:${n/tot*100}%"></i></div>
+   <div class="row" style="margin-bottom:14px">
+     <span class="lbl">${R.mode==="rep"?"Ремонт памяти":(R.w?R.w.n+" · ":"")+R.m.t}</span>
+     <span style="margin-left:auto">${hp}</span><span class="lbl">${R.idx+1}/${R.items.length}</span></div>
+   <div class="qbox card pad"><h2>${it.q}</h2>
+     <div class="qmeta lbl">${{q:"выбери ответ",c:"введи команду",f:"заполни пропуск",o:"расставь по порядку"}[it.t]}</div>
+     ${body}
+     ${R.checked?`<div class="fb ${R.ok?"ok":"no"}"><b>${R.ok?"Верно":"Мимо"}</b>${it.why}${!R.ok&&(it.t==="c"||it.t==="f")?`<div class="mono" style="margin-top:8px;color:var(--ok)">Правильно: ${esc(it.ans[0])}</div>`:""}</div>`:""}
+     <div class="row" style="margin-top:18px">
+       ${R.checked?`<button class="btn" data-nav="next">${R.idx<R.items.length-1?"Следующее →":"Завершить"}</button>`
+                  :`<button class="btn" data-nav="check" ${it.t==="q"&&R.ans===null?"disabled":""}>Проверить</button>`}
+       <button class="btn ghost" data-nav="quit" style="margin-left:auto">Выйти</button></div></div></div>`;
+}
+function uiRes(){
+  const tot=R.items.length,right=tot-R.wrong,pct=Math.round(right/tot*100),win=R.mode!=="boss"||R.hp>0;
+  let extra="";
+  if(R.done!==true){
+    R.done=true;let xp=0;
+    if(R.mode==="mis"){xp=right*12;if(!S.mis[R.m.id]){S.mis[R.m.id]=1;award("first");questTick("mission",1)}if(R.wrong===0)award("flawless")}
+    else if(R.mode==="boss"&&win){xp=120;S.boss[R.w.id]=1;award(R.w.id);
+      if(R.w.id==="cloudsec"){award("hired");extra=`<p style="max-width:56ch;margin:12px auto 0" class="muted">Финальный раунд пройден. Собери пет-проект из блока 10 плана, отрепетируй ответы вслух — и иди на настоящие собеседования.</p>`}}
+    else if(R.mode==="rep"){xp=right*8;S.repairs+=right;if(S.repairs>=20)award("repair");questTick("repair",1)}
+    R.xp=xp; if(xp){addXP(xp);checkDay()} save();
+  }
+  return `<div class="runner"><div class="card res">
+    <div class="lbl">${R.mode==="boss"?(win?"босс повержен":"поражение"):"итог"}</div>
+    <div class="big ${pct>=70?"ok":"no"}">${pct}%</div>
+    <p class="muted" style="margin:6px 0 4px">${right} из ${tot} верно${R.mode==="boss"&&!win?" · жизни кончились":""}</p>
+    <p class="xpfly">+${R.xp||0} XP</p>
+    ${R.wrong?`<p class="muted" style="max-width:52ch;margin:12px auto 0;font-size:14px">Промахи отправлены в «Повторы» — вернутся завтра, пока не станут рефлексом.</p>`:`<p style="color:var(--ok);margin-top:10px">Чисто. Так и держи.</p>`}
+    ${extra}
+    <div class="row" style="justify-content:center;margin-top:22px">
+      <button class="btn" data-nav="map">К карте</button>
+      ${R.mode==="boss"&&!win?`<button class="btn ghost" data-nav="retry">Повторить бой</button>`:""}
+      ${R.mode==="mis"?`<button class="btn ghost" data-nav="again">Задания снова</button>`:""}
+    </div></div></div>`;
+}
+const norm=s=>String(s||"").toLowerCase().replace(/["']/g,"").replace(/\s+/g," ").trim();
+function checkAnswer(){
+  const it=R.items[R.idx];
+  if(it.t==="q")R.ok=R.ans===it.c;
+  else if(it.t==="c"||it.t==="f"){const el=document.getElementById("cin");R.ans=el?el.value:"";
+    const u=norm(R.ans);R.ok=it.ans.some(a=>norm(a)===u);}
+  else if(it.t==="o")R.ok=R.ord.every((x,i)=>x===it.items[i]);
+  R.checked=true;
+  if(!R.ok){R.wrong++;if(R.mode==="boss")R.hp--}
+  srsUpdate(it.q,R.ok,it);save();drawRunner();
+}
+function nextItem(){
+  if(R.mode==="boss"&&R.hp<=0){R.phase="res";drawRunner();return}
+  if(R.idx<R.items.length-1){R.idx++;R.ans=null;R.checked=false;R.ok=false;
+    const it=R.items[R.idx];if(it.t==="o")R.ord=shuffle(it.items.slice());}
+  else R.phase="res";
+  drawRunner();
+}
+function toQuestions(){
+  R.phase="q";R.idx=0;R.ans=null;R.checked=false;
+  const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice());
+  drawRunner();
+}
+/* ================= ЛАБОРАТОРИЯ ================= */
+function startLab(id){
+  const def=LABS[id];
+  L={id,def,ctx:mkCtx(def.spec),out:[],hist:[],hi:-1,hints:0,done:false,started:Date.now()};
+  L.out.push({h:`{{d|Подключение к ${L.ctx.host}...  соединение установлено.}}`});
+  L.out.push({h:`{{d|Введи }}help{{d| — список доступных команд. Задачи справа обновляются сами.}}`});
+  if(def.after)def.after(L.ctx);
+  drawLab();
+}
+function labTaskState(){return L.def.tasks.map(t=>{try{return !!t.ok(L.ctx)}catch(e){return false}})}
+function drawLab(){
+  document.getElementById("tabs").innerHTML="";
+  const st=labTaskState(),alldone=st.every(Boolean);
+  if(alldone&&!L.done){
+    L.done=true;
+    if(!S.labs[L.id]){S.labs[L.id]=1;award("lab1");
+      const n=Object.keys(S.labs).length; if(n>=5)award("lab5"); if(n>=Object.keys(LABS).length)award("laball");
+      if(L.hints===0)award("nohint");
+      addXP(L.def.xp);checkDay();questTick("lab",1);
+      if(IV&&IV.pendingLab===L.id)toast("Тестовое задание зачтено — возвращайся к вакансии");}
+    save();
+  }
+  const v=document.getElementById("view");
+  v.innerHTML=`<div class="row" style="margin-bottom:12px"><span class="lbl">лаборатория · ${WORLDS.find(w=>w.id===L.def.w).n}</span>
+    <button class="btn ghost sm" data-nav="quit" style="margin-left:auto">Выйти</button>
+    <button class="btn ghost sm" data-lab="reset">Сбросить сценарий</button></div>
+  <div class="card pad" style="margin-bottom:14px;border-left:3px solid var(--amber)">
+    <h1 style="font-size:22px;margin-bottom:6px">${L.def.t}</h1><p style="margin:0" class="muted">${L.def.brief}</p></div>
+  <div class="lab">
+    <div class="cli"><div class="bar"><i></i><i></i><i></i><span style="margin-left:8px">${L.ctx.user}@${L.ctx.host}</span></div>
+      <div class="out" id="cliout">${L.out.map(o=>fmt(o.h)).join("\n")}</div>
+      <div class="line"><span>${L.ctx.user}@${L.ctx.host}:${L.ctx.cwd.replace("/home/"+L.ctx.user,"~")}$</span>
+        <input id="cliin" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="команда…"></div></div>
+    <div>
+      <div class="lbl" style="margin-bottom:9px">задачи · ${st.filter(Boolean).length}/${st.length}</div>
+      <div class="tasks">${L.def.tasks.map((t,i)=>`<div class="tk ${st[i]?"on":""}"><span class="bx">${st[i]?"✓":""}</span>
+        <span>${t.t}${L.showHint===i?`<small>подсказка: ${t.hint}</small>`:""}</span></div>`).join("")}</div>
+      <div class="card pad" style="margin-top:12px">
+        <div class="lbl">если застрял</div>
+        <p class="muted" style="font-size:13px;margin:8px 0 10px">${L.def.hint}</p>
+        <button class="btn ghost sm" data-lab="hint">Показать подсказку к текущему шагу</button>
+        <p class="muted" style="font-size:12px;margin:10px 0 0">Подсказок использовано: ${L.hints}</p>
+      </div>
+      <div class="card pad" style="margin-top:12px">
+        <div class="lbl">шпаргалка</div>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">
+        <span class="kbd">↑</span> <span class="kbd">↓</span> — история команд · <span class="kbd">help</span> — список команд · поддерживаются пайпы <span class="kbd">|</span> и редирект <span class="kbd">&gt;</span></p>
+      </div>
+    </div></div>
+  ${L.done?`<div class="card pad" style="margin-top:16px;border-color:rgba(63,191,143,.5);background:rgba(63,191,143,.06)">
+     <div class="lbl" style="color:var(--ok)">инцидент закрыт · +${L.def.xp} xp</div>
+     <h2 style="font-size:20px;margin:6px 0 10px">Разбор полётов</h2>${L.def.debrief}
+     <div class="row" style="margin-top:14px"><button class="btn" data-nav="map">К карте</button>
+     <button class="btn ghost" data-lab="reset">Пройти заново</button></div></div>`:""}`;
+  const inp=document.getElementById("cliin");
+  if(inp&&!L.done)inp.focus();
+  const out=document.getElementById("cliout");
+  if(out)out.scrollTop=out.scrollHeight;
+}
+function labExec(line){
+  if(!line.trim())return;
+  L.out.push({h:`{{p|${L.ctx.user}@${L.ctx.host}:${L.ctx.cwd.replace("/home/"+L.ctx.user,"~")}$}} ${line}`});
+  L.hist.push(line);L.hi=L.hist.length;
+  let res="";
+  try{res=runLine(L.ctx,line)}catch(e){res="{{e|ошибка выполнения: "+e.message+"}}"}
+  if(L.ctx.flags._clear){L.ctx.flags._clear=false;L.out=[]}
+  else if(res!==""&&res!==undefined)L.out.push({h:res});
+  if(L.def.after)try{L.def.after(L.ctx)}catch(e){}
+  drawLab();
+}
+/* ================= ПЕСОЧНИЦА ================= */
+let SB=null;
+function viewSandbox(){
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">свободный режим</div><h1 style="font-size:26px;margin:4px 0 8px">Песочница</h1>
+    <p class="muted" style="max-width:66ch;margin:0">Живой сервер без заданий: nginx, приложение на 8080, postgres, пара контейнеров и мини-кластер. Ломай, изучай, пробуй команды из миссий. Ничего не сохраняется — обновил страницу, всё как было.</p></section>
+  <div class="lab"><div class="cli"><div class="bar"><i></i><i></i><i></i><span style="margin-left:8px">deploy@sandbox</span></div>
+    <div class="out" id="sbout"></div>
+    <div class="line"><span id="sbp">deploy@sandbox:~$</span><input id="sbin" autocomplete="off" spellcheck="false" placeholder="попробуй: ls -la /var/log"></div></div>
+    <div><div class="card pad"><div class="lbl">попробуй</div>
+      <ul class="tight" style="margin-top:9px">
+      <li><code>ls -la /var/log/nginx</code></li><li><code>cat /var/log/nginx/access.log | grep 500</code></li>
+      <li><code>ps aux | grep nginx</code></li><li><code>systemctl status app</code></li>
+      <li><code>journalctl -u app</code></li><li><code>ss -tulpn</code></li>
+      <li><code>df -h</code> · <code>du -sh /var/*</code></li><li><code>docker ps -a</code></li>
+      <li><code>kubectl get pods</code></li><li><code>curl -i localhost:8080</code></li>
+      <li><code>dig shop.ru +short</code></li><li><code>grep -c ERROR /var/log/app/app.log</code></li></ul></div>
+      <div class="card pad" style="margin-top:12px"><div class="lbl">заметка</div>
+      <p class="muted" style="font-size:13px;margin:8px 0 0">Симулятор понимает основные флаги, пайпы и редирект. Он не полный bash — но покрывает всё, что спрашивают на собеседовании уровня middle.</p></div></div></div>`;
+}
+function initSandbox(){
+  SB={ctx:mkCtx(SANDBOX),out:[{h:"{{d|Песочница. Введи }}help{{d| для списка команд.}}"}],hist:[],hi:-1};
+  paintSB();
+  const inp=document.getElementById("sbin");if(inp)inp.focus();
+}
+function paintSB(){
+  const o=document.getElementById("sbout");if(!o)return;
+  o.innerHTML=SB.out.map(x=>fmt(x.h)).join("\n");o.scrollTop=o.scrollHeight;
+  const p=document.getElementById("sbp");if(p)p.textContent=`deploy@sandbox:${SB.ctx.cwd.replace("/home/deploy","~")}$`;
+}
+function sbExec(line){
+  if(!line.trim())return;
+  SB.out.push({h:`{{p|deploy@sandbox:${SB.ctx.cwd.replace("/home/deploy","~")}$}} ${line}`});
+  SB.hist.push(line);SB.hi=SB.hist.length;
+  let res="";try{res=runLine(SB.ctx,line)}catch(e){res="{{e|"+e.message+"}}"}
+  if(SB.ctx.flags._clear){SB.ctx.flags._clear=false;SB.out=[]}
+  else if(res!=="")SB.out.push({h:res});
+  paintSB();
+}
+/* ================= СОБЫТИЯ ================= */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-tab],[data-go],[data-world],[data-act],[data-nav],[data-opt],[data-mv],[data-lab]");
+  if(!t)return;
+  if(t.dataset.tab){go(t.dataset.tab);return}
+  if(t.dataset.go){go(t.dataset.go);return}
+  if(t.dataset.lab){
+    if(t.dataset.lab==="reset"){startLab(L.id);return}
+    if(t.dataset.lab==="hint"){const st=labTaskState();const i=st.findIndex(x=>!x);
+      if(i<0){toast("Все шаги уже закрыты");return}
+      L.showHint=i;L.hints++;S.hintsUsed=(S.hintsUsed||0)+1;save();drawLab();return}
+  }
+  if(t.dataset.mv){const[i,d]=t.dataset.mv.split(":").map(Number);const j=i+d;
+    if(j<0||j>=R.ord.length)return;[R.ord[i],R.ord[j]]=[R.ord[j],R.ord[i]];drawRunner();return}
+  if(t.dataset.opt!==undefined){if(R.checked)return;R.ans=+t.dataset.opt;drawRunner();return}
+  const a=t.dataset.act;
+  if(a==="mis"){startMission(t.dataset.w,t.dataset.m);return}
+  if(a==="boss"){startBoss(t.dataset.w);return}
+  if(a==="lab"){startLab(t.dataset.l);return}
+  if(a==="repair"){startRepair();return}
+  if(a==="export"){navigator.clipboard.writeText(JSON.stringify(S)).then(()=>toast("Сохранение скопировано"),()=>toast("Не удалось скопировать"));return}
+  if(a==="import"){const s=prompt("Вставь строку сохранения:");if(!s)return;
+    try{S=Object.assign(defState(),JSON.parse(s));save();render();toast("Прогресс восстановлен")}catch(err){toast("Строка повреждена")}return}
+  if(a==="reset"){if(confirm("Удалить весь прогресс без возможности вернуть?")){S=defState();save();render()}return}
+  if(t.dataset.world){S.openWorld=S.openWorld===t.dataset.world?null:t.dataset.world;save();render();return}
+  const n=t.dataset.nav;
+  if(n==="back"){R.ci--;drawRunner()}
+  else if(n==="fwd"){if(R.phase==="intro")toQuestions();else if(R.ci<R.cards.length-1){R.ci++;drawRunner()}else toQuestions()}
+  else if(n==="check")checkAnswer();
+  else if(n==="next")nextItem();
+  else if(n==="quit"||n==="map"){go("map")}
+  else if(n==="retry")startBoss(R.w.id);
+  else if(n==="again"){R.items=shuffle(R.items);R.idx=0;R.wrong=0;R.done=false;R.phase="q";R.ans=null;R.checked=false;
+    const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice());drawRunner()}
+});
+document.addEventListener("keydown",e=>{
+  const cli=document.getElementById("cliin"),sb=document.getElementById("sbin");
+  if(L&&cli&&document.activeElement===cli){
+    if(e.key==="Enter"){e.preventDefault();const v=cli.value;cli.value="";labExec(v);return}
+    if(e.key==="ArrowUp"){e.preventDefault();if(L.hi>0){L.hi--;cli.value=L.hist[L.hi]||""}return}
+    if(e.key==="ArrowDown"){e.preventDefault();if(L.hi<L.hist.length-1){L.hi++;cli.value=L.hist[L.hi]||""}else{L.hi=L.hist.length;cli.value=""}return}
+    return;
+  }
+  if(SB&&sb&&document.activeElement===sb){
+    if(e.key==="Enter"){e.preventDefault();const v=sb.value;sb.value="";sbExec(v);return}
+    if(e.key==="ArrowUp"){e.preventDefault();if(SB.hi>0){SB.hi--;sb.value=SB.hist[SB.hi]||""}return}
+    if(e.key==="ArrowDown"){e.preventDefault();if(SB.hi<SB.hist.length-1){SB.hi++;sb.value=SB.hist[SB.hi]||""}else{SB.hi=SB.hist.length;sb.value=""}return}
+    return;
+  }
+  if(!R||R.phase!=="q")return;
+  const it=R.items[R.idx];
+  if(e.key==="Enter"){e.preventDefault();R.checked?nextItem():((it.t!=="q"||R.ans!==null)&&checkAnswer());return}
+  if(it.t==="q"&&!R.checked&&/^[1-9]$/.test(e.key)){const i=+e.key-1;if(i<it.a.length){R.ans=i;drawRunner()}}
+});
+checkDay();render();
+</script>

@@ -1,0 +1,296 @@
+/* =====================================================================
+   ТРЕНАЖЁР КОМАНД — практика до мышечной памяти
+   ===================================================================== */
+const DR=[];
+function dr(w,q,...a){DR.push({w,q,a})}
+
+/* ---- linux ---- */
+dr("linux","Показать текущий каталог","pwd");
+dr("linux","Полный список файлов включая скрытые, с правами","ls -la","ls -al","ls -a -l","ls -l -a");
+dr("linux","Перейти в /var/log","cd /var/log");
+dr("linux","Вернуться на уровень выше","cd ..");
+dr("linux","Перейти в домашний каталог","cd","cd ~","cd $HOME");
+dr("linux","Последние 100 строк файла /var/log/syslog","tail -n 100 /var/log/syslog","tail -100 /var/log/syslog");
+dr("linux","Следить за файлом app.log в реальном времени","tail -f app.log","tail -F app.log");
+dr("linux","Первые 20 строк файла access.log","head -n 20 access.log","head -20 access.log");
+dr("linux","Найти строки со словом ERROR в app.log","grep ERROR app.log");
+dr("linux","Посчитать количество строк с ERROR в app.log","grep -c ERROR app.log");
+dr("linux","Найти ERROR без учёта регистра","grep -i error app.log");
+dr("linux","Показать 5 строк контекста вокруг каждой ошибки","grep -C5 ERROR app.log","grep -C 5 ERROR app.log");
+dr("linux","Исключить строки со словом INFO","grep -v INFO app.log");
+dr("linux","Рекурсивно найти слово timeout в каталоге /etc","grep -r timeout /etc","grep -r timeout /etc/");
+dr("linux","Посчитать число строк в файле access.log","wc -l access.log");
+dr("linux","Найти файлы с именем *.log в /var","find /var -name *.log","find /var -name '*.log'");
+dr("linux","Найти файлы больше 100 МБ в /var","find /var -size +100M");
+dr("linux","Занятость разделов в человекочитаемом виде","df -h");
+dr("linux","Проверить свободные inode","df -i");
+dr("linux","Размер каждого подкаталога /var, по-человечески","du -sh /var/*");
+dr("linux","Показать использование памяти","free -h");
+dr("linux","Средняя нагрузка и время работы системы","uptime");
+dr("linux","Все процессы в подробном формате","ps aux");
+dr("linux","Найти процессы nginx в списке процессов","ps aux | grep nginx");
+dr("linux","Мягко завершить процесс 4210","kill 4210","kill -15 4210","kill -term 4210");
+dr("linux","Принудительно убить процесс 4210","kill -9 4210","kill -kill 4210");
+dr("linux","Попросить процесс 711 перечитать конфигурацию","kill -1 711","kill -hup 711");
+dr("linux","Сделать скрипт deploy.sh исполняемым для владельца и читаемым для всех","chmod 755 deploy.sh");
+dr("linux","Закрыть приватный ключ id_rsa от всех, кроме владельца","chmod 600 id_rsa");
+dr("linux","Сменить владельца файла app.conf на deploy:deploy","chown deploy:deploy app.conf");
+dr("linux","Установить nginx без подтверждения","apt install -y nginx","sudo apt install -y nginx","apt-get install -y nginx");
+dr("linux","Добавить пользователя deploy в группу docker, сохранив остальные","usermod -aG docker deploy","sudo usermod -aG docker deploy");
+dr("linux","Статус сервиса nginx","systemctl status nginx");
+dr("linux","Перезапустить сервис api","systemctl restart api","sudo systemctl restart api");
+dr("linux","Применить конфиг nginx без разрыва соединений","systemctl reload nginx","sudo systemctl reload nginx");
+dr("linux","Включить автозапуск сервиса api при загрузке","systemctl enable api","sudo systemctl enable api");
+dr("linux","Перечитать изменённые юнит-файлы systemd","systemctl daemon-reload","sudo systemctl daemon-reload");
+dr("linux","Журнал сервиса api","journalctl -u api");
+dr("linux","Только ошибки журнала за текущую загрузку","journalctl -p err -b","journalctl -b -p err");
+dr("linux","Записать stdout и stderr скрипта в файл out.log","./script.sh > out.log 2>&1");
+dr("linux","Отбросить сообщения об ошибках команды find","find / -name x 2>/dev/null");
+dr("linux","Заменить во всём файле app.conf 8080 на 3000, прямо в файле","sed -i s/8080/3000/g app.conf","sed -i 's/8080/3000/g' app.conf");
+dr("linux","Вывести первую колонку файла access.log","awk '{print $1}' access.log","awk {print $1} access.log");
+dr("linux","Топ-10 IP по количеству запросов из access.log","awk '{print $1}' access.log | sort | uniq -c | sort -rn | head");
+dr("linux","Создать символическую ссылку current на /opt/app/v2","ln -s /opt/app/v2 current");
+dr("linux","Создать архив backup.tar.gz из каталога /var/www","tar czf backup.tar.gz /var/www","tar -czf backup.tar.gz /var/www");
+dr("linux","Посмотреть содержимое архива, не распаковывая","tar tzf backup.tar.gz","tar -tzf backup.tar.gz");
+dr("linux","Распаковать архив в каталог /restore","tar xzf backup.tar.gz -C /restore","tar -xzf backup.tar.gz -C /restore");
+dr("linux","Проверить все записи fstab прямо сейчас","mount -a","sudo mount -a");
+dr("linux","Дерево блочных устройств","lsblk");
+dr("linux","Найти файлы с битом SUID во всей системе","find / -perm -4000 -type f 2>/dev/null","find / -perm -4000 2>/dev/null");
+dr("linux","Синхронизировать каталог dist на сервер с сохранением прав и сжатием","rsync -avz ./dist/ user@host:/var/www/","rsync -avz dist/ user@host:/var/www/");
+dr("linux","Код возврата последней команды","echo $?");
+
+/* ---- сети ---- */
+dr("net","Узнать IP домена example.com кратко","dig example.com +short","dig +short example.com");
+dr("net","Спросить о домене конкретный резолвер 8.8.8.8","dig @8.8.8.8 example.com","dig @8.8.8.8 example.com +short");
+dr("net","Только заголовки ответа сайта https://shop.ru","curl -I https://shop.ru","curl --head https://shop.ru");
+dr("net","Подробный запрос с деталями TLS","curl -v https://shop.ru");
+dr("net","Следовать за редиректами при запросе","curl -L shop.ru","curl -L https://shop.ru");
+dr("net","Показать только HTTP-код ответа","curl -o /dev/null -s -w '%{http_code}' https://shop.ru");
+dr("net","POST с JSON-телом","curl -X POST -d '{\"a\":1}' -H 'Content-Type: application/json' https://api.shop.ru");
+dr("net","Какие порты слушаются и каким процессом","ss -tulpn","ss -tulnp","sudo ss -tulpn");
+dr("net","Проверить, открыт ли порт 5432 на host","nc -zv host 5432","telnet host 5432");
+dr("net","Проверить синтаксис конфигурации nginx","nginx -t","sudo nginx -t");
+dr("net","Таблица маршрутизации","ip r","ip route","ip route show");
+dr("net","Адреса сетевых интерфейсов","ip a","ip addr","ip address");
+dr("net","Каким маршрутом пойдёт пакет к 8.8.8.8","ip r get 8.8.8.8","ip route get 8.8.8.8");
+dr("net","Сгенерировать современный SSH-ключ","ssh-keygen -t ed25519");
+dr("net","Скопировать публичный ключ на сервер","ssh-copy-id user@server");
+dr("net","Подключиться к серверу по нестандартному порту 2222","ssh -p 2222 user@server");
+dr("net","Пробросить локальный порт 5433 на БД сервера","ssh -L 5433:localhost:5432 user@server");
+dr("net","Скопировать файл на сервер в /opt","scp file.tar.gz user@host:/opt/","scp file.tar.gz user@host:/opt");
+
+/* ---- git ---- */
+dr("git","Состояние рабочего каталога","git status");
+dr("git","Компактная история одной строкой","git log --oneline");
+dr("git","История с графом ветвления по всем веткам","git log --oneline --graph --all");
+dr("git","Добавить все изменения в индекс","git add .","git add -A","git add --all");
+dr("git","Закоммитить с сообщением fix: таймаут","git commit -m 'fix: таймаут'","git commit -m fix: таймаут");
+dr("git","Создать ветку feature/auth и перейти в неё","git switch -c feature/auth","git checkout -b feature/auth");
+dr("git","Переключиться на ветку main","git switch main","git checkout main");
+dr("git","Скачать изменения с сервера, не сливая их","git fetch","git fetch origin");
+dr("git","Отправить текущую ветку на сервер","git push","git push origin HEAD");
+dr("git","Отменить коммит a1b2c3d новым коммитом","git revert a1b2c3d");
+dr("git","Убрать последний коммит, оставив изменения в индексе","git reset --soft HEAD~1");
+dr("git","Отложить незакоммиченные изменения","git stash","git stash push");
+dr("git","Вернуть отложенные изменения","git stash pop");
+dr("git","Поправить последний коммит, не меняя сообщение","git commit --amend --no-edit");
+dr("git","Переписать последние 5 коммитов интерактивно","git rebase -i HEAD~5");
+dr("git","Перенести коммит a1b2c3d в текущую ветку","git cherry-pick a1b2c3d");
+dr("git","Посмотреть, куда HEAD ходил раньше","git reflog");
+dr("git","Начать бинарный поиск сломавшего коммита","git bisect start");
+dr("git","Найти коммиты, где менялась строка cache.get","git log -S cache.get","git log -S 'cache.get'");
+dr("git","Кто менял строки 40-60 в файле app.js","git blame -L 40,60 app.js");
+dr("git","Создать аннотированный тег v1.2.0","git tag -a v1.2.0 -m релиз","git tag -a v1.2.0");
+dr("git","Безопасно запушить переписанную ветку","git push --force-with-lease");
+
+/* ---- docker ---- */
+dr("docker","Список запущенных контейнеров","docker ps");
+dr("docker","Все контейнеры, включая остановленные","docker ps -a");
+dr("docker","Логи контейнера web в реальном времени","docker logs -f web","docker logs --follow web");
+dr("docker","Зайти внутрь контейнера web с оболочкой bash","docker exec -it web bash","docker exec -ti web bash");
+dr("docker","Запустить nginx в фоне, порт 8080 хоста на 80, имя web","docker run -d -p 8080:80 --name web nginx","docker run -d --name web -p 8080:80 nginx");
+dr("docker","Список локальных образов","docker images","docker image ls");
+dr("docker","Собрать образ с тегом app:1.0 из текущего каталога","docker build -t app:1.0 .");
+dr("docker","Остановить контейнер web","docker stop web");
+dr("docker","Удалить контейнер web","docker rm web");
+dr("docker","Посмотреть детали контейнера db в JSON","docker inspect db");
+dr("docker","Потребление ресурсов контейнерами","docker stats");
+dr("docker","Запустить postgres с томом pgdata под данные","docker run -v pgdata:/var/lib/postgresql/data postgres:16");
+dr("docker","Поднять весь compose-стек в фоне","docker compose up -d","docker-compose up -d");
+dr("docker","Логи сервиса web из compose","docker compose logs -f web","docker compose logs web");
+dr("docker","Остановить стек, не удаляя тома","docker compose down");
+dr("docker","Отправить образ registry/app:1a2b3c4 в реестр","docker push registry/app:1a2b3c4");
+dr("docker","Пометить локальный образ app:1.0 для реестра registry/team","docker tag app:1.0 registry/team/app:1.0");
+
+/* ---- k8s ---- */
+dr("k8s","Список подов","kubectl get pods","kubectl get po");
+dr("k8s","Поды во всех неймспейсах","kubectl get pods -A","kubectl get pods --all-namespaces");
+dr("k8s","Поды в неймспейсе prod","kubectl get pods -n prod");
+dr("k8s","Подробности и события пода api-7f9","kubectl describe pod api-7f9");
+dr("k8s","Логи пода api-7f9","kubectl logs api-7f9");
+dr("k8s","Логи предыдущего, упавшего контейнера","kubectl logs api-7f9 --previous","kubectl logs -p api-7f9","kubectl logs api-7f9 -p");
+dr("k8s","Применить манифест deploy.yaml","kubectl apply -f deploy.yaml");
+dr("k8s","Откатить деплоймент api на предыдущую версию","kubectl rollout undo deploy/api","kubectl rollout undo deployment/api");
+dr("k8s","Статус выкатки деплоймента api","kubectl rollout status deploy/api");
+dr("k8s","История ревизий деплоймента api","kubectl rollout history deploy/api");
+dr("k8s","Масштабировать api до 5 реплик","kubectl scale deploy/api --replicas=5","kubectl scale deployment/api --replicas=5");
+dr("k8s","Проверить endpoints сервисов","kubectl get endpoints","kubectl get ep");
+dr("k8s","События кластера по времени","kubectl get events --sort-by=.lastTimestamp","kubectl get events");
+dr("k8s","Потребление ресурсов подами","kubectl top pods","kubectl top pod");
+dr("k8s","Список узлов кластера","kubectl get nodes","kubectl get node");
+dr("k8s","Узнать поля объекта Deployment из встроенной справки","kubectl explain deployment.spec","kubectl explain deployment");
+dr("k8s","Сменить текущий неймспейс на dev","kubectl config set-context --current --namespace=dev");
+dr("k8s","Проверить, может ли пользователь dev удалять поды","kubectl auth can-i delete pods --as dev");
+
+/* ---- iac ---- */
+dr("iac","Инициализировать рабочий каталог terraform","terraform init");
+dr("iac","Посмотреть, что terraform собирается изменить","terraform plan");
+dr("iac","Сохранить план в файл tf.plan","terraform plan -out=tf.plan");
+dr("iac","Применить сохранённый план","terraform apply tf.plan");
+dr("iac","Список ресурсов в state","terraform state list");
+dr("iac","Проверить корректность конфигурации","terraform validate");
+dr("iac","Отформатировать все файлы рекурсивно","terraform fmt -recursive");
+dr("iac","Проверить доступность всех хостов инвентаря","ansible all -m ping");
+dr("iac","Сухой прогон плейбука с показом изменений","ansible-playbook site.yml --check --diff","ansible-playbook site.yml --check");
+
+/* ---- observability ---- */
+dr("obs","Доля 5xx за 5 минут в PromQL","rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m])");
+dr("obs","Скорость запросов в секунду за 5 минут","rate(http_requests_total[5m])");
+dr("obs","95-й перцентиль латентности из гистограммы","histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))");
+dr("obs","Забрать метрики приложения локально","curl localhost:9090/metrics","curl -s localhost:9090/metrics");
+
+/* ---- движок тренажёра ---- */
+const drKey=d=>d.q;
+function drMastery(q){return (S.drill&&S.drill[q]&&S.drill[q].m)||0}
+function drWorldMastery(w){
+  const list=DR.filter(d=>d.w===w); if(!list.length)return 0;
+  return list.reduce((a,d)=>a+Math.min(5,drMastery(d.q)),0)/(list.length*5);
+}
+function drTotalMastery(){return DR.reduce((a,d)=>a+Math.min(5,drMastery(d.q)),0)/(DR.length*5)}
+function drLearned(){return DR.filter(d=>drMastery(d.q)>=3).length}
+function drPick(mode,w){
+  let pool=DR.slice();
+  if(w)pool=pool.filter(d=>d.w===w);
+  if(mode==="weak")pool.sort((a,b)=>(drMastery(a.q)-drMastery(b.q))||(Math.random()-.5));
+  else if(mode==="new")pool=pool.filter(d=>drMastery(d.q)===0).concat(shuffle(pool));
+  else pool=shuffle(pool);
+  return pool;
+}
+let DRL=null;
+function startDrill(mode,w){
+  const pool=drPick(mode,w);
+  const n=mode==="blitz"?999:12;
+  DRL={mode,w,items:pool.slice(0,n),i:0,ok:0,bad:0,combo:0,best:0,xp:0,t0:Date.now(),
+       limit:mode==="blitz"?60:0,done:false,checked:false,last:null};
+  if(mode==="blitz")startBlitzTimer();
+  drawDrill();
+}
+let blitzT=null;
+function startBlitzTimer(){
+  clearInterval(blitzT);
+  blitzT=setInterval(()=>{
+    if(!DRL||DRL.done){clearInterval(blitzT);return}
+    const left=DRL.limit-Math.floor((Date.now()-DRL.t0)/1000);
+    const el=document.getElementById("drtimer");
+    if(el)el.textContent=Math.max(0,left)+"с";
+    if(left<=0){clearInterval(blitzT);finishDrill()}
+  },250);
+}
+function drCheck(val){
+  const it=DRL.items[DRL.i];
+  const u=norm(val);
+  const ok=it.a.some(x=>norm(x)===u);
+  DRL.checked=true;DRL.last={ok,val};
+  const rec=S.drill[it.q]||{m:0,seen:0};
+  rec.seen++;
+  rec.m=ok?Math.min(5,rec.m+1):Math.max(0,rec.m-1);
+  rec.at=today();
+  S.drill[it.q]=rec;
+  if(ok){DRL.ok++;DRL.combo++;DRL.best=Math.max(DRL.best,DRL.combo);
+    const mult=1+Math.min(4,Math.floor(DRL.combo/5));
+    DRL.xp+=3*mult;}
+  else {DRL.bad++;DRL.combo=0;}
+  save();drawDrill();
+}
+function drNext(){
+  DRL.checked=false;DRL.last=null;DRL.i++;
+  if(DRL.i>=DRL.items.length)finishDrill(); else drawDrill();
+}
+function finishDrill(){
+  if(DRL.done)return;
+  DRL.done=true;clearInterval(blitzT);
+  addXP(DRL.xp);checkDay();
+  S.drillRuns=(S.drillRuns||0)+1;
+  S.drillOk=(S.drillOk||0)+DRL.ok;
+  if(drLearned()>=40)award("drill40");
+  if(drLearned()>=DR.length)award("drillall");
+  if(DRL.best>=15)award("combo15");
+  questTick("drill",DRL.ok);
+  if(DRL.mode==="blitz")questTick("blitz",1);
+  save();drawDrill();
+}
+function drawDrill(){
+  const v=document.getElementById("view");
+  document.getElementById("tabs").innerHTML="";
+  if(DRL.done){
+    const secs=Math.round((Date.now()-DRL.t0)/1000);
+    const tot=DRL.ok+DRL.bad;
+    v.innerHTML=`<div class="runner"><div class="card res">
+      <div class="lbl">тренажёр · ${{warm:"разминка",weak:"слабые места",blitz:"блиц 60 секунд",world:"по миру"}[DRL.mode]||DRL.mode}</div>
+      <div class="big ${DRL.ok>=tot*0.8?"ok":"no"}">${DRL.ok}<span style="font-size:22px;color:var(--faint)">/${tot}</span></div>
+      <p class="muted" style="margin:4px 0">за ${secs} с · лучшее комбо ${DRL.best}</p>
+      <p class="xpfly">+${DRL.xp} XP</p>
+      <p class="muted" style="max-width:52ch;margin:14px auto 0;font-size:14px">В мышечной памяти: <b style="color:var(--amber-2)">${drLearned()}</b> из ${DR.length} команд. Команда считается закреплённой после трёх верных повторов подряд.</p>
+      <div class="row" style="justify-content:center;margin-top:20px">
+        <button class="btn" data-drill="again">Ещё подход</button>
+        <button class="btn ghost" data-tab="drill">К тренажёру</button></div></div></div>`;
+    return;
+  }
+  const it=DRL.items[DRL.i];
+  const wn=(WORLDS.find(w=>w.id===it.w)||{}).n||"";
+  const mult=1+Math.min(4,Math.floor(DRL.combo/5));
+  v.innerHTML=`<div class="runner">
+   <div class="prog"><i style="width:${DRL.mode==="blitz"?100-((DRL.limit-Math.floor((Date.now()-DRL.t0)/1000))/DRL.limit*100):DRL.i/DRL.items.length*100}%"></i></div>
+   <div class="row" style="margin-bottom:14px">
+     <span class="lbl">${wn}</span>
+     <span style="margin-left:auto" class="mono" ${DRL.combo>=5?'style="color:var(--amber)"':""}>${DRL.combo>0?`комбо ×${DRL.combo}${mult>1?` · XP ×${mult}`:""}`:""}</span>
+     ${DRL.mode==="blitz"?`<span class="mono" id="drtimer" style="color:var(--warn)">${DRL.limit}с</span>`:`<span class="lbl">${DRL.i+1}/${DRL.items.length}</span>`}
+     <span class="mono" style="color:var(--ok)">✓${DRL.ok}</span><span class="mono" style="color:var(--bad)">✗${DRL.bad}</span></div>
+   <div class="card pad">
+     <h2 style="font-size:19px;margin-bottom:4px">${it.q}</h2>
+     <div class="qmeta lbl">напиши команду · enter — проверить</div>
+     <div class="term ${DRL.checked?(DRL.last.ok?"right":"wrong"):""}">
+       <div class="in"><span>$</span><input id="drin" autocomplete="off" autocapitalize="off" spellcheck="false"
+         ${DRL.checked?"disabled":""} value="${DRL.checked?esc(DRL.last.val):""}"></div></div>
+     ${DRL.checked?`<div class="fb ${DRL.last.ok?"ok":"no"}"><b>${DRL.last.ok?"Есть":"Не то"}</b>
+       <span class="mono" style="color:var(--ok)">${esc(it.a[0])}</span>${it.a.length>1?`<div class="muted" style="font-size:12.5px;margin-top:6px">также принимается: ${it.a.slice(1).map(x=>`<code>${esc(x)}</code>`).join(" ")}</div>`:""}
+       <div class="muted" style="font-size:12.5px;margin-top:6px">мастерство: ${"★".repeat(drMastery(it.q))}${"☆".repeat(5-drMastery(it.q))}</div></div>`:""}
+     <div class="row" style="margin-top:16px">
+       ${DRL.checked?`<button class="btn" data-drill="next">Дальше →</button>`:`<button class="btn" data-drill="check">Проверить</button>`}
+       <button class="btn ghost" data-drill="stop" style="margin-left:auto">Закончить</button></div>
+   </div></div>`;
+  const i=document.getElementById("drin"); if(i&&!DRL.checked)i.focus();
+}
+function viewDrill(){
+  const m=Math.round(drTotalMastery()*100);
+  const rows=WORLDS.filter(w=>DR.some(d=>d.w===w.id)).map(w=>{
+    const pm=Math.round(drWorldMastery(w.id)*100),n=DR.filter(d=>d.w===w.id).length;
+    return `<tr><td>${w.ic} ${w.n}</td><td class="mono">${n}</td>
+      <td style="min-width:120px"><div class="xpbar" style="width:100%"><i style="width:${pm}%"></i></div></td>
+      <td class="mono">${pm}%</td><td><button class="btn ghost sm" data-drill="world:${w.id}">тренировать</button></td></tr>`}).join("");
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">практика</div><h1 style="font-size:26px;margin:4px 0 8px">Тренажёр команд</h1>
+    <p class="muted" style="max-width:68ch;margin:0 0 14px">Знать команду и <b>набирать её не думая</b> — разные навыки. На собеседовании и в инциденте работает второй. Здесь ${DR.length} команд: пишешь по описанию задачи, за три верных повтора команда уходит в мышечную память, за ошибку возвращается.</p>
+    <div class="row" style="gap:26px;margin-bottom:16px">
+      <div><div class="lbl">в мышечной памяти</div><b class="mono" style="font-size:26px;color:var(--amber-2)">${drLearned()}<span class="muted" style="font-size:14px">/${DR.length}</span></b></div>
+      <div><div class="lbl">общее мастерство</div><b class="mono" style="font-size:26px">${m}%</b></div>
+      <div><div class="lbl">верных ответов всего</div><b class="mono" style="font-size:26px">${S.drillOk||0}</b></div>
+    </div>
+    <div class="row">
+      <button class="btn" data-drill="warm">▶ Разминка · 12 команд</button>
+      <button class="btn ghost" data-drill="weak">◈ Слабые места</button>
+      <button class="btn ghost" data-drill="blitz">⚡ Блиц · 60 секунд</button>
+    </div></section>
+   <div class="card pad"><div class="lbl" style="margin-bottom:10px">по мирам</div>
+   <div class="tw"><table><tr><th>мир</th><th>команд</th><th>мастерство</th><th></th><th></th></tr>${rows}</table></div></div>`;
+}

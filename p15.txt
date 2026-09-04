@@ -1,0 +1,174 @@
+/* =====================================================================
+   ЭКРАНЫ: ПЕРСОНАЖ, КАРЬЕРА, СЮЖЕТ + события новых слоёв
+   ===================================================================== */
+BADGES.push(
+ {id:"drill40",ic:"⌨",n:"Беглость",d:"40 команд в мышечной памяти"},
+ {id:"drillall",ic:"⌘",n:"Клавиатурный самурай",d:"Все команды закреплены"},
+ {id:"combo15",ic:"⚡",n:"Комбо ×15",d:"15 верных команд подряд"},
+ {id:"dailyall",ic:"✧",n:"День закрыт",d:"Все задания дня выполнены"},
+ {id:"firstoffer",ic:"✉",n:"Первый оффер",d:"Пройдено собеседование"},
+ {id:"iv5",ic:"⚑",n:"Опытный кандидат",d:"5 собеседований пройдено"},
+ {id:"middle",ic:"♛",n:"Middle DevOps",d:"Оффер на middle принят"});
+
+function bar(pct,col){return `<div class="xpbar" style="width:100%"><i style="width:${Math.min(100,pct)}%;background:${col||"linear-gradient(90deg,var(--amber),var(--amber-2))"}"></i></div>`}
+
+function viewHero(){
+  const r=rank(),nx=rankNext(),o=overall(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
+  const st=storyAvailable();
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="row" style="align-items:flex-start;gap:22px">
+      <div style="flex:1;min-width:240px">
+        <div class="lbl">персонаж · уровень ${LVL(S.xp)}</div>
+        <h1 style="font-size:30px;margin:4px 0 4px">${r.n}</h1>
+        <p class="muted" style="margin:0 0 12px;max-width:56ch">${r.d}</p>
+        ${j?`<p style="margin:0 0 12px">Работает: <b>${j.n}</b> · ${gradeName(j.g)} · ${j.pay}</p>`
+           :`<p class="muted" style="margin:0 0 12px">Работы пока нет. Загляни в «Карьеру» — там есть вакансии по твоему уровню.</p>`}
+        <div style="max-width:340px">${bar(nx?((o-r.min)/(nx.min-r.min)*100):100)}
+        <div class="lbl" style="margin-top:6px">общий уровень ${o} ${nx?`· до «${nx.n}» ещё ${nx.min-o}`:"· максимум достигнут"}</div></div>
+      </div>
+      <div style="min-width:190px">
+        <div class="lbl">кратко</div>
+        <div class="tw"><table>
+          <tr><td>Миссии</td><td class="mono">${Object.keys(S.mis).length}/${totals().m}</td></tr>
+          <tr><td>Лаборатории</td><td class="mono">${Object.keys(S.labs).length}/${totals().l}</td></tr>
+          <tr><td>Боссы</td><td class="mono">${Object.keys(S.boss).length}/${WORLDS.length}</td></tr>
+          <tr><td>Команд в руках</td><td class="mono">${drLearned()}/${DR.length}</td></tr>
+          <tr><td>Собеседований</td><td class="mono">${(S.interviews||[]).length}</td></tr>
+          <tr><td>Стрик</td><td class="mono">${S.streak} дн.</td></tr>
+        </table></div>
+      </div>
+    </div></section>
+
+  ${st.length?`<section class="card pad" style="margin-bottom:16px;border-color:rgba(124,107,242,.45);background:linear-gradient(90deg,rgba(124,107,242,.10),transparent)">
+     <div class="lbl" style="color:#a99bff">новая сцена · ${st[0].act}</div>
+     <h2 style="font-size:21px;margin:6px 0 8px">${st[0].t}</h2>
+     ${st[0].b}
+     <div class="row" style="margin-top:12px">${st[0].ch.map((c,i)=>`<button class="btn ${i?"ghost":""}" data-story="${st[0].id}:${i}">${c.t}</button>`).join("")}</div>
+   </section>`:""}
+
+  <section class="card pad" style="margin-bottom:16px">
+    <div class="lbl" style="margin-bottom:12px">навыки</div>
+    <div class="grid2" style="gap:14px 26px">
+    ${SKILLS.map(s=>{const v=skillOf(s.id);
+      const col=v>=70?"var(--ok)":v>=40?"var(--amber)":"var(--faint)";
+      return `<div><div class="row" style="justify-content:space-between;margin-bottom:4px">
+        <span>${s.ic} ${s.n}</span><span class="mono" style="color:${col}">${v}</span></div>
+        ${bar(v,v>=70?"var(--ok)":undefined)}</div>`}).join("")}
+      <div><div class="row" style="justify-content:space-between;margin-bottom:4px">
+        <span>☺ Софт-скиллы</span><span class="mono">${softSkill()}</span></div>${bar(softSkill(),"var(--violet)")}</div>
+    </div>
+    <p class="muted" style="font-size:12.5px;margin:14px 0 0">Навык растёт от миссий, лабораторий, босса мира и мастерства в тренажёре. Софт-скиллы — от пройденных собеседований, повторов и сюжетных решений.</p>
+  </section>
+
+  <section class="card pad" style="margin-bottom:16px">
+    <div class="lbl" style="margin-bottom:10px">пройденный сюжет</div>
+    ${(S.storySeen||[]).length?STORY.filter(s=>(S.storySeen||[]).includes(s.id)).map(s=>
+      `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><span class="lbl">${s.act}</span>
+       <div style="font-weight:700">${s.t}</div>
+       <div class="muted" style="font-size:13px">${(S.storyPick&&S.storyPick[s.id])||""}</div></div>`).join("")
+      :`<p class="muted" style="margin:0">Пока пусто. Сцены открываются по мере роста персонажа.</p>`}
+  </section>
+  <div class="lbl" style="margin-bottom:10px">бейджи · ${S.badges.length}/${BADGES.length}</div>
+  <div class="badges">${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"":"off"}"><div class="ic">${b.ic}</div><b>${b.n}</b><small>${b.d}</small></div>`).join("")}</div>`;
+}
+
+function viewCareer(){
+  const r=rank(),o=overall(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
+  const qs=todayQuests();
+  const myIdx=j?gradeIdx(j.g):-1;
+  const cards=JOBS.map(job=>{
+    const reqs=Object.entries(job.req).map(([k,v])=>({k,v,cur:skillOf(k)}));
+    const ready=reqs.every(x=>x.cur>=x.v);
+    const close=reqs.every(x=>x.cur>=x.v-12);
+    const tooLow=gradeIdx(job.g)>myIdx+2&&!close;
+    const attempts=(S.interviews||[]).filter(x=>x.id===job.id);
+    const got=attempts.some(x=>x.passed);
+    const cur=j&&j.id===job.id;
+    return `<div class="card pad" style="border-color:${cur?"rgba(63,191,143,.5)":ready?"rgba(240,135,63,.5)":"var(--line)"};opacity:${tooLow?.5:1}">
+      <div class="row" style="align-items:flex-start">
+        <div style="flex:1;min-width:220px">
+          <div class="row" style="gap:8px"><span class="chip ${ready?"lab":""}">${gradeName(job.g)}</span>
+            <span class="chip">${job.pay}</span>${cur?`<span class="chip done">твоё место работы</span>`:got?`<span class="chip done">был оффер</span>`:""}</div>
+          <h3 style="font-size:19px;margin:8px 0 2px">${job.n}</h3>
+          <div class="lbl">${job.tag}</div>
+          <p class="muted" style="margin:8px 0 0;font-size:13.5px">${job.desc}</p>
+        </div>
+        <div style="min-width:210px">
+          <div class="lbl" style="margin-bottom:6px">требования</div>
+          ${reqs.map(x=>{const s=SKILLS.find(y=>y.id===x.k);
+            return `<div class="row" style="justify-content:space-between;font-size:12.5px;margin-bottom:3px">
+              <span>${s.n}</span><span class="mono" style="color:${x.cur>=x.v?"var(--ok)":x.cur>=x.v-12?"var(--warn)":"var(--bad)"}">${x.cur}/${x.v}</span></div>`}).join("")}
+          ${job.lab?`<div class="lbl" style="margin-top:8px">тестовое: ${S.labs[job.lab]?`<span style="color:var(--ok)">${LABS[job.lab].t} ✓</span>`:LABS[job.lab].t}</div>`:""}
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ${ready?"":"ghost"} sm" data-career="apply:${job.id}" ${tooLow?"disabled":""}>
+          ${cur?"Пройти ещё раз":ready?"Откликнуться":close?"Рискнуть и откликнуться":"Пока рано"}</button>
+        ${attempts.length?`<span class="muted" style="font-size:12px">попыток: ${attempts.length}${got?" · оффер получен":""}</span>`:""}
+      </div></div>`}).join("");
+  return `<section class="hero" style="margin-bottom:18px">
+    <div class="card pad">
+      <div class="lbl">карьера</div>
+      <h1 style="font-size:26px;margin:4px 0 6px">${j?`${j.n} · ${gradeName(j.g)}`:"Пока без работы"}</h1>
+      <p class="muted" style="margin:0 0 12px;max-width:60ch">${j?`Ты здесь с ${S.job.since}. ${j.desc}`:"Вакансии открываются по мере роста навыков. Можно откликаться раньше — отказ даёт точный список того, что подтянуть."}</p>
+      <div style="max-width:320px">${bar(o)}<div class="lbl" style="margin-top:6px">${r.n} · общий уровень ${o}</div></div>
+    </div>
+    <div class="card pad">
+      <div class="lbl">задания дня</div>
+      <div style="margin-top:10px">${qs.map(q=>{
+        const rec=S.quests.list.find(x=>x.id===q.id);
+        return `<div class="row" style="justify-content:space-between;font-size:13.5px;margin-bottom:8px">
+          <span style="color:${rec.done?"var(--ok)":"var(--txt)"}">${rec.done?"✓":"○"} ${q.t}</span>
+          <span class="mono muted">${Math.min(rec.p,q.n)}/${q.n} · +${q.xp}</span></div>`}).join("")}</div>
+      <div class="lbl" style="margin-top:4px">${S.quests.bonus?"бонус за все три получен":"все три = ещё +50 XP"}</div>
+    </div></section>
+    <div class="lbl" style="margin-bottom:12px">вакансии</div>
+    <div style="display:flex;flex-direction:column;gap:12px">${cards}</div>`;
+}
+
+/* ---------- события новых слоёв ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-drill],[data-career],[data-story]");
+  if(!t)return;
+  const d=t.dataset.drill,c=t.dataset.career,s=t.dataset.story;
+  if(d){
+    if(d==="check"){const i=document.getElementById("drin");drCheck(i?i.value:"");return}
+    if(d==="next"){drNext();return}
+    if(d==="stop"){finishDrill();return}
+    if(d==="again"){startDrill(DRL.mode,DRL.w);return}
+    if(d.startsWith("world:")){startDrill("world",d.split(":")[1]);return}
+    startDrill(d);return;
+  }
+  if(s){
+    const [id,i]=s.split(":");const sc=STORY.find(x=>x.id===id);
+    S.storySeen=(S.storySeen||[]).concat([id]);
+    S.storyPick=S.storyPick||{};S.storyPick[id]=sc.ch[+i].e;
+    addXP(40);checkDay();save();
+    toast(sc.ch[+i].e);
+    render();return;
+  }
+  if(c){
+    if(c.startsWith("apply:")){startInterview(c.split(":")[1]);return}
+    if(c.startsWith("retry:")){startInterview(c.split(":")[1]);return}
+    if(c==="ivgo"){IV.phase="q";IV.i=0;IV.ans=null;IV.checked=false;drawIV();return}
+    if(c.startsWith("ivopt:")){if(IV.checked)return;IV.ans=+c.split(":")[1];drawIV();return}
+    if(c==="ivcheck"){IV.checked=true;if(IV.ans===IV.items[IV.i].c)IV.ok++;
+      srsUpdate(IV.items[IV.i].q,IV.ans===IV.items[IV.i].c,IV.items[IV.i]);save();drawIV();return}
+    if(c==="ivnext"){if(IV.i<IV.items.length-1){IV.i++;IV.ans=null;IV.checked=false;drawIV()}else ivFinish();return}
+    if(c==="ivlab"){const id=IV.j.lab;IV.pendingLab=id;startLab(id);return}
+    if(c.startsWith("accept:")){acceptOffer(c.split(":")[1]);return}
+    if(c.startsWith("goworld:")){S.openWorld=c.split(":")[1];go("map");return}
+  }
+});
+document.addEventListener("keydown",e=>{
+  const el=document.getElementById("drin");
+  if(DRL&&!DRL.done&&el&&document.activeElement===el&&e.key==="Enter"){
+    e.preventDefault();DRL.checked?drNext():drCheck(el.value);return;
+  }
+  if(IV&&IV.phase==="q"){
+    if(/^[1-9]$/.test(e.key)&&!IV.checked){const i=+e.key-1;if(i<IV.items[IV.i].a.length){IV.ans=i;drawIV()}}
+    else if(e.key==="Enter"){e.preventDefault();
+      if(IV.checked){if(IV.i<IV.items.length-1){IV.i++;IV.ans=null;IV.checked=false;drawIV()}else ivFinish()}
+      else if(IV.ans!==null){IV.checked=true;if(IV.ans===IV.items[IV.i].c)IV.ok++;save();drawIV()}}
+  }
+});

@@ -1,0 +1,241 @@
+/* =====================================================================
+   ЛАБОРАТОРИИ — сценарии отладки в живом терминале
+   ===================================================================== */
+const LABS={};
+
+LABS.disk={w:"linux",t:"Инцидент: диск заполнен",xp:70,
+ brief:`Алерт: <code>DiskSpaceCritical /var 100%</code>. Приложение перестало писать логи и отдаёт ошибки. Найди, что съело место, освободи его — и убедись, что место реально вернулось.`,
+ hint:`Порядок: <code>df -h</code> → <code>du -sh /var/log/*</code> → удалить старое → проверить <code>lsof</code> на удалённые файлы, которые всё ещё держит процесс.`,
+ spec:{host:"app-01",user:"deploy",cwd:"/home/deploy",
+  df:[{fs:"/dev/sda1",size:"40G",used:"12G",avail:"26G",pct:"32%",mnt:"/"},
+      {fs:"/dev/sdb1",size:"20G",used:"20G",avail:"0",pct:"{{e|100%}}",mnt:"/var"}],
+  du:{"/var/log/nginx":"312M","/var/log/journal":"820M","/var/log/app":"17G","/var/lib/docker":"1.4G"},
+  fs:{"/var/log/app/app.log":{c:"2025-02-12 09:00 INFO старт\n2025-02-12 09:01 ERROR disk write failed: No space left on device",mode:"-rw-r--r--",own:"app app",size:412},
+      "/var/log/app/app.log.1":{c:"старый лог",mode:"-rw-r--r--",own:"app app",size:5100000000},
+      "/var/log/app/app.log.2":{c:"старый лог",mode:"-rw-r--r--",own:"app app",size:4900000000},
+      "/var/log/app/debug-2024.log":{c:"дамп отладки",mode:"-rw-r--r--",own:"app app",size:6800000000},
+      "/etc/logrotate.d/nginx":{c:"/var/log/nginx/*.log {\n  daily\n  rotate 14\n  compress\n}",own:"root root"},
+      "/home/deploy/README":{c:"Дежурная смена. Логи приложения: /var/log/app",own:"deploy deploy"}},
+  ps:[{pid:711,user:"root",cmd:"/usr/sbin/nginx -g daemon off;",cpu:"0.3",mem:"0.6"},
+      {pid:902,user:"app",cmd:"/opt/app/bin/api --port 8080",cpu:"2.1",mem:"4.2"}],
+  svc:{app:{state:"active",pid:902,desc:"API service",port:8080,exec:"/opt/app/bin/api --port 8080",
+        log:["09:01 ERROR write /var/log/app/app.log: no space left on device"]},
+       nginx:{state:"active",pid:711,desc:"nginx web server",port:80}},
+  ports:[{proto:"tcp",port:80,pid:711,proc:"nginx"},{proto:"tcp",port:8080,pid:902,proc:"api"}],
+  extra:{deleted:[{proc:"api",pid:902,size:"3221225472",path:"/var/log/app/old-trace.log"}]}},
+ after(ctx){
+   let freed=0;
+   ["/var/log/app/app.log.1","/var/log/app/app.log.2","/var/log/app/debug-2024.log"].forEach(p=>{if(ctx.fs[p]===undefined)freed+=5.5});
+   if(ctx.flags["restart:app"]&&ctx.extra.deleted.length){ctx.extra.deleted=[];freed+=3;ctx.flags.releasedDeleted=true}
+   const used=Math.max(2,20-freed), pct=Math.round(used/20*100);
+   ctx.df[1].used=used.toFixed(0)+"G";ctx.df[1].avail=(20-used).toFixed(0)+"G";
+   ctx.df[1].pct=pct>=95?"{{e|"+pct+"%}}":pct>=80?"{{w|"+pct+"%}}":"{{p|"+pct+"%}}";
+   if(pct<80)ctx.flags.diskOk=true;
+   if(freed>0)ctx.du["/var/log/app"]=(17-freed).toFixed(1)+"G";
+ },
+ tasks:[
+  {t:"Оценить заполненность разделов",hint:"df -h",ok:c=>c.flags.df},
+  {t:"Найти каталог-виновник",hint:"du -sh /var/log/*  (или du -sh /var/*)",ok:c=>c.flags.du},
+  {t:"Удалить старые ротированные логи",hint:"rm /var/log/app/app.log.1  и остальные крупные старые файлы",ok:c=>c.fs["/var/log/app/app.log.1"]===undefined&&c.fs["/var/log/app/debug-2024.log"]===undefined},
+  {t:"Найти удалённый файл, который процесс всё ещё держит",hint:"lsof | grep deleted",ok:c=>c.flags.lsof},
+  {t:"Освободить его, перезапустив сервис",hint:"systemctl restart app",ok:c=>c.flags.releasedDeleted},
+  {t:"Убедиться, что место вернулось (ниже 80%)",hint:"снова df -h",ok:c=>c.flags.diskOk}],
+ debrief:`<p><b>Почему место не вернулось сразу.</b> Пока процесс держит открытым удалённый файл, ядро не отдаёт блоки. <code>lsof | grep deleted</code> показывает такие файлы, а <code>df</code> и <code>du</code> расходятся в показаниях — это и есть диагностический признак.</p>
+ <p><b>Что сделать, чтобы не повторилось:</b> logrotate с <code>rotate</code> и <code>maxsize</code>, алерт на 80% (а не на 100%), отдельный раздел под логи, отправка логов наружу вместо хранения на хосте.</p>`};
+
+LABS.svcfail={w:"linux",t:"Инцидент: сервис не запускается",xp:75,
+ brief:`После ночного обновления сервис <code>api</code> не поднялся. <code>systemctl start api</code> падает. Найди настоящую причину, устрани её и подними сервис. Проверь результат запросом.`,
+ hint:`Логи сервиса — <code>journalctl -u api</code>. Если пишет «address already in use» — ищи, кто занял порт: <code>ss -tulpn</code>.`,
+ spec:{host:"app-02",user:"deploy",
+  svc:{api:{state:"failed",code:1,desc:"API service",port:8080,exec:"/opt/app/bin/api --port 8080",blocked:true,
+       log:["09:12:31 запуск API v2.4.1","09:12:31 {{e|FATAL: listen tcp 0.0.0.0:8080: bind: address already in use}}","09:12:31 процесс завершился с кодом 1"]},
+      nginx:{state:"active",pid:711,desc:"nginx",port:80}},
+  ps:[{pid:711,user:"root",cmd:"/usr/sbin/nginx -g daemon off;",cpu:"0.2",mem:"0.6"},
+      {pid:1544,user:"root",cmd:"python3 /opt/tmp/debug_server.py 8080",cpu:"0.1",mem:"1.1"}],
+  ports:[{proto:"tcp",port:80,pid:711,proc:"nginx"},{proto:"tcp",port:8080,pid:1544,proc:"python3"}],
+  fs:{"/opt/tmp/debug_server.py":{c:"# временный отладочный сервер, забыли выключить после ночного дежурства\nimport http.server",own:"root root"},
+      "/etc/systemd/system/api.service":{c:"[Service]\nExecStart=/opt/app/bin/api --port 8080\nRestart=on-failure\nUser=app",own:"root root"}},
+  http:{"localhost:8080":{code:502,msg:"Bad Gateway"},"localhost":{code:502,msg:"Bad Gateway"}},
+  dns:{localhost:"127.0.0.1"}},
+ after(ctx){
+   const s=ctx.svc.api;
+   if(!ctx.ports.find(p=>p.port===8080&&p.proc!=="api"))s.blocked_cleared=true;
+   if(s.state==="active"){ctx.http["localhost:8080"]={code:200,msg:"OK",body:"{\"status\":\"ok\",\"version\":\"2.4.1\"}"};ctx.http["localhost"]={code:200,msg:"OK",body:"OK"}}
+ },
+ tasks:[
+  {t:"Посмотреть состояние сервиса",hint:"systemctl status api",ok:c=>c.flags["status:api"]},
+  {t:"Прочитать журнал сервиса и найти причину",hint:"journalctl -u api",ok:c=>c.flags["journal:api"]},
+  {t:"Выяснить, кто занял порт 8080",hint:"ss -tulpn",ok:c=>c.flags.ss},
+  {t:"Освободить порт",hint:"kill <PID процесса python3>",ok:c=>!c.ports.find(p=>p.port===8080&&p.proc!=="api")},
+  {t:"Запустить сервис",hint:"systemctl start api",ok:c=>c.svc.api.state==="active"},
+  {t:"Проверить, что приложение отвечает",hint:"curl localhost:8080",ok:c=>c.flags["curl:localhost:8080"]&&c.svc.api.state==="active"}],
+ debrief:`<p><b>Схема, которая работает всегда:</b> статус → журнал → конкретная строка ошибки → проверка гипотезы отдельной командой → устранение → проверка результата. Ты только что прошёл её целиком.</p>
+ <p>«Address already in use» — одна из трёх самых частых причин незапуска. Две другие: нет прав на файл/сокет (<code>Permission denied</code>) и отсутствует зависимость (БД, переменная окружения).</p>
+ <p>Заметь: перезапуск сервера «вслепую» тоже бы починил — но ты бы не узнал, что кто-то оставил отладочный сервер, и он бы вернулся.</p>`};
+
+LABS.gw502={w:"net",t:"Инцидент: 502 Bad Gateway",xp:80,
+ brief:`Пользователи видят 502. Nginx работает. Пройди цепочку от внешнего запроса до бэкенда, найди разрыв и восстанови сервис.`,
+ hint:`502 значит: прокси жив, апстрим — нет. Проверь <code>nginx -t</code>, потом статус приложения и его журнал, потом от чего зависит приложение.`,
+ spec:{host:"web-01",user:"deploy",
+  dns:{"shop.ru":"10.0.1.20","localhost":"127.0.0.1"},
+  http:{"shop.ru":{code:502,msg:"Bad Gateway",headers:{Server:"nginx/1.24.0"},body:"<html><head><title>502 Bad Gateway</title></head></html>"},
+        "localhost:3000":{code:0}},
+  svc:{nginx:{state:"active",pid:711,desc:"nginx",port:443},
+       shopapi:{state:"failed",code:1,desc:"Shop API",port:3000,exec:"/opt/shop/api",blocked:true,
+        log:["09:40:02 старт Shop API","09:40:02 подключение к postgres://db-01:5432/shop","09:40:07 {{e|FATAL: could not connect to server: Connection refused}}","09:40:07 exit code 1"]},
+       postgresql:{state:"inactive",desc:"PostgreSQL 16",port:5432,exec:"/usr/lib/postgresql/16/bin/postgres"}},
+  ps:[{pid:711,user:"root",cmd:"nginx: master process",cpu:"0.2",mem:"0.5"}],
+  ports:[{proto:"tcp",port:443,pid:711,proc:"nginx"},{proto:"tcp",port:80,pid:711,proc:"nginx"}],
+  fs:{"/etc/nginx/sites-enabled/shop.conf":{c:"server {\n  listen 443 ssl;\n  server_name shop.ru;\n  location / {\n    proxy_pass http://127.0.0.1:3000;\n    proxy_set_header Host $host;\n  }\n}",own:"root root"},
+      "/var/log/nginx/error.log":{c:"2025/02/12 09:41:10 [error] 711#0: *2201 connect() failed (111: Connection refused) while connecting to upstream, client: 93.10.4.2, upstream: \"http://127.0.0.1:3000/\", host: \"shop.ru\"",own:"root root"}}},
+ after(ctx){
+   const pg=ctx.svc.postgresql,api=ctx.svc.shopapi;
+   if(pg.state==="active")api.blocked_cleared=true;
+   if(api.state==="active"){ctx.http["shop.ru"]={code:200,msg:"OK",headers:{Server:"nginx/1.24.0"},body:"<html><body>Магазин работает</body></html>"};
+     ctx.http["localhost:3000"]={code:200,msg:"OK",body:"{\"ok\":true}"}}
+ },
+ tasks:[
+  {t:"Воспроизвести проблему запросом",hint:"curl -I https://shop.ru",ok:c=>c.flags["curl:shop.ru"]},
+  {t:"Убедиться, что конфиг nginx валиден",hint:"nginx -t",ok:c=>c.flags["nginx-t"]},
+  {t:"Прочитать error.log nginx и увидеть, куда он проксирует",hint:"cat /var/log/nginx/error.log",ok:c=>c.flags["cat:/var/log/nginx/error.log"]||c.flags["tail:/var/log/nginx/error.log"]},
+  {t:"Найти причину падения бэкенда в его журнале",hint:"journalctl -u shopapi",ok:c=>c.flags["journal:shopapi"]},
+  {t:"Поднять зависимость — базу данных",hint:"systemctl start postgresql",ok:c=>c.svc.postgresql.state==="active"},
+  {t:"Поднять само приложение",hint:"systemctl start shopapi",ok:c=>c.svc.shopapi.state==="active"},
+  {t:"Проверить, что сайт отвечает 200",hint:"curl -I https://shop.ru",ok:c=>c.http["shop.ru"]&&c.http["shop.ru"].code===200&&c.flags["curl:shop.ru"]}],
+ debrief:`<p><b>Разбор:</b> 502 — это всегда «прокси не получил валидный ответ от апстрима». Причина оказалась на два слоя глубже: приложение падало, потому что не поднялась БД. Так почти всегда: цепочка зависимостей длиннее, чем кажется.</p>
+ <p><b>Что предотвратило бы инцидент:</b> <code>Requires=postgresql.service</code> и <code>After=</code> в юните, ретраи подключения к БД в приложении, healthcheck и алерт на долю 5xx, а не на «сайт не открывается» от пользователей.</p>`};
+
+LABS.tlsdns={w:"net",t:"Инцидент: сертификат истёк",xp:70,
+ brief:`Браузеры показывают предупреждение безопасности, конверсия упала до нуля. Проверь DNS, TLS и механизм автопродления — и почини так, чтобы не повторилось.`,
+ hint:`<code>dig домен +short</code> проверит DNS, <code>curl -v</code> покажет состояние TLS, а автопродление живёт в systemd-таймере <code>certbot.timer</code>.`,
+ spec:{host:"web-02",user:"deploy",
+  dns:{"shop.ru":"10.0.1.20"},
+  http:{"shop.ru":{code:526,msg:"Invalid SSL Certificate",tls:"{{e|certificate has expired (expired 2 days ago)}}",headers:{Server:"nginx/1.24.0"}}},
+  svc:{nginx:{state:"active",pid:711,desc:"nginx",port:443},
+       "certbot.timer":{state:"failed",desc:"Certbot renewal timer",
+        log:["06:00:01 запуск обновления сертификата","06:00:04 {{e|Failed authorization: connection to :80 refused — challenge не прошёл}}","06:00:04 renewal failed"]},
+       certbot:{state:"inactive",desc:"Certbot renew"}},
+  fs:{"/etc/letsencrypt/live/shop.ru/cert.pem":{c:"-----BEGIN CERTIFICATE-----\nnotAfter=2025-02-10 09:00:00 GMT   <-- ИСТЁК\n-----END CERTIFICATE-----",own:"root root"},
+      "/etc/nginx/sites-enabled/shop.conf":{c:"server {\n  # listen 80;   <-- закомментировали при чистке конфигов\n  listen 443 ssl;\n  server_name shop.ru;\n  ssl_certificate /etc/letsencrypt/live/shop.ru/fullchain.pem;\n}",own:"root root"}},
+  ports:[{proto:"tcp",port:443,pid:711,proc:"nginx"}]},
+ after(ctx){
+   const cf=ctx.fs["/etc/nginx/sites-enabled/shop.conf"];
+   const has80=cf&&/^\s*listen\s+80;/m.test(fnode(cf).c);
+   if(has80&&(ctx.flags["reload:nginx"]||ctx.flags["restart:nginx"])&&!ctx.ports.find(p=>p.port===80))
+     ctx.ports.push({proto:"tcp",port:80,pid:711,proc:"nginx"});
+   if(ctx.svc.certbot.state==="active"&&ctx.ports.find(p=>p.port===80)){
+     ctx.flags.certRenewed=true;
+     ctx.http["shop.ru"]={code:200,msg:"OK",tls:"{{p|TLSv1.3 / сертификат действителен ещё 89 дней}}",body:"OK"};
+     ctx.fs["/etc/letsencrypt/live/shop.ru/cert.pem"]={c:"-----BEGIN CERTIFICATE-----\nnotAfter=2025-05-13 09:00:00 GMT\n-----END CERTIFICATE-----",own:"root root"};
+   }
+ },
+ tasks:[
+  {t:"Проверить, что домен резолвится",hint:"dig shop.ru +short",ok:c=>c.flags.dig},
+  {t:"Увидеть проблему TLS в подробном выводе",hint:"curl -v https://shop.ru",ok:c=>c.flags["curl:shop.ru"]},
+  {t:"Проверить срок в самом сертификате",hint:"cat /etc/letsencrypt/live/shop.ru/cert.pem",ok:c=>c.flags["cat:/etc/letsencrypt/live/shop.ru/cert.pem"]},
+  {t:"Найти, почему не сработало автопродление",hint:"journalctl -u certbot.timer",ok:c=>c.flags["journal:certbot.timer"]},
+  {t:"Понять, почему challenge не проходит: nginx не слушает 80",hint:"cat /etc/nginx/sites-enabled/shop.conf и ss -tulpn — порта 80 нет",ok:c=>c.flags["cat:/etc/nginx/sites-enabled/shop.conf"]&&c.flags.ss},
+  {t:"Вернуть listen 80 в конфиг и перечитать nginx",hint:"sed -i 's/# listen 80;/listen 80;/' /etc/nginx/sites-enabled/shop.conf, затем nginx -t и systemctl reload nginx",ok:c=>!!c.ports.find(p=>p.port===80)},
+  {t:"Перевыпустить сертификат",hint:"systemctl start certbot",ok:c=>c.flags.certRenewed}],
+ debrief:`<p>Сертификат истёк не сам по себе: сломалось автопродление, и об этом никто не узнал. Классика — <b>у автоматизации тоже должен быть мониторинг</b>.</p>
+ <p>Ставь алерт «сертификат истекает через 21 день» и проверяй результат таймера, а не факт его запуска. Проверка вручную: <code>echo | openssl s_client -connect shop.ru:443 2>/dev/null | openssl x509 -noout -dates</code>.</p>`};
+
+LABS.secret={w:"git",t:"Инцидент: секрет уехал в репозиторий",xp:65,
+ brief:`Сканер безопасности нашёл пароль БД в истории git. Оцени масштаб, закрой дыру в процессе и объясни, почему одного «удалить файл» недостаточно.`,
+ hint:`Смотри <code>git log</code>, читай <code>.env</code>, ищи упоминания по всему дереву через <code>grep -r</code>, потом создай <code>.gitignore</code>.`,
+ spec:{host:"laptop",user:"dev",cwd:"/home/dev/app",
+  git:{branch:"main",ahead:1,modified:[],untracked:[],
+    log:[{h:"9f8e7d6",m:"feat: подключение к БД"},{h:"3c2b1a0",m:"chore: добавлен .env с настройками  <-- сюда"},{h:"a1b2c3d",m:"init"}]},
+  fs:{"/home/dev/app/.env":{c:"DB_HOST=db-prod.internal\nDB_USER=shop\nDB_PASSWORD=Pr0d_Pa55w0rd!\nSTRIPE_KEY=sk_live_51H9x2",mode:"-rw-r--r--",own:"dev dev"},
+      "/home/dev/app/README.md":{c:"# Shop API\nЗапуск: docker compose up",own:"dev dev"},
+      "/home/dev/app/src/db.js":{c:"const pass = process.env.DB_PASSWORD; // берём из окружения",own:"dev dev"},
+      "/home/dev/app/docker-compose.yml":{c:"services:\n  db:\n    image: postgres:16\n    environment:\n      POSTGRES_PASSWORD: Pr0d_Pa55w0rd!",own:"dev dev"}}},
+ after(ctx){
+   const gi=ctx.fs["/home/dev/app/.gitignore"];
+   if(gi&&fnode(gi).c.includes(".env"))ctx.flags.gitignoreOk=true;
+   const dc=ctx.fs["/home/dev/app/docker-compose.yml"];
+   if(dc&&!fnode(dc).c.includes("Pr0d_Pa55w0rd"))ctx.flags.composeClean=true;
+ },
+ tasks:[
+  {t:"Посмотреть историю коммитов",hint:"git log",ok:c=>c.cmds.some(x=>x.startsWith("git log"))},
+  {t:"Увидеть, что именно утекло",hint:"cat .env",ok:c=>c.flags["cat:/home/dev/app/.env"]},
+  {t:"Найти все места, где пароль повторяется",hint:"grep -r Pr0d_Pa55w0rd .",ok:c=>Object.keys(c.flags).some(k=>k.startsWith("grep:")&&k.includes("pr0d"))},
+  {t:"Убрать пароль из docker-compose.yml",hint:"sed -i 's/Pr0d_Pa55w0rd!/${DB_PASSWORD}/' docker-compose.yml",ok:c=>c.flags.composeClean},
+  {t:"Создать .gitignore и внести туда .env",hint:"echo .env > .gitignore",ok:c=>c.flags.gitignoreOk},
+  {t:"Зафиксировать изменения",hint:"git add . затем git commit -m \"chore: убраны секреты\"",ok:c=>c.flags["git commit"]}],
+ debrief:`<p><b>Главное:</b> ты закрыл дыру в процессе, но секрет всё ещё в истории git и считается скомпрометированным. Правильный порядок в реальности: <b>1)</b> немедленно ротировать пароль и ключ Stripe, <b>2)</b> потом чистить историю (<code>git filter-repo</code> / BFG) с согласованием команды, <b>3)</b> включить сканер секретов в CI (gitleaks) и pre-commit хук.</p>
+ <p>Файл, удалённый новым коммитом, остаётся доступным в любом клоне и форке. Именно поэтому первый шаг — ротация, а не уборка.</p>`};
+
+LABS.crashloop={w:"docker",t:"Инцидент: контейнер в рестарт-петле",xp:80,
+ brief:`Контейнер <code>web</code> бесконечно перезапускается. Разберись почему, устрани причину и убедись, что приложение отвечает.`,
+ hint:`<code>docker ps -a</code> покажет состояния всех контейнеров, <code>docker logs web</code> — почему падает. Смотри, от чего зависит web.`,
+ spec:{host:"docker-host",user:"deploy",
+  docker:[{id:"c1a2b3c4d5e6",name:"web",image:"shop/web:2.4.1",status:"Restarting (1) 3 seconds ago",ports:"0.0.0.0:8080->3000/tcp",
+    brokenUntilFixed:true,logs:["node server.js","подключение к postgres://db:5432/shop","{{e|Error: connect ECONNREFUSED 172.18.0.3:5432}}","{{e|процесс завершился с кодом 1}}"]},
+   {id:"f6e5d4c3b2a1",name:"db",image:"postgres:16",status:"Exited (137) 8 minutes ago",ports:"",
+    logs:["database system is starting up","{{e|killed by signal 9 — контейнер остановлен из-за нехватки памяти (OOM)}}"],oom:true,memLimit:268435456}],
+  images:[{repo:"shop/web",tag:"2.4.1",id:"9f2c1ab44e10",size:"1.82GB"},{repo:"postgres",tag:"16",id:"aa41bd2f5f30",size:"432MB"}],
+  http:{"localhost:8080":{code:0}},dns:{localhost:"127.0.0.1"},
+  fs:{"/opt/shop/docker-compose.yml":{c:"services:\n  web:\n    image: shop/web:2.4.1\n    ports: [\"8080:3000\"]\n    depends_on: [db]\n  db:\n    image: postgres:16\n    mem_limit: 256m\n    environment:\n      POSTGRES_PASSWORD: secret",own:"deploy deploy"}},
+  ps:[{pid:640,user:"root",cmd:"dockerd",cpu:"1.4",mem:"2.2"}],mem:{t:7900,u:2100}},
+ after(ctx){
+   const db=ctx.docker.find(c=>c.name==="db"),web=ctx.docker.find(c=>c.name==="web");
+   if(db&&db.status.startsWith("Up"))web.fixed=true;
+   if(web&&web.status.startsWith("Up")&&db.status.startsWith("Up")){
+     ctx.http["localhost:8080"]={code:200,msg:"OK",body:"{\"status\":\"ok\"}"};ctx.flags.appUp=true;}
+ },
+ tasks:[
+  {t:"Увидеть состояние ВСЕХ контейнеров, включая остановленные",hint:"docker ps -a",ok:c=>c.flags["docker ps"]},
+  {t:"Прочитать логи падающего контейнера",hint:"docker logs web",ok:c=>c.flags["dlogs:web"]},
+  {t:"Прочитать логи упавшей зависимости",hint:"docker logs db",ok:c=>c.flags["dlogs:db"]},
+  {t:"Посмотреть, почему db был убит (код 137)",hint:"docker inspect db — смотри OOMKilled и Memory",ok:c=>c.flags["inspect:db"]},
+  {t:"Поднять базу",hint:"docker start db",ok:c=>{const d=c.docker.find(x=>x.name==="db");return d&&d.status.startsWith("Up")}},
+  {t:"Перезапустить приложение",hint:"docker restart web",ok:c=>{const w=c.docker.find(x=>x.name==="web");return w&&w.status.startsWith("Up")}},
+  {t:"Проверить, что сервис отвечает",hint:"curl localhost:8080",ok:c=>c.flags.appUp&&c.flags["curl:localhost:8080"]}],
+ debrief:`<p><b>Код выхода 137</b> = 128 + 9 (SIGKILL). Почти всегда это OOM-killer: контейнер превысил <code>mem_limit</code>. Код <b>143</b> = SIGTERM (штатная остановка), <b>1</b> — приложение упало само.</p>
+ <p><code>depends_on</code> в compose ждёт только СТАРТА контейнера, а не готовности БД принимать соединения. Правильно: healthcheck на db + <code>condition: service_healthy</code>, и ретраи подключения в самом приложении.</p>`};
+
+LABS.dfile={w:"docker",t:"Ревью: Dockerfile на 1.8 ГБ",xp:70,
+ brief:`Разработчики прислали образ на 1.8 ГБ, который запускается от root и пересобирает зависимости при каждом изменении кода. Исправь Dockerfile прямо здесь и пересобери.`,
+ hint:`Читай файл, потом правь через <code>sed -i</code>, добавляй строки через <code>echo ... >> Dockerfile</code>. Нужны: лёгкая база, порядок слоёв, непривилегированный пользователь, .dockerignore.`,
+ spec:{host:"builder",user:"deploy",cwd:"/opt/app",
+  fs:{"/opt/app/Dockerfile":{c:"FROM node:20\nWORKDIR /app\nCOPY . .\nRUN npm install\nEXPOSE 3000\nCMD [\"node\", \"server.js\"]",own:"deploy deploy"},
+      "/opt/app/package.json":{c:"{\"name\":\"shop-web\",\"dependencies\":{\"express\":\"^4\"}}",own:"deploy deploy"},
+      "/opt/app/server.js":{c:"require('express')().listen(3000)",own:"deploy deploy"},
+      "/opt/app/node_modules/.keep":{c:"",own:"deploy deploy"},
+      "/opt/app/.git/config":{c:"[remote \"origin\"]",own:"deploy deploy"}},
+  images:[{repo:"shop/web",tag:"2.4.1",id:"9f2c1ab44e10",size:"1.82GB"}],docker:[]},
+ after(ctx){
+   const d=ctx.fs["/opt/app/Dockerfile"];if(!d)return;
+   const c=fnode(d).c;
+   ctx.flags.dfAlpine=/node:20-alpine|distroless/.test(c);
+   ctx.flags.dfUser=/^USER\s+\S+/m.test(c);
+   ctx.flags.dfCache=/COPY\s+package\*?\.json/.test(c);
+   const di=ctx.fs["/opt/app/.dockerignore"];
+   ctx.flags.dfIgnore=!!di&&/node_modules/.test(fnode(di).c)&&/\.git/.test(fnode(di).c);
+   if(ctx.flags["docker build"]&&ctx.flags.dfAlpine){
+     const img=ctx.images.find(i=>i.repo==="shop/web");if(img)img.size="118MB";ctx.flags.dfBuilt=true;}
+ },
+ tasks:[
+  {t:"Прочитать текущий Dockerfile",hint:"cat Dockerfile",ok:c=>c.flags["cat:/opt/app/Dockerfile"]},
+  {t:"Посмотреть, что вообще лежит в контексте сборки",hint:"ls -la  (обрати внимание на node_modules и .git)",ok:c=>c.flags.find||Object.keys(c.flags).length>1},
+  {t:"Заменить базовый образ на лёгкий",hint:"sed -i 's/node:20/node:20-alpine/' Dockerfile",ok:c=>c.flags.dfAlpine},
+  {t:"Добавить непривилегированного пользователя",hint:"echo 'USER node' >> Dockerfile",ok:c=>c.flags.dfUser},
+  {t:"Создать .dockerignore с node_modules и .git",hint:"echo 'node_modules' > .dockerignore  затем  echo '.git' >> .dockerignore",ok:c=>c.flags.dfIgnore},
+  {t:"Пересобрать образ",hint:"docker build -t shop/web:2.4.2 .",ok:c=>c.flags.dfBuilt},
+  {t:"Убедиться, что образ похудел",hint:"docker images",ok:c=>c.flags.dfBuilt&&c.cmds.some(x=>x.startsWith("docker images"))}],
+ debrief:`<p>Ты закрыл четыре типичные проблемы: тяжёлая база, root, сломанный кэш слоёв и мусор в контексте сборки. Осталась пятая, самая ценная — <b>multi-stage</b>: собирать зависимости в одном stage, копировать в чистый рантайм-образ во втором.</p>
+ <pre>FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+USER node
+CMD ["node","dist/server.js"]</pre>
+ <p>И порядок слоёв: сначала <code>COPY package*.json</code> + установка, только потом <code>COPY . .</code> — тогда изменение кода не сбрасывает кэш зависимостей.</p>`};

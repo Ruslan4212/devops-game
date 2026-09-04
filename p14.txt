@@ -1,0 +1,313 @@
+/* =====================================================================
+   ПЕРСОНАЖ · КАРЬЕРА · СЮЖЕТ
+   ===================================================================== */
+const SKILLS=[
+ {id:"linux",n:"Linux",ic:"▟"},{id:"net",n:"Сети и веб",ic:"◈"},{id:"git",n:"Git",ic:"⑂"},
+ {id:"docker",n:"Docker",ic:"▣"},{id:"cicd",n:"CI/CD",ic:"⇉"},{id:"iac",n:"IaC",ic:"⌗"},
+ {id:"k8s",n:"Kubernetes",ic:"⎈"},{id:"obs",n:"Мониторинг",ic:"◉"},{id:"cloudsec",n:"Облако и безопасность",ic:"⛨"}
+];
+function skillOf(wid){
+  const w=WORLDS.find(x=>x.id===wid); if(!w)return 0;
+  const labs=labsOf(wid);
+  const mDone=w.miss.filter(m=>S.mis[m.id]).length/Math.max(1,w.miss.length);
+  const lDone=labs.length?labs.filter(l=>S.labs[l.id]).length/labs.length:0;
+  const b=S.boss[wid]?1:0;
+  const dr=DR.some(d=>d.w===wid)?drWorldMastery(wid):0;
+  const wm=labs.length?0.38:0.53, wl=labs.length?0.15:0, wb=0.17, wd=DR.some(d=>d.w===wid)?0.30:0;
+  const norm=wm+wl+wb+wd;
+  return Math.round(100*((mDone*wm+lDone*wl+b*wb+dr*wd)/norm));
+}
+function softSkill(){
+  const iv=(S.interviews||[]).filter(x=>x.passed).length;
+  const st=(S.storySeen||[]).length;
+  const rp=Math.min(1,(S.repairs||0)/60);
+  return Math.min(100,Math.round(iv*11+st*3+rp*25+(S.boss.cloudsec?15:0)));
+}
+function overall(){
+  const vals=SKILLS.map(s=>skillOf(s.id));
+  const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const top=vals.slice().sort((a,b)=>b-a).slice(0,3);
+  const depth=top.reduce((a,b)=>a+b,0)/3;
+  return Math.round((avg*0.55+depth*0.45)*0.85+softSkill()*0.15);
+}
+const RANKS=[
+ {min:0,  n:"Любопытный",   g:"none",   d:"Ты просто открыл терминал. Все с этого начинали."},
+ {min:12, n:"Стажёр",       g:"intern", d:"Тебя можно подпустить к тестовому серверу."},
+ {min:26, n:"Junior",       g:"junior", d:"Ты закрываешь задачи под присмотром и не роняешь прод."},
+ {min:44, n:"Junior+",      g:"junior+",d:"Тебе доверяют дежурство и самостоятельные выкатки."},
+ {min:62, n:"Middle−",      g:"middle-",d:"Ты ведёшь свою зону ответственности целиком."},
+ {min:78, n:"Middle DevOps",g:"middle", d:"Ты проектируешь решения и учишь других. Цель достигнута."}
+];
+function rank(){const o=overall();return RANKS.slice().reverse().find(r=>o>=r.min)}
+function rankNext(){const o=overall();return RANKS.find(r=>o<r.min)}
+const GRADE_ORDER=["none","intern","junior","junior+","middle-","middle"];
+const gradeIdx=g=>GRADE_ORDER.indexOf(g);
+
+/* ---------- поведенческие вопросы ---------- */
+const SOFTQ=[
+ {q:"Разработчик третий раз за неделю просит выкатить хотфикс в обход пайплайна. Твои действия?",
+  a:["Выкатить руками — человек же просит","Выкатить, но выяснить, почему пайплайн не устраивает, и починить процесс","Отказать без объяснений","Сообщить руководству"],c:1,
+  why:"Оценивают, видишь ли ты за просьбой системную проблему. Правильно: разблокировать человека сейчас безопасным способом и убрать причину потом."},
+ {q:"Ты уронил прод на 20 минут. Что делаешь после восстановления?",
+  a:["Молчу, никто не заметил","Пишу честный постмортем с таймлайном и действиями, чтобы не повторилось","Виню мониторинг","Жду, спросят ли"],c:1,
+  why:"Зрелость измеряется тем, что происходит после ошибки. Сокрытие инцидента — самый быстрый способ потерять доверие команды."},
+ {q:"Тебе дают задачу с технологией, которой ты не знаешь. Срок — неделя.",
+  a:["Отказаться","Оценить риск вслух, взять с планом обучения и ранними точками проверки","Согласиться молча и надеяться","Попросить другую задачу"],c:1,
+  why:"Ценят прозрачность оценки, а не героическое молчание. Ранняя проверка гипотезы снижает риск для всех."},
+ {q:"Коллега написал код, который тебе не нравится стилистически, но он работает и покрыт тестами.",
+  a:["Заблокировать PR","Оставить необязательный комментарий и одобрить","Переписать самому","Промолчать навсегда"],c:1,
+  why:"Разделяй блокирующие замечания и вкусовые. Ревью — не место для навязывания личного стиля."},
+ {q:"Руководитель просит ускорить релизы, а ты видишь, что упадёт качество.",
+  a:["Согласиться","Показать цифры: где узкое место, чем рискуем, и предложить план ускорения без потери качества","Отказаться","Ускорить и молчать про риск"],c:1,
+  why:"Разговор на языке данных, а не мнений. Предлагать решение, а не только возражать."},
+ {q:"На дежурстве ночью приходит алерт, который ты не понимаешь.",
+  a:["Игнорировать до утра","Открыть runbook, оценить влияние на пользователей, при необходимости эскалировать","Перезагрузить всё","Отключить алерт"],c:1,
+  why:"Эскалация — не признак слабости, а часть процесса. Отключить алерт можно только после разбора, а не вместо него."},
+ {q:"Почему ты хочешь уйти с текущего места?",
+  a:["Там ужасная команда","Хочу задач другого масштаба: оркестрация, надёжность, автоматизация — и называю конкретику","Больше денег","Скучно"],c:1,
+  why:"Критика прошлого работодателя всегда читается против кандидата. Мотивация «к», а не «от»."},
+ {q:"Тебе достался проект без документации и с ушедшим автором. С чего начнёшь?",
+  a:["Всё переписать","Составить карту: что запущено, где код, как деплоится, где логи — и описать это по ходу","Ждать инструкций","Отказаться от проекта"],c:1,
+  why:"Инвентаризация и документирование по ходу — то, что отличает инженера от исполнителя задач."},
+ {q:"Что для тебя важнее: скорость доставки или стабильность?",
+  a:["Скорость","Это не выбор, а баланс: error budget и SLO делают его измеримым","Стабильность","Зависит от настроения"],c:1,
+  why:"Ответ через error budget показывает, что ты знаешь инженерный способ разрешать этот конфликт, а не философствуешь."},
+ {q:"Тебя просят оценить срок задачи, которую ты не декомпозировал.",
+  a:["Назвать любое число","Дать вилку с оговорками и обещать уточнить после декомпозиции","Сказать «не знаю»","Назвать срок с запасом ×3"],c:1,
+  why:"Честная вилка + обязательство уточнить — профессиональный ответ. Точная цифра из воздуха хуже, чем «уточню к вечеру»."},
+ {q:"В команде спорят: Kubernetes или простой деплой на пару серверов. Твоя позиция?",
+  a:["Всегда Kubernetes","Зависит от нагрузки, размера команды и требований — назову критерии выбора","Всегда просто","Как решит руководство"],c:1,
+  why:"Умение назвать критерии, а не лозунги, — главный признак middle. Технология не самоцель."},
+ {q:"Ты нашёл в проекте серьёзную дыру в безопасности, но задача не твоя и сроки горят.",
+  a:["Промолчать","Зафиксировать, оценить риск и эскалировать владельцу — с предложением сроков исправления","Исправить тайком","Написать в соцсети"],c:1,
+  why:"Ответственность без самодеятельности: сообщить тому, кто принимает решение, и предложить план."}
+];
+/* ---------- компании ---------- */
+const JOBS=[
+ {id:"pelmeni",n:"Пельмени.рф",g:"intern",pay:"45 000 ₽",tag:"Доставка еды, 8 человек, один сервер",
+  desc:"Сайт на одном VPS. Нужен человек, который зайдёт по SSH и не сломает всё окончательно.",
+  req:{linux:18},w:["linux"],lab:null,qn:5,pass:0.6,
+  intro:"Собеседует Марат — основатель, он же поддержка, он же курьер в час пик. Вопросы простые, но проверяют, не боишься ли ты терминала."},
+ {id:"bait",n:"Хостинг «Байт»",g:"junior",pay:"75 000 ₽",tag:"Провайдер VPS, 30 клиентов на инженера",
+  desc:"Первая линия эксплуатации: диски, сервисы, логи. Школа выживания на реальных инцидентах.",
+  req:{linux:45,net:30},w:["linux","net"],lab:"svcfail",qn:7,pass:0.65,
+  intro:"Техдиректор Игорь сажает тебя за терминал прямо на собеседовании. Разговоров мало, задач много."},
+ {id:"pixel",n:"Веб-студия «Пиксель»",g:"junior",pay:"90 000 ₽",tag:"20 клиентских проектов, всё в контейнерах",
+  desc:"Собрать образы, поднять окружения, настроить выкатку. Много однотипной работы — и это хорошо для набивания руки.",
+  req:{linux:40,git:45,docker:40},w:["git","docker"],lab:"dfile",qn:7,pass:0.65,
+  intro:"Лид Аня показывает Dockerfile на 1.8 ГБ и спрашивает: «что здесь не так?». Это и есть собеседование."},
+ {id:"dovoz",n:"Стартап «Довоз»",g:"junior+",pay:"140 000 ₽",tag:"Логистика, 6 деплоев в день",
+  desc:"Пайплайн — сердце компании. Ты отвечаешь за то, чтобы код доезжал до прода без ручных шагов.",
+  req:{docker:55,cicd:55,git:50},w:["cicd","docker","git"],lab:"pipeline",qn:8,pass:0.7,
+  intro:"СTO Слава: «У нас пайплайн падает раз в день, и все привыкли. Расскажи, как ты это чинишь»."},
+ {id:"stavka",n:"Финтех «Ставка»",g:"junior+",pay:"160 000 ₽",tag:"Платежи, 99,95% SLA",
+  desc:"Дежурства, алерты, разбор инцидентов. Здесь учат думать про пользователя, а не про CPU.",
+  req:{linux:55,net:55,obs:45},w:["net","obs","linux"],lab:"gw502",qn:8,pass:0.72,
+  intro:"Тебя сажают в комнату и говорят: «Сайт отдаёт 502. Пять минут. Рассуждай вслух»."},
+ {id:"oblako",n:"«Облачные решения»",g:"middle-",pay:"210 000 ₽",tag:"Аутсорс инфраструктуры, 40 кластеров",
+  desc:"Кубернетес и терраформ каждый день, у разных клиентов. Быстрый рост, много контекста.",
+  req:{k8s:58,cicd:55,iac:45,docker:55},w:["k8s","iac","cicd"],lab:"oom",qn:9,pass:0.75,
+  intro:"Два интервьюера. Один спрашивает про поды, второй молча смотрит, как ты формулируешь. Оба важны."},
+ {id:"polka",n:"Маркетплейс «Полка»",g:"middle",pay:"280 000 ₽",tag:"12 команд разработки, платформа для них",
+  desc:"Платформенная команда: делаешь так, чтобы 12 команд деплоились сами и не звонили тебе.",
+  req:{k8s:72,cicd:65,obs:60,iac:55},w:["k8s","cicd","obs"],lab:"svcep",qn:10,pass:0.78,
+  intro:"Полтора часа. Архитектурная секция, отладка вживую и разговор про то, как ты работаешь с людьми."},
+ {id:"granit",n:"Банк «Гранит»",g:"middle",pay:"300 000 ₽",tag:"SRE-команда, дежурства 24/7",
+  desc:"SLO, error budget, постмортемы. Инженерная культура, за которой сюда и идут.",
+  req:{obs:72,k8s:65,cloudsec:60,net:60},w:["obs","k8s","cloudsec"],lab:"night",qn:10,pass:0.8,
+  intro:"Первый вопрос: «Расскажи про инцидент, где ты был неправ». Дальше — по нарастающей."},
+ {id:"stream",n:"Контур.Стрим",g:"middle",pay:"320 000 ₽",tag:"Продукт, платформа на IaC целиком",
+  desc:"Вся инфраструктура — код, всё через PR. Уровень, к которому стоит идти.",
+  req:{iac:70,k8s:70,cicd:65,cloudsec:60},w:["iac","k8s","cloudsec"],lab:"tfplan",qn:10,pass:0.8,
+  intro:"«Покажи terraform plan, где ты чуть не удалил прод, и расскажи, что понял». Здесь любят честные истории."}
+];
+/* ---------- сюжет ---------- */
+const STORY=[
+ {id:"s0",act:"Пролог",t:"Сообщение в час ночи",
+  when:()=>true,
+  b:"<p>Телефон вибрирует. Марат, твой знакомый с доставкой пельменей: «Слушай, сайт лёг. Ты же вроде в компьютерах разбираешься?»</p><p>Ты в компьютерах не разбираешься. У тебя открыт ноутбук, чёрное окно терминала и мигающий курсор, который смотрит на тебя как на самозванца.</p><p>Но кто-то же должен.</p>",
+  ch:[{t:"Открыть терминал",e:"Ты набираешь первую команду в жизни. Она даже сработала."},
+      {t:"Погуглить, что такое SSH",e:"Час чтения — и ты понимаешь, что дверь всё это время была не заперта."}]},
+ {id:"s1",act:"Акт I",t:"Первые деньги за терминал",
+  when:()=>S.job&&gradeIdx(JOBS.find(j=>j.id===S.job.id).g)>=1,
+  b:"<p>Марат перевёл тебе деньги и написал: «Ты меня спас». Ты потратил на это сорок минут и одну команду, которую подсмотрел вчера.</p><p>Впервые появляется мысль: а если это работа?</p>",
+  ch:[{t:"Купить VPS за 200 ₽ и ломать её",e:"Лучшая инвестиция в карьере. Ты сломаешь её девять раз и починишь десять."},
+      {t:"Завести репозиторий с конфигами",e:"Через год ты будешь благодарен себе за каждую строчку этой истории."}]},
+ {id:"s2",act:"Акт II",t:"Ты больше не гость на сервере",
+  when:()=>overall()>=30,
+  b:"<p>Ты замечаешь, что перестал гуглить <code>tar</code>. Пальцы набирают <code>journalctl -u</code> раньше, чем ты успеваешь подумать.</p><p>На созвоне разработчик говорит «у нас 502» — и ты уже знаешь, что спросить первым.</p>",
+  ch:[{t:"Начать вести свой runbook",e:"Записанное однажды — сэкономленный час в четыре утра."},
+      {t:"Взять дежурство",e:"Страшно. Именно поэтому и стоит."}]},
+ {id:"s3",act:"Акт III",t:"Ночь, которая тебя сделала",
+  when:()=>Object.keys(S.labs).length>=6,
+  b:"<p>03:40. Алерт. Ты один. Двенадцать процентов запросов падают, и где-то там, за графиками, люди не могут оформить заказ.</p><p>Ты не паникуешь. Открываешь дашборд, смотришь, что менялось, откатываешь релиз. Ошибки уходят. Ты записываешь таймлайн, пока помнишь.</p><p>Утром тимлид говорит одно слово: «Спасибо». Этого достаточно.</p>",
+  ch:[{t:"Написать честный постмортем",e:"Без имён. С action items. Так делают взрослые команды."},
+      {t:"Добавить алерт, который сработал бы раньше",e:"Каждый инцидент должен оставлять систему умнее, чем была."}]},
+ {id:"s4",act:"Акт IV",t:"Тебя начинают спрашивать",
+  when:()=>overall()>=55,
+  b:"<p>К тебе подходит стажёр: «А почему у нас образы такие большие?» И ты вдруг объясняешь про слои, кэш и multi-stage — своими словами, без запинки.</p><p>Момент, когда ты понимаешь, что перешёл черту: тебя больше не учат, у тебя спрашивают.</p>",
+  ch:[{t:"Провести внутренний семинар",e:"Объяснить — значит понять дважды."},
+      {t:"Завести шаблоны пайплайнов для команд",e:"Одна правка — и двенадцать проектов стали лучше."}]},
+ {id:"s5",act:"Финал",t:"Оффер на middle",
+  when:()=>S.job&&JOBS.find(j=>j.id===S.job.id).g==="middle",
+  b:"<p>Письмо приходит днём, между двумя задачами. Ты читаешь его дважды.</p><p>Год назад ты не знал, что такое <code>pwd</code>. Сегодня тебе доверяют инфраструктуру, на которой живут чужие деньги и чужой сон.</p><p>Дальше — senior, платформа, архитектура. Но это уже другая история, и её ты напишешь сам.</p>",
+  ch:[{t:"Принять и пойти учить следующего",e:"Круг замкнулся. Теперь ночью пишут тебе — и ты отвечаешь."}]}
+];
+function storyAvailable(){return STORY.filter(s=>!(S.storySeen||[]).includes(s.id)&&s.when())}
+/* ---------- ежедневные задания ---------- */
+const QUESTS=[
+ {id:"q_mis",t:"Пройти одну миссию",n:1,type:"mission",xp:25},
+ {id:"q_drill",t:"20 верных команд в тренажёре",n:20,type:"drill",xp:30},
+ {id:"q_rep",t:"Закрыть повторы на сегодня",n:1,type:"repair",xp:25},
+ {id:"q_lab",t:"Закрыть лабораторию",n:1,type:"lab",xp:45},
+ {id:"q_blitz",t:"Пройти блиц на 60 секунд",n:1,type:"blitz",xp:20},
+ {id:"q_iv",t:"Сходить на собеседование",n:1,type:"interview",xp:35}
+];
+function todayQuests(){
+  const d=today();
+  if(!S.quests||S.quests.d!==d){
+    const seed=[...d].reduce((a,c)=>a+c.charCodeAt(0),0);
+    const pool=QUESTS.slice();const pick=[];
+    for(let i=0;i<3;i++)pick.push(pool.splice((seed*(i+3))%pool.length,1)[0]);
+    S.quests={d,list:pick.map(q=>({id:q.id,p:0,done:false}))};save();
+  }
+  return S.quests.list.map(x=>({...QUESTS.find(q=>q.id===x.id),...x}));
+}
+function questTick(type,n){
+  const qs=todayQuests();let changed=false;
+  qs.forEach((q,i)=>{
+    if(q.type!==type||q.done)return;
+    const rec=S.quests.list[i];
+    rec.p=Math.min(q.n,rec.p+(n||1));
+    if(rec.p>=q.n){rec.done=true;addXP(q.xp);toast(`Задание дня: ${q.t} · +${q.xp} XP`);changed=true}
+  });
+  if(qs.every(q=>S.quests.list.find(x=>x.id===q.id).done)&&!S.quests.bonus){
+    S.quests.bonus=true;addXP(50);award("dailyall");toast("Все задания дня закрыты · +50 XP");
+  }
+  if(changed)save();
+}
+/* ---------- собеседование ---------- */
+let IV=null;
+function startInterview(id){
+  const j=JOBS.find(x=>x.id===id);
+  const reqOk=Object.entries(j.req).every(([k,v])=>skillOf(k)>=v-12);
+  const pool=[];
+  j.w.forEach(wid=>{const w=WORLDS.find(x=>x.id===wid);
+    w.miss.forEach(m=>m.ch.forEach(c=>{if(c.t==="q")pool.push({...c,w:wid})}));
+    w.boss.ch.forEach(c=>{if(c.t==="q")pool.push({...c,w:wid})});});
+  const soft=shuffle(SOFTQ.slice()).slice(0,gradeIdx(j.g)>=3?3:2).map(c=>({...c,w:"soft"}));
+  const tech=shuffle(pool).slice(0,Math.max(2,j.qn-soft.length));
+  IV={j,phase:reqOk?"brief":"screen",items:shuffle(tech.concat(soft)),i:0,ok:0,ans:null,checked:false,reqOk};
+  drawIV();
+}
+function ivFeedback(){
+  const j=IV.j;
+  return Object.entries(j.req).map(([k,v])=>{
+    const cur=skillOf(k),s=SKILLS.find(x=>x.id===k);
+    return {n:s.n,cur,need:v,gap:v-cur,w:k};
+  }).sort((a,b)=>b.gap-a.gap);
+}
+function drawIV(){
+  const v=document.getElementById("view");document.getElementById("tabs").innerHTML="";
+  const j=IV.j;
+  const head=`<div class="row" style="margin-bottom:14px"><span class="lbl">собеседование · ${j.n}</span>
+    <span class="lbl" style="margin-left:auto">${j.pay} · ${gradeName(j.g)}</span></div>`;
+  if(IV.phase==="screen"){
+    const fb=ivFeedback();
+    v.innerHTML=`<div class="runner">${head}
+     <div class="card pad" style="border-left:3px solid var(--bad)">
+      <h1 style="font-size:22px;margin-bottom:8px">Отказ на скрининге</h1>
+      <p class="muted">Рекрутер посмотрел резюме и вежливо ответил, что сейчас ищут кандидата посильнее. Это не провал — это точная информация о том, что подтянуть.</p>
+      <div class="tw" style="margin-top:14px"><table><tr><th>навык</th><th>у тебя</th><th>нужно</th><th>разрыв</th></tr>
+      ${fb.map(f=>`<tr><td>${f.n}</td><td class="mono">${f.cur}</td><td class="mono">${f.need}</td>
+        <td class="mono" style="color:${f.gap>0?"var(--bad)":"var(--ok)"}">${f.gap>0?"−"+f.gap:"ок"}</td></tr>`).join("")}</table></div>
+      <p style="margin-top:14px">Ближайший шаг: <b>${(fb[0]&&fb[0].gap>0)?"мир «"+(WORLDS.find(w=>w.id===fb[0].w)||{}).n+"» — миссии и лаборатория":"попробуй снова"}</b>.</p>
+      <div class="row" style="margin-top:14px">
+        ${fb[0]&&fb[0].gap>0?`<button class="btn" data-career="goworld:${fb[0].w}">К этому миру</button>`:""}
+        <button class="btn ghost" data-tab="career">К вакансиям</button></div>
+     </div></div>`;return;
+  }
+  if(IV.phase==="brief"){
+    v.innerHTML=`<div class="runner">${head}
+     <div class="bossband"><span class="lbl" style="color:#a99bff">${j.tag}</span>
+       <h1 style="font-size:24px;margin:6px 0 8px">${j.n} · ${gradeName(j.g)}</h1>
+       <p class="muted" style="margin:0">${j.intro}</p></div>
+     <div class="card pad"><div class="lbl">как проходит</div>
+       <ul class="tight" style="margin-top:8px">
+         <li>Техническая секция: ${IV.items.length} вопросов, проходной балл ${Math.round(j.pass*100)}%.</li>
+         ${j.lab?`<li>Практическая задача: лаборатория «${LABS[j.lab].t}» ${S.labs[j.lab]?"<span style='color:var(--ok)'>— уже пройдена, зачтётся</span>":"— её нужно закрыть"}.</li>`:""}
+         <li>Провал — не блокировка: можно готовиться и приходить снова.</li></ul>
+       <div class="row" style="margin-top:16px"><button class="btn" data-career="ivgo">Начать собеседование</button>
+       <button class="btn ghost" data-tab="career">Позже</button></div></div></div>`;return;
+  }
+  if(IV.phase==="q"){
+    const it=IV.items[IV.i];
+    v.innerHTML=`<div class="runner">${head}
+     <div class="prog"><i style="width:${IV.i/IV.items.length*100}%"></i></div>
+     <div class="row" style="margin-bottom:10px"><span class="lbl">${it.w==="soft"?"поведенческий вопрос":"технический вопрос"}</span>
+       <span class="lbl" style="margin-left:auto">${IV.i+1}/${IV.items.length} · верно ${IV.ok}</span></div>
+     <div class="card pad"><h2 style="font-size:19px;margin-bottom:14px">${it.q}</h2>
+      <div class="opts">${it.a.map((o,i)=>{
+        let cl="";if(IV.checked){if(i===it.c)cl="right";else if(i===IV.ans)cl="wrong"}else if(IV.ans===i)cl="sel";
+        return `<button class="opt ${cl}" data-career="ivopt:${i}" ${IV.checked?"disabled":""}><kbd>${i+1}</kbd><span>${o}</span></button>`}).join("")}</div>
+      ${IV.checked?`<div class="fb ${IV.ans===it.c?"ok":"no"}"><b>${IV.ans===it.c?"Интервьюер кивает":"Интервьюер делает пометку"}</b>${it.why}</div>`:""}
+      <div class="row" style="margin-top:16px">
+       ${IV.checked?`<button class="btn" data-career="ivnext">${IV.i<IV.items.length-1?"Дальше →":"Результат"}</button>`
+                   :`<button class="btn" data-career="ivcheck" ${IV.ans===null?"disabled":""}>Ответить</button>`}</div>
+     </div></div>`;return;
+  }
+  if(IV.phase==="task"){
+    v.innerHTML=`<div class="runner">${head}
+     <div class="card pad"><div class="lbl">практическая часть</div>
+       <h1 style="font-size:22px;margin:6px 0 8px">Тестовое задание</h1>
+       <p class="muted">Техническую секцию ты прошёл: <b style="color:var(--ok)">${IV.ok} из ${IV.items.length}</b>. Осталось показать руки — компания просит решить реальную задачу.</p>
+       <div class="card pad" style="margin-top:12px;background:var(--panel-2)">
+         <b>${LABS[IV.j.lab].t}</b>
+         <p class="muted" style="margin:6px 0 0;font-size:13.5px">${LABS[IV.j.lab].brief}</p></div>
+       <div class="row" style="margin-top:16px">
+         <button class="btn" data-career="ivlab">Открыть лабораторию</button>
+         <button class="btn ghost" data-tab="career">Вернуться позже</button></div>
+       <p class="muted" style="font-size:12.5px;margin-top:12px">Закроешь её — возвращайся к вакансии, результат зачтётся автоматически.</p>
+     </div></div>`;return;
+  }
+  /* result */
+  const passed=IV.passed;
+  const fb=ivFeedback();
+  v.innerHTML=`<div class="runner">${head}
+   <div class="card res" style="border-color:${passed?"rgba(63,191,143,.5)":"rgba(226,86,90,.4)"}">
+     <div class="lbl">${passed?"оффер":"отказ"}</div>
+     <div class="big ${passed?"ok":"no"}">${Math.round(IV.ok/IV.items.length*100)}%</div>
+     <p class="muted" style="margin:4px 0 10px">${IV.ok} из ${IV.items.length} · проходной ${Math.round(IV.j.pass*100)}%</p>
+     ${passed?`<h2 style="font-size:22px;margin-bottom:8px">${IV.j.n} делает тебе оффер</h2>
+       <p class="muted" style="max-width:54ch;margin:0 auto">${IV.j.pay} · ${gradeName(IV.j.g)}. ${IV.j.desc}</p>
+       <div class="row" style="justify-content:center;margin-top:18px">
+         <button class="btn" data-career="accept:${IV.j.id}">Принять оффер</button>
+         <button class="btn ghost" data-tab="career">Подумать</button></div>`
+     :`<h2 style="font-size:20px;margin-bottom:8px">В этот раз не сложилось</h2>
+       <p class="muted" style="max-width:56ch;margin:0 auto 14px">Обратная связь честная: не хватило глубины. Слабее всего прозвучало${fb[0]?" направление «"+fb[0].n+"»":""}. Подтяни и приходи — здесь это нормальная практика.</p>
+       <div class="row" style="justify-content:center">
+         ${fb[0]&&fb[0].gap>0?`<button class="btn" data-career="goworld:${fb[0].w}">Подтянуть ${fb[0].n}</button>`:""}
+         <button class="btn ghost" data-career="retry:${IV.j.id}">Попробовать снова</button>
+         <button class="btn ghost" data-tab="career">К вакансиям</button></div>`}
+   </div></div>`;
+}
+function ivFinish(){
+  const j=IV.j;
+  const passed=IV.ok/IV.items.length>=j.pass;
+  if(passed&&j.lab&&!S.labs[j.lab]){IV.phase="task";drawIV();return}
+  IV.passed=passed;IV.phase="res";
+  S.interviews=(S.interviews||[]).concat([{id:j.id,passed,score:IV.ok,total:IV.items.length,d:today()}]);
+  addXP(passed?90:35);questTick("interview",1);checkDay();
+  if(passed)award("firstoffer");
+  if((S.interviews||[]).length>=5)award("iv5");
+  save();drawIV();
+}
+function acceptOffer(id){
+  const j=JOBS.find(x=>x.id===id);
+  S.job={id,since:today()};
+  S.rep=(S.rep||0)+10;
+  addXP(150);
+  if(j.g==="middle")award("middle");
+  save();toast(`Ты принят в «${j.n}»`);go("career");
+}
+const gradeName=g=>({none:"без грейда",intern:"стажёр",junior:"junior",["junior+"]:"junior+",["middle-"]:"middle−",middle:"middle"}[g]||g);

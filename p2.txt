@@ -1,0 +1,384 @@
+/* =====================================================================
+   ЯДРО СИМУЛЯТОРА ТЕРМИНАЛА
+   Виртуальная ФС — плоская карта путей. Значение: строка или {c,mode,own}
+   Разметка вывода: {{e|текст}} ошибка, {{w|}} warning, {{d|}} тускло,
+   {{p|}} успех/зелёный, {{hl|}} акцент.
+   ===================================================================== */
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function mkCtx(sp){
+  return {host:sp.host||"prod-01",user:sp.user||"deploy",cwd:sp.cwd||"/home/deploy",
+    fs:clone(sp.fs||{}),ps:clone(sp.ps||[]),svc:clone(sp.svc||{}),ports:clone(sp.ports||[]),
+    docker:clone(sp.docker||[]),images:clone(sp.images||[]),k8s:clone(sp.k8s||{}),
+    http:clone(sp.http||{}),dns:clone(sp.dns||{}),df:clone(sp.df||[]),du:clone(sp.du||{}),
+    git:clone(sp.git||{}),tf:clone(sp.tf||{}),mem:sp.mem||{t:3944,u:1210},
+    flags:{},hist:[],cmds:[],extra:sp.extra||{}};
+}
+const FT={f:0};
+function fnode(v){return typeof v==="string"?{c:v,mode:"-rw-r--r--",own:"root root"}:v}
+function abspath(ctx,p){
+  if(!p)return ctx.cwd;
+  p=p.replace(/^~/,"/home/"+ctx.user);
+  let base = p.startsWith("/") ? [] : ctx.cwd.split("/").filter(Boolean);
+  p.split("/").forEach(s=>{ if(!s||s===".")return; if(s==="..")base.pop(); else base.push(s); });
+  return "/"+base.join("/");
+}
+function exists(ctx,p){ return ctx.fs[p]!==undefined || isDir(ctx,p) }
+function isDir(ctx,p){ if(p==="/")return true; return Object.keys(ctx.fs).some(k=>k.startsWith(p==="/"?"/":p+"/")) }
+function children(ctx,dir){
+  const pre = dir==="/"?"/":dir+"/", set={};
+  Object.keys(ctx.fs).forEach(k=>{ if(!k.startsWith(pre))return;
+    const rest=k.slice(pre.length); if(!rest)return;
+    const seg=rest.split("/")[0];
+    set[seg]= rest.includes("/") ? "d" : "f"; });
+  return set;
+}
+function pad(s,n){s=String(s);return s.length>=n?s:s+" ".repeat(n-s.length)}
+function padl(s,n){s=String(s);return s.length>=n?s:" ".repeat(n-s.length)+s}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function fmt(s){return esc(s).replace(/\{\{(e|w|d|p|hl)\|([\s\S]*?)\}\}/g,(m,c,t)=>`<span class="${c}">${t}</span>`)}
+
+/* ---- разбор строки ---- */
+function tokenize(s){
+  const out=[];let cur="",q=null;
+  for(let i=0;i<s.length;i++){const ch=s[i];
+    if(q){ if(ch===q){q=null} else cur+=ch; continue }
+    if(ch==='"'||ch==="'"){q=ch;continue}
+    if(ch===" "){ if(cur){out.push(cur);cur=""} continue }
+    cur+=ch;}
+  if(cur)out.push(cur);return out;
+}
+function runLine(ctx,line){
+  line=line.trim(); if(!line)return "";
+  ctx.cmds.push(line);
+  // редирект
+  let redir=null,rl=line;
+  const rm=line.match(/\s(>>|>)\s*(\S+)\s*$/);
+  if(rm){redir={app:rm[1]===">>",path:rm[2]};rl=line.slice(0,rm.index);}
+  const segs=rl.split("|").map(s=>s.trim()).filter(Boolean);
+  let data=null,res="";
+  for(let i=0;i<segs.length;i++){
+    const tk=tokenize(segs[i]);
+    if(!tk.length)continue;
+    const name=tk[0],args=tk.slice(1);
+    const fn=CMD[name];
+    if(!fn){ return `{{e|${name}: команда не найдена}}\n{{d|введи }}help{{d| — список доступных команд}}`; }
+    res=fn(ctx,args,data,name);
+    data=res;
+  }
+  if(redir){
+    const p=abspath(ctx,redir.path);
+    const prev=redir.app&&ctx.fs[p]?fnode(ctx.fs[p]).c+"\n":"";
+    ctx.fs[p]={c:prev+res,mode:"-rw-r--r--",own:ctx.user+" "+ctx.user};
+    return "";
+  }
+  return res;
+}
+function readFile(ctx,p){ const n=ctx.fs[p]; return n===undefined?null:fnode(n).c }
+function argFile(ctx,args){ return args.filter(a=>!a.startsWith("-")).pop() }
+function flagsOf(args){ return args.filter(a=>a.startsWith("-")).join("").replace(/-/g,"") }
+
+/* ---- команды ---- */
+const CMD={};
+CMD.help=(ctx)=>`{{hl|Доступные команды в этой лаборатории:}}
+{{d|навигация }}  pwd  ls  cd  find  tree
+{{d|файлы     }}  cat  head  tail  grep  wc  less  echo  touch  mkdir  rm  cp  mv  sed  chmod  chown  sort  uniq  cut  awk
+{{d|система   }}  ps  top  kill  free  df  du  uptime  whoami  uname  id  lsof  date  env
+{{d|сервисы   }}  systemctl  journalctl  nginx  service
+{{d|сеть      }}  ss  netstat  curl  dig  ping  telnet  nc  ip
+{{d|docker    }}  docker  docker compose
+{{d|k8s       }}  kubectl
+{{d|прочее    }}  git  terraform  ansible  history  clear  help
+{{d|Поддерживаются пайпы (|), редирект (> >>) и стрелки вверх/вниз для истории.}}`;
+CMD.pwd=ctx=>ctx.cwd;
+CMD.whoami=ctx=>ctx.user;
+CMD.id=ctx=>`uid=1000(${ctx.user}) gid=1000(${ctx.user}) groups=1000(${ctx.user}),27(sudo)`;
+CMD.uname=(ctx,a)=>a.includes("-a")?`Linux ${ctx.host} 5.15.0-91-generic #101-Ubuntu SMP x86_64 GNU/Linux`:"Linux";
+CMD.date=()=>new Date().toString();
+CMD.uptime=ctx=>` ${new Date().toTimeString().slice(0,5)}:  up 12 days,  4:07,  1 user,  load average: ${ctx.extra.load||"0.42, 0.51, 0.48"}`;
+CMD.clear=ctx=>{ctx.flags._clear=true;return ""};
+CMD.history=ctx=>ctx.cmds.map((c,i)=>padl(i+1,4)+"  "+c).join("\n");
+CMD.echo=(ctx,a)=>a.join(" ");
+CMD.env=ctx=>`PATH=/usr/local/bin:/usr/bin:/bin\nHOME=/home/${ctx.user}\nUSER=${ctx.user}\nSHELL=/bin/bash`;
+CMD.cd=(ctx,a)=>{
+  const t=a[0]?abspath(ctx,a[0]):"/home/"+ctx.user;
+  if(!isDir(ctx,t))return `{{e|cd: ${a[0]}: Нет такого файла или каталога}}`;
+  ctx.cwd=t;return "";
+};
+CMD.ls=(ctx,a)=>{
+  const f=flagsOf(a), tgt=abspath(ctx,a.filter(x=>!x.startsWith("-"))[0]);
+  if(ctx.fs[tgt]!==undefined&&!isDir(ctx,tgt))return tgt.split("/").pop();
+  if(!isDir(ctx,tgt))return `{{e|ls: невозможно получить доступ к '${a.filter(x=>!x.startsWith("-"))[0]||""}': Нет такого файла или каталога}}`;
+  const ch=children(ctx,tgt);
+  let names=Object.keys(ch).sort();
+  if(!f.includes("a"))names=names.filter(n=>!n.startsWith("."));
+  if(!f.includes("l"))return names.map(n=>ch[n]==="d"?`{{hl|${n}/}}`:n).join("  ");
+  const rows=names.map(n=>{
+    const p=(tgt==="/"?"":tgt)+"/"+n;
+    if(ch[n]==="d")return `drwxr-xr-x 2 root root  4096 фев 12 09:14 {{hl|${n}}}`;
+    const nd=fnode(ctx.fs[p]); const size=nd.size!==undefined?nd.size:nd.c.length;
+    return `${nd.mode} 1 ${pad(nd.own,14)} ${padl(size,8)} фев 12 09:14 ${n}`;
+  });
+  return `итого ${rows.length*4}\n`+rows.join("\n");
+};
+CMD.tree=(ctx,a)=>{
+  const root=abspath(ctx,a[0]);const out=[root];
+  const walk=(d,pre)=>{const ch=children(ctx,d);const ks=Object.keys(ch).sort();
+    ks.forEach((n,i)=>{const last=i===ks.length-1;out.push(pre+(last?"└── ":"├── ")+(ch[n]==="d"?`{{hl|${n}}}`:n));
+      if(ch[n]==="d")walk((d==="/"?"":d)+"/"+n,pre+(last?"    ":"│   "));});};
+  walk(root,"");return out.join("\n");
+};
+CMD.cat=(ctx,a,stdin)=>{
+  const p=argFile(ctx,a); if(!p&&stdin!==null)return stdin;
+  const ap=abspath(ctx,p);
+  if(isDir(ctx,ap))return `{{e|cat: ${p}: Это каталог}}`;
+  const c=readFile(ctx,ap);
+  if(c===null)return `{{e|cat: ${p}: Нет такого файла или каталога}}`;
+  ctx.flags["cat:"+ap]=true; return c;
+};
+CMD.less=CMD.cat; CMD.more=CMD.cat;
+CMD.head=(ctx,a,stdin)=>{
+  let n=10;const i=a.indexOf("-n"); if(i>=0)n=+a[i+1]; else{const m=a.find(x=>/^-\d+$/.test(x)); if(m)n=+m.slice(1);}
+  const src = stdin!==null&&stdin!==undefined ? stdin : CMD.cat(ctx,a.filter(x=>!/^-/.test(x)&&x!=String(n)),null);
+  if(String(src).startsWith("{{e|"))return src;
+  return String(src).split("\n").slice(0,n).join("\n");
+};
+CMD.tail=(ctx,a,stdin)=>{
+  let n=10;const i=a.indexOf("-n"); if(i>=0)n=+a[i+1]; else{const m=a.find(x=>/^-\d+$/.test(x)); if(m)n=+m.slice(1);}
+  const follow=a.some(x=>/^-.*f/i.test(x));
+  const files=a.filter(x=>!x.startsWith("-")&&x!==String(n));
+  const src = (stdin!==null&&stdin!==undefined&&!files.length) ? stdin : CMD.cat(ctx,files,null);
+  if(String(src).startsWith("{{e|"))return src;
+  const body=String(src).split("\n").slice(-n).join("\n");
+  if(files[0])ctx.flags["tail:"+abspath(ctx,files[0])]=true;
+  return body+(follow?"\n{{d|^C  (в симуляторе tail -f показывает текущий хвост и выходит)}}":"");
+};
+CMD.grep=(ctx,a,stdin)=>{
+  const f=flagsOf(a);
+  const rest=a.filter(x=>!x.startsWith("-"));
+  let ctxN=0;const cm=a.find(x=>/^-[ABC]\d+$/.test(x)); if(cm)ctxN=+cm.slice(2);
+  const pat=rest[0]; let files=rest.slice(1);
+  if(f.includes("r")&&files.length){
+    const roots=files.map(x=>abspath(ctx,x));
+    files=Object.keys(ctx.fs).filter(k=>roots.some(r=>k===r||k.startsWith(r==="/"?"/":r+"/")));
+  }
+  let text = (stdin!==null&&stdin!==undefined&&!files.length) ? stdin
+    : files.map(fp=>{const p=fp.startsWith("/")?fp:abspath(ctx,fp);const c=readFile(ctx,p);
+        return c===null?"":(files.length>1?c.split("\n").map(l=>`{{d|${p}:}}${l}`).join("\n"):c)}).join("\n");
+  if(String(text).startsWith("{{e|"))return text;
+  const re=new RegExp(pat.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),f.includes("i")?"i":"");
+  const lines=String(text).split("\n");
+  let idx=[];lines.forEach((l,i)=>{const hit=re.test(l);if(f.includes("v")?!hit:hit)idx.push(i)});
+  if(f.includes("c"))return String(idx.length);
+  const keep=new Set(); idx.forEach(i=>{for(let j=i-ctxN;j<=i+ctxN;j++)if(j>=0&&j<lines.length)keep.add(j)});
+  const sel=[...keep].sort((x,y)=>x-y);
+  ctx.flags["grep:"+pat.toLowerCase()]=true;
+  if(!sel.length)return "";
+  return sel.map(i=>(f.includes("n")?`{{d|${i+1}:}}`:"")+lines[i].replace(re,m=>`{{hl|${m}}}`)).join("\n");
+};
+CMD.wc=(ctx,a,stdin)=>{
+  const files=a.filter(x=>!x.startsWith("-"));
+  const text=(stdin!==null&&stdin!==undefined&&!files.length)?stdin:CMD.cat(ctx,files,null);
+  if(String(text).startsWith("{{e|"))return text;
+  const s=String(text); const l=s?s.split("\n").length:0;
+  if(a.includes("-l"))return String(l);
+  return `${padl(l,7)} ${padl(s.split(/\s+/).filter(Boolean).length,7)} ${padl(s.length,7)}`;
+};
+CMD.sort=(ctx,a,stdin)=>{const s=String(stdin||"").split("\n");
+  if(a.includes("-h")||a.includes("-n")){s.sort((x,y)=>parseFloat(x)-parseFloat(y))}else s.sort();
+  if(a.includes("-r"))s.reverse();return s.join("\n")};
+CMD.uniq=(ctx,a,stdin)=>{const s=String(stdin||"").split("\n");const o=[];let p=null;
+  s.forEach(l=>{if(l!==p)o.push(l);p=l});return o.join("\n")};
+CMD.cut=(ctx,a,stdin)=>{const d=(a[a.indexOf("-d")+1]||" ");const fld=(a[a.indexOf("-f")+1]||"1").split(",").map(Number);
+  return String(stdin||"").split("\n").map(l=>{const p=l.split(d);return fld.map(i=>p[i-1]||"").join(d)}).join("\n")};
+CMD.awk=(ctx,a,stdin)=>{const m=(a[0]||"").match(/\$(\d+)/);const i=m?+m[1]:0;
+  return String(stdin||"").split("\n").map(l=>{const p=l.trim().split(/\s+/);return i?(p[i-1]||""):l}).join("\n")};
+CMD.find=(ctx,a)=>{
+  const root=abspath(ctx,a[0]&&!a[0].startsWith("-")?a[0]:".");
+  const ni=a.indexOf("-name");const pat=ni>=0?a[ni+1]:null;
+  const si=a.indexOf("-size");
+  let keys=Object.keys(ctx.fs).filter(k=>k.startsWith(root==="/"?"/":root+"/"));
+  if(pat){const re=new RegExp("^"+pat.replace(/\./g,"\\.").replace(/\*/g,".*")+"$");keys=keys.filter(k=>re.test(k.split("/").pop()))}
+  if(si>=0){const lim=parseInt(a[si+1].replace(/\D/g,""))*1024*1024;keys=keys.filter(k=>{const n=fnode(ctx.fs[k]);return (n.size||n.c.length)>lim})}
+  ctx.flags.find=true;
+  return keys.sort().join("\n")||"{{d|(ничего не найдено)}}";
+};
+CMD.touch=(ctx,a)=>{const p=abspath(ctx,a[0]);if(!ctx.fs[p])ctx.fs[p]={c:"",mode:"-rw-r--r--",own:ctx.user+" "+ctx.user};return ""};
+CMD.mkdir=(ctx,a)=>{const p=abspath(ctx,a.filter(x=>!x.startsWith("-"))[0]);ctx.fs[p+"/.keep"]={c:"",mode:"-rw-r--r--",own:ctx.user+" "+ctx.user};return ""};
+CMD.rm=(ctx,a)=>{
+  const rec=flagsOf(a).includes("r");
+  const t=a.filter(x=>!x.startsWith("-"));
+  let n=0;
+  t.forEach(x=>{
+    if(x.includes("*")){const dir=abspath(ctx,x.slice(0,x.lastIndexOf("/")+1)||".");
+      const re=new RegExp("^"+x.split("/").pop().replace(/\./g,"\\.").replace(/\*/g,".*")+"$");
+      Object.keys(ctx.fs).forEach(k=>{const inDir=k.slice(0,k.lastIndexOf("/"))===dir;
+        if(inDir&&re.test(k.split("/").pop())){delete ctx.fs[k];n++}});return}
+    const p=abspath(ctx,x);
+    if(isDir(ctx,p)&&rec){Object.keys(ctx.fs).forEach(k=>{if(k.startsWith(p+"/")){delete ctx.fs[k];n++}});return}
+    if(ctx.fs[p]!==undefined){delete ctx.fs[p];n++}
+  });
+  ctx.flags.rm=(ctx.flags.rm||0)+n;
+  if(!n)return `{{e|rm: невозможно удалить: нет такого файла}}`;
+  return "";
+};
+CMD.cp=(ctx,a)=>{const s=abspath(ctx,a[a.length-2]),d=abspath(ctx,a[a.length-1]);
+  if(ctx.fs[s]===undefined)return `{{e|cp: нет такого файла: ${a[0]}}}`;ctx.fs[d]=clone(fnode(ctx.fs[s]));return ""};
+CMD.mv=(ctx,a)=>{const s=abspath(ctx,a[a.length-2]),d=abspath(ctx,a[a.length-1]);
+  if(ctx.fs[s]===undefined)return `{{e|mv: нет такого файла: ${a[0]}}}`;ctx.fs[d]=ctx.fs[s];delete ctx.fs[s];return ""};
+CMD.sed=(ctx,a)=>{
+  const inpl=a.includes("-i");
+  const expr=a.find(x=>/^s.\S*.\S*./.test(x)&&!x.startsWith("-"));
+  const file=abspath(ctx,a.filter(x=>x!=="-i"&&x!==expr).pop());
+  if(!expr)return "{{e|sed: не указано выражение}}";
+  const d=expr[1];const parts=expr.slice(2).split(d);
+  const re=new RegExp(parts[0],expr.endsWith("g")?"gm":"m");
+  const c=readFile(ctx,file); if(c===null)return `{{e|sed: нет такого файла}}`;
+  const nc=c.replace(re,parts[1]);
+  if(inpl){const nd=fnode(ctx.fs[file]);nd.c=nc;ctx.fs[file]=nd;ctx.flags["sed:"+file]=true;return ""}
+  return nc;
+};
+CMD.chmod=(ctx,a)=>{
+  const m=a.filter(x=>!x.startsWith("-"))[0], f=abspath(ctx,a.filter(x=>!x.startsWith("-"))[1]);
+  if(ctx.fs[f]===undefined)return `{{e|chmod: нет доступа к '${a[1]}'}}`;
+  const map={0:"---",1:"--x",2:"-w-",3:"-wx",4:"r--",5:"r-x",6:"rw-",7:"rwx"};
+  const nd=fnode(ctx.fs[f]);
+  if(/^\d{3}$/.test(m))nd.mode="-"+m.split("").map(d=>map[d]).join("");
+  ctx.fs[f]=nd; ctx.flags["chmod:"+f]=m; return "";
+};
+CMD.chown=(ctx,a)=>{const o=a.filter(x=>!x.startsWith("-"))[0],f=abspath(ctx,a.filter(x=>!x.startsWith("-"))[1]);
+  if(ctx.fs[f]===undefined)return `{{e|chown: нет доступа к '${a[1]}'}}`;
+  const nd=fnode(ctx.fs[f]);nd.own=o.replace(":"," ");ctx.fs[f]=nd;ctx.flags["chown:"+f]=o;return ""};
+CMD.ps=(ctx,a)=>{
+  ctx.flags.ps=true;
+  const head="USER       PID %CPU %MEM COMMAND";
+  return head+"\n"+ctx.ps.map(p=>`${pad(p.user||"root",10)}${padl(p.pid,5)} ${padl(p.cpu||"0.0",4)} ${padl(p.mem||"0.4",4)} ${p.cmd}`).join("\n");
+};
+CMD.top=(ctx)=>{ctx.flags.ps=true;
+  return `top - up 12 days,  load average: ${ctx.extra.load||"0.42, 0.51, 0.48"}\nTasks: ${ctx.ps.length} total\nMiB Mem: ${ctx.mem.t} total, ${ctx.mem.t-ctx.mem.u} free, ${ctx.mem.u} used\n\n`+
+  "  PID USER      %CPU %MEM COMMAND\n"+ctx.ps.slice().sort((a,b)=>parseFloat(b.cpu||0)-parseFloat(a.cpu||0))
+  .map(p=>`${padl(p.pid,5)} ${pad(p.user||"root",9)} ${padl(p.cpu||"0.0",4)} ${padl(p.mem||"0.4",4)} ${p.cmd}`).join("\n")};
+CMD.kill=(ctx,a)=>{
+  const sig=a.find(x=>x.startsWith("-"));const pid=+a.filter(x=>!x.startsWith("-"))[0];
+  const i=ctx.ps.findIndex(p=>p.pid===pid);
+  if(i<0)return `{{e|kill: (${pid}) - Нет такого процесса}}`;
+  const p=ctx.ps[i];
+  if(p.stubborn&&sig!=="-9"&&sig!=="-KILL")return `{{w|(процесс ${pid} проигнорировал SIGTERM — он не отвечает)}}`;
+  ctx.ps.splice(i,1);ctx.ports=ctx.ports.filter(x=>x.pid!==pid);
+  ctx.flags["kill:"+pid]=sig||"-15"; ctx.flags.killed=(ctx.flags.killed||[]).concat(p.cmd);
+  return "";
+};
+CMD.pkill=(ctx,a)=>{const n=a.filter(x=>!x.startsWith("-"))[0];
+  const t=ctx.ps.filter(p=>p.cmd.includes(n));t.forEach(p=>CMD.kill(ctx,[String(p.pid)]));return ""};
+CMD.pgrep=(ctx,a)=>ctx.ps.filter(p=>p.cmd.includes(a[a.length-1])).map(p=>p.pid).join("\n");
+CMD.free=(ctx,a)=>`               total        used        free      shared  buff/cache   available
+Mem:         ${padl(ctx.mem.t,7)}     ${padl(ctx.mem.u,7)}     ${padl(ctx.mem.t-ctx.mem.u-400,7)}         120        ${padl(400,4)}     ${padl(ctx.mem.t-ctx.mem.u,7)}
+Swap:              0           0           0`;
+CMD.df=(ctx,a)=>{ctx.flags.df=true;
+  return "Файловая система  Размер Использовано  Дост Использовано% Смонтировано в\n"+
+  ctx.df.map(d=>`${pad(d.fs,17)} ${padl(d.size,6)} ${padl(d.used,12)} ${padl(d.avail,5)} ${padl(d.pct,12)} ${d.mnt}`).join("\n")};
+CMD.du=(ctx,a)=>{ctx.flags.du=true;
+  const t=a.filter(x=>!x.startsWith("-")).pop()||ctx.cwd;
+  const base=t.replace(/\/\*$/,"");
+  const rows=Object.entries(ctx.du).filter(([k])=>k.startsWith(base));
+  if(!rows.length)return Object.entries(ctx.du).map(([k,v])=>`${pad(v,8)}${k}`).join("\n");
+  return rows.map(([k,v])=>`${pad(v,8)}${k}`).join("\n")};
+CMD.lsof=(ctx,a)=>{
+  ctx.flags.lsof=true;
+  const del=ctx.extra.deleted||[];
+  const head="COMMAND    PID   USER   FD   TYPE   SIZE/OFF      NODE NAME";
+  return head+"\n"+ctx.ps.map(p=>`${pad(p.cmd.split(" ")[0].slice(0,10),10)}${padl(p.pid,5)} ${pad(p.user||"root",6)} ${padl("3u",4)} ${pad("REG",6)} ${padl("4096",10)} ${padl("12",9)} /var/log/app.log`).join("\n")
+  +(del.length?"\n"+del.map(d=>`${pad(d.proc,10)}${padl(d.pid,5)} ${pad("root",6)} ${padl("5w",4)} ${pad("REG",6)} ${padl(d.size,10)} ${padl("0",9)} ${d.path} {{e|(deleted)}}`).join("\n"):"");
+};
+CMD.systemctl=(ctx,a)=>{
+  const sub=a[0],name=(a[1]||"").replace(/\.service$/,"");
+  const s=ctx.svc[name];
+  if(sub==="status"){
+    if(!s)return `{{e|Unit ${name}.service could not be found.}}`;
+    ctx.flags["status:"+name]=true;
+    const col=s.state==="active"?"{{p|active (running)}}":s.state==="failed"?"{{e|failed (Result: exit-code)}}":"{{w|inactive (dead)}}";
+    return `● ${name}.service - ${s.desc||name}
+     Loaded: loaded (/etc/systemd/system/${name}.service; ${s.enabled?"enabled":"disabled"})
+     Active: ${col} since ${s.since||"Mon 2025-02-12 09:14:02 UTC"}
+   Main PID: ${s.pid||"-"} (${s.state==="active"?name:"код=exited, status="+(s.code||1)})
+     Memory: ${s.memory||"38.2M"}
+
+`+(s.log||[]).slice(-8).map(l=>`фев 12 09:14:0${Math.floor(Math.random()*9)} ${ctx.host} ${name}[${s.pid||1234}]: ${l}`).join("\n");
+  }
+  if(sub==="start"||sub==="restart"){
+    if(!s)return `{{e|Failed to ${sub} ${name}.service: Unit not found.}}`;
+    if(s.blocked&&!s.blocked_cleared){ctx.flags["failstart:"+name]=true;
+      return `{{e|Job for ${name}.service failed because the control process exited with error code.}}\n{{d|See "systemctl status ${name}.service" and "journalctl -xeu ${name}.service" for details.}}`;}
+    s.state="active";s.pid=s.pid||(3000+Math.floor(Math.random()*900));
+    if(!ctx.ps.find(p=>p.pid===s.pid))ctx.ps.push({pid:s.pid,user:s.user||"root",cmd:s.exec||name,cpu:"1.2",mem:"2.1"});
+    if(s.port&&!ctx.ports.find(p=>p.port===s.port))ctx.ports.push({proto:"tcp",port:s.port,pid:s.pid,proc:name,addr:s.addr||"0.0.0.0"});
+    ctx.flags[sub+":"+name]=true;return "";
+  }
+  if(sub==="stop"){ if(!s)return `{{e|Unit not found}}`; s.state="inactive";
+    ctx.ps=ctx.ps.filter(p=>p.pid!==s.pid);ctx.ports=ctx.ports.filter(p=>p.pid!==s.pid);ctx.flags["stop:"+name]=true;return ""}
+  if(sub==="reload"){ if(!s)return `{{e|Unit not found}}`;
+    if(s.cfgbad)return `{{e|Job for ${name}.service failed. Проверь конфигурацию.}}`;
+    ctx.flags["reload:"+name]=true;return ""}
+  if(sub==="enable"){if(s)s.enabled=true;ctx.flags["enable:"+name]=true;return `Created symlink /etc/systemd/system/multi-user.target.wants/${name}.service`}
+  if(sub==="list-units"||sub==="list-unit-files"){
+    return "UNIT                    LOAD   ACTIVE   SUB     DESCRIPTION\n"+
+    Object.entries(ctx.svc).map(([n,v])=>`${pad(n+".service",24)}loaded ${pad(v.state==="active"?"{{p|active}}":"{{e|"+v.state+"}}",18)}${v.desc||""}`).join("\n");
+  }
+  if(sub==="daemon-reload")return "";
+  return `{{e|systemctl: неизвестная подкоманда '${sub||""}'}}`;
+};
+CMD.service=(ctx,a)=>CMD.systemctl(ctx,[a[1],a[0]]);
+CMD.journalctl=(ctx,a)=>{
+  const ui=a.findIndex(x=>x==="-u"||x==="-xeu"||x==="-eu");
+  const name=ui>=0?(a[ui+1]||"").replace(/\.service$/,""):null;
+  if(!name){const all=Object.entries(ctx.svc).flatMap(([n,s])=>(s.log||[]).map(l=>`${n}: ${l}`));return all.join("\n")||"{{d|-- Журнал пуст --}}"}
+  const s=ctx.svc[name]; if(!s)return `{{e|Unit ${name}.service not found}}`;
+  ctx.flags["journal:"+name]=true;
+  return (s.log||["(нет записей)"]).map((l,i)=>`фев 12 09:1${i%9}:2${i%9} ${ctx.host} ${name}[${s.pid||1234}]: ${l}`).join("\n");
+};
+CMD.nginx=(ctx,a)=>{
+  if(a.includes("-t")||a.includes("-T")){ctx.flags["nginx-t"]=true;
+    const bad=ctx.extra.nginxBad;
+    if(bad)return `nginx: [emerg] ${bad}\n{{e|nginx: configuration file /etc/nginx/nginx.conf test failed}}`;
+    return `nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\n{{p|nginx: configuration file /etc/nginx/nginx.conf test is successful}}`;}
+  if(a.includes("-s"))return "";
+  return "{{d|использование: nginx -t | nginx -s reload}}";
+};
+CMD.ss=(ctx,a)=>{
+  ctx.flags.ss=true;
+  const head="Netid  State   Recv-Q  Send-Q   Local Address:Port    Process";
+  return head+"\n"+ctx.ports.map(p=>`${pad(p.proto,7)}${pad("LISTEN",8)}${pad("0",8)}${pad("128",9)}${pad((p.addr||"0.0.0.0")+":"+p.port,22)}users:(("${p.proc}",pid=${p.pid},fd=6))`).join("\n");
+};
+CMD.netstat=CMD.ss;
+CMD.ip=(ctx,a)=>`1: lo: <LOOPBACK,UP> mtu 65536\n    inet 127.0.0.1/8 scope host lo\n2: eth0: <BROADCAST,MULTICAST,UP> mtu 1500\n    inet ${ctx.extra.ip||"10.0.1.20"}/24 brd 10.0.1.255 scope global eth0`;
+CMD.ping=(ctx,a)=>{const h=a.filter(x=>!x.startsWith("-")).pop();
+  const ip=ctx.dns[h]||(h==="localhost"?"127.0.0.1":null);
+  if(!ip)return `{{e|ping: ${h}: Временный сбой в разрешении имён}}`;
+  return `PING ${h} (${ip}) 56(84) bytes of data.\n64 bytes from ${ip}: icmp_seq=1 ttl=59 time=11.4 ms\n64 bytes from ${ip}: icmp_seq=2 ttl=59 time=10.9 ms\n--- ${h} ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss`};
+CMD.dig=(ctx,a)=>{
+  ctx.flags.dig=true;
+  const h=a.filter(x=>!x.startsWith("+")&&!x.startsWith("@")&&!/^(a|aaaa|mx|txt|ns|cname)$/i.test(x)).pop();
+  const ip=ctx.dns[h];
+  if(a.includes("+short"))return ip||"";
+  return `; <<>> DiG 9.18 <<>> ${h}\n;; ->>HEADER<<- opcode: QUERY, status: ${ip?"NOERROR":"NXDOMAIN"}\n\n;; QUESTION SECTION:\n;${h}.\t\tIN\tA\n\n;; ANSWER SECTION:\n`+(ip?`${h}.\t300\tIN\tA\t${ip}`:"{{e|;; (нет записи — домен не резолвится)}}");
+};
+CMD.nslookup=CMD.dig;
+CMD.telnet=(ctx,a)=>{const port=+a[1];const open=ctx.ports.find(p=>p.port===port);
+  return open?`Trying ${ctx.dns[a[0]]||"127.0.0.1"}...\n{{p|Connected to ${a[0]}.}}`:`Trying...\n{{e|telnet: Unable to connect to remote host: Connection refused}}`};
+CMD.nc=(ctx,a)=>{const port=+a[a.length-1];const open=ctx.ports.find(p=>p.port===port);
+  return open?`{{p|Connection to ${a[a.length-2]} ${port} port [tcp] succeeded!}}`:`{{e|nc: connect to port ${port} failed: Connection refused}}`};
+CMD.curl=(ctx,a)=>{
+  ctx.flags.curl=true;
+  const url=a.filter(x=>!x.startsWith("-")).pop()||"";
+  const headOnly=a.some(x=>/^-.*I/.test(x)||x==="--head");
+  const verbose=a.some(x=>/^-.*v/.test(x));
+  const key=Object.keys(ctx.http).find(k=>url.includes(k));
+  const r=key?ctx.http[key]:null;
+  if(!r)return `{{e|curl: (7) Failed to connect to ${url.replace(/https?:\/\//,"").split("/")[0]}: Connection refused}}`;
+  ctx.flags["curl:"+key]=true;
+  const codeLine=`HTTP/1.1 ${r.code} ${r.msg||""}`;
+  const hdrs=Object.entries(r.headers||{Server:"nginx/1.24.0","Content-Type":"text/html"}).map(([k,v])=>`${k}: ${v}`).join("\n");
+  const pre=verbose?`{{d|*   Trying ${ctx.dns[key.replace(/https?:\/\//,"")]||"10.0.1.20"}:443...\n* TLS handshake: ${r.tls||"TLSv1.3 / OK"}\n> GET / HTTP/1.1}}\n`:"";
+  const color=r.code>=500?"{{e|"+codeLine+"}}":r.code>=400?"{{w|"+codeLine+"}}":"{{p|"+codeLine+"}}";
+  return pre+color+"\n"+hdrs+(headOnly?"":"\n\n"+(r.body||""));
+};
+CMD.wget=CMD.curl;

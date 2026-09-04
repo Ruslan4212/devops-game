@@ -1,0 +1,206 @@
+BADGES.push(
+ {id:"lab1",ic:"⌁",n:"Первый инцидент",d:"Закрыл первую лабораторию"},
+ {id:"lab5",ic:"⚒",n:"Дежурный",d:"5 лабораторий закрыто"},
+ {id:"laball",ic:"⛑",n:"Инцидент-менеджер",d:"Все лаборатории закрыты"},
+ {id:"nohint",ic:"◇",n:"Без подсказок",d:"Лаборатория пройдена без подсказок"});
+ROADMAP.splice(1,0,{n:"—",t:"Как устроена эта игра",when:"читать один раз",
+ b:"<ul class='tight'><li><b>Миссия</b> — 2-3 карточки теории и 4-6 заданий. 6-10 минут.</li><li><b>Лаборатория</b> — сломанная система и настоящий терминал. Ты сам ищешь причину: 15-30 минут, повторять полезно.</li><li><b>Босс</b> — блок вопросов формата собеседования, 3 жизни.</li><li><b>Повторы</b> — ошибки возвращаются через 1, 3, 7, 16 и 35 дней.</li><li><b>Песочница</b> — свободный терминал без задач, чтобы пробовать команды.</li></ul>"});
+
+/* ================= STATE ================= */
+const KEY="pipeline_devops_v2";
+const today=()=>new Date().toISOString().slice(0,10);
+const defState=()=>({xp:0,mis:{},boss:{},labs:{},srs:{},streak:0,last:null,days:[],badges:[],repairs:0,tab:"map",openWorld:null,hintsUsed:0,
+  drill:{},drillRuns:0,drillOk:0,quests:null,storySeen:[],storyPick:{},interviews:[],job:null,rep:0});
+let S=load();
+function load(){try{const r=localStorage.getItem(KEY)||localStorage.getItem("pipeline_devops_v1");
+  if(r)return Object.assign(defState(),JSON.parse(r));}catch(e){}return defState();}
+let saveT;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+  const el=document.getElementById("s-saved");el.classList.add("on");el.textContent="сохранено ✓";
+  clearTimeout(saveT);saveT=setTimeout(()=>el.classList.remove("on"),1200);}
+function checkDay(){
+  const t=today(); if(S.last===t)return;
+  if(S.last){const d=Math.round((new Date(t)-new Date(S.last))/864e5);S.streak=d===1?S.streak+1:1;}else S.streak=1;
+  S.last=t; if(!S.days.includes(t))S.days.push(t);
+  if(S.streak>=3)award("streak3"); if(S.streak>=7)award("streak7"); if(S.streak>=30)award("streak30");
+  save();
+}
+const LVL=x=>Math.floor(Math.sqrt(x/60))+1;
+const lvlFloor=l=>Math.round(60*Math.pow(l-1,2));
+function addXP(n){S.xp+=n;save();renderStats();}
+function award(id){if(S.badges.includes(id))return;S.badges.push(id);save();toast("Бейдж: "+((BADGES.find(b=>b.id===id)||{}).n||id));}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2800);}
+const BOX=[0,1,3,7,16,35];
+function srsUpdate(key,ok,item){
+  const r=S.srs[key]||{b:1};
+  r.b=ok?Math.min(5,r.b+1):1;
+  r.due=new Date(Date.now()+BOX[r.b]*864e5).toISOString().slice(0,10);
+  r.it=item;S.srs[key]=r;
+}
+function dueList(){const t=today();return Object.entries(S.srs).filter(([k,v])=>v.due&&v.due<=t).map(([k,v])=>({k,...v.it}));}
+const labsOf=wid=>Object.entries(LABS).filter(([id,l])=>l.w===wid).map(([id,l])=>({id,...l}));
+function wProgress(w){
+  const L=labsOf(w.id);
+  const total=w.miss.length+L.length+1;
+  const done=w.miss.filter(m=>S.mis[m.id]).length+L.filter(l=>S.labs[l.id]).length+(S.boss[w.id]?1:0);
+  return {done,total,pct:Math.round(done/total*100)};
+}
+function wUnlocked(i){
+  if(i===0)return true;
+  const prev=WORLDS[i-1];
+  return prev.miss.filter(m=>S.mis[m.id]).length>=prev.miss.length-1||!!S.boss[prev.id];
+}
+function nextThing(){
+  for(let i=0;i<WORLDS.length;i++){
+    const w=WORLDS[i]; if(!wUnlocked(i))break;
+    const m=w.miss.find(m=>!S.mis[m.id]); if(m)return{w,m};
+    const l=labsOf(w.id).find(l=>!S.labs[l.id]); if(l)return{w,lab:l};
+    if(!S.boss[w.id])return{w,boss:true};
+  }
+  return null;
+}
+/* ================= RENDER ================= */
+function renderStats(){
+  const l=LVL(S.xp),cur=lvlFloor(l),nxt=lvlFloor(l+1);
+  document.getElementById("s-lvl").textContent=l;
+  document.getElementById("s-xp").style.width=Math.min(100,(S.xp-cur)/(nxt-cur)*100)+"%";
+  document.getElementById("s-xptxt").textContent=`${S.xp} / ${nxt} xp`;
+  document.getElementById("s-streak").textContent=S.streak+"🔥";
+}
+const TABS=[["map","Карта"],["drill","Тренажёр"],["career","Карьера"],["hero","Персонаж"],["repair","Повторы"],["sand","Песочница"],["road","План 0→Middle"],["prof","Профиль"]];
+function renderTabs(){
+  document.getElementById("tabs").innerHTML=TABS.map(([k,n])=>{
+    const d=k==="repair"?dueList().length:k==="hero"?storyAvailable().length:0;
+    return `<button data-tab="${k}" aria-selected="${S.tab===k}">${n}${d?` <span style="color:var(--amber)">·${d}</span>`:""}</button>`}).join("");
+}
+function go(t){R=null;L=null;DRL=null;IV=null;S.tab=t;save();render();window.scrollTo({top:0,behavior:"smooth"});}
+function render(){
+  renderStats();renderTabs();
+  const v=document.getElementById("view");
+  if(S.tab==="map")v.innerHTML=viewMap();
+  else if(S.tab==="repair")v.innerHTML=viewRepair();
+  else if(S.tab==="road")v.innerHTML=viewRoad();
+  else if(S.tab==="drill")v.innerHTML=viewDrill();
+  else if(S.tab==="career")v.innerHTML=viewCareer();
+  else if(S.tab==="hero")v.innerHTML=viewHero();
+  else if(S.tab==="sand"){v.innerHTML=viewSandbox();initSandbox();}
+  else v.innerHTML=viewProf();
+}
+function ring(pct,ic){
+  const c=2*Math.PI*22,off=c*(1-pct/100);
+  return `<div class="ring"><svg width="52" height="52"><circle cx="26" cy="26" r="22" stroke="var(--line)" stroke-width="3" fill="none"/>
+  <circle cx="26" cy="26" r="22" stroke="${pct===100?'var(--ok)':'var(--amber)'}" stroke-width="3" fill="none"
+  stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"/></svg><b>${ic}</b></div>`;
+}
+function totals(){
+  const m=WORLDS.reduce((a,w)=>a+w.miss.length,0);
+  const l=Object.keys(LABS).length;
+  const ch=WORLDS.reduce((a,w)=>a+w.miss.reduce((x,mm)=>x+mm.ch.length,0)+w.boss.ch.length,0);
+  const tk=Object.values(LABS).reduce((a,x)=>a+x.tasks.length,0);
+  return {m,l,ch,tk,b:WORLDS.length};
+}
+function viewMap(){
+  const nt=nextThing(),due=dueList().length,T=totals();
+  const doneM=Object.keys(S.mis).length,doneL=Object.keys(S.labs).length;
+  let hero=`<section class="hero">
+   <div class="card"><div class="lbl">твой путь</div>
+     <h1>От нуля до Middle DevOps</h1>
+     <p class="muted" style="margin:0 0 14px">${T.b} миров · ${T.m} миссий · <b style="color:var(--amber-2)">${T.l} лабораторий с живым терминалом</b> · ${T.b} боссов · ${T.ch}&nbsp;заданий и ${T.tk} шагов отладки. Полный проход — примерно 25–35 часов, плюс повторы. Прогресс сохраняется автоматически.</p>
+     <div class="row">${nt?`<button class="btn" data-act="${nt.boss?'boss':nt.lab?'lab':'mis'}" data-w="${nt.w.id}" ${nt.m?`data-m="${nt.m.id}"`:""} ${nt.lab?`data-l="${nt.lab.id}"`:""}>▶ ${nt.boss?"Босс: "+nt.w.boss.t:nt.lab?"Лаборатория: "+nt.lab.t:"Продолжить: "+nt.m.t}</button>`:`<span class="muted">Всё пройдено. Ты готов идти на собеседование.</span>`}
+     ${due?`<button class="btn ghost" data-go="repair">⟳ Повторы: ${due}</button>`:""}
+     <button class="btn ghost" data-go="sand">⌨ Песочница</button></div>
+   </div>
+   <div class="card pad next">
+     <div><div class="lbl">персонаж</div>
+     <b style="font-size:19px;font-family:var(--disp)">${rank().n}</b>
+     <div class="lbl" style="margin-top:4px">${S.job?JOBS.find(x=>x.id===S.job.id).n:"без работы · загляни в «Карьеру»"}</div>
+     <div style="margin-top:8px">${bar(overall())}</div></div>
+     <div><div class="lbl">сегодня</div>
+     <p style="margin:6px 0 0;font-size:14px">${S.last===today()?"Отметка дня получена. Стрик держится.":"Пройди одну миссию — стрик обновится."}</p></div>
+     <div class="row" style="gap:22px">
+       <div><div class="lbl">миссии</div><b class="mono" style="font-size:22px">${doneM}<span class="muted" style="font-size:13px">/${T.m}</span></b></div>
+       <div><div class="lbl">лаборатории</div><b class="mono" style="font-size:22px;color:var(--amber-2)">${doneL}<span class="muted" style="font-size:13px">/${T.l}</span></b></div>
+     </div>
+   </div></section>`;
+  let worlds="";
+  WORLDS.forEach((w,i)=>{
+    const p=wProgress(w),un=wUnlocked(i),open=S.openWorld===w.id,L2=labsOf(w.id);
+    worlds+=`<div class="wnode ${un?"":"locked"}" ${un?`data-world="${w.id}"`:""}>
+      ${ring(p.pct,w.ic)}
+      <div><h3>${w.n}</h3><p>${w.tag}</p>
+      <div class="chips"><span class="chip ${p.done===p.total?"done":""}">${p.done}/${p.total}</span>
+      ${w.miss.map(m=>`<span class="chip ${S.mis[m.id]?"done":""}">${m.t}</span>`).join("")}
+      ${L2.map(l=>`<span class="chip lab ${S.labs[l.id]?"done":""}">⌁ ${l.t.replace(/^(Инцидент|Ревью): /,"")}</span>`).join("")}
+      <span class="chip boss">${S.boss[w.id]?"✓ ":"⚔ "}${w.boss.t}</span></div></div>
+      <div class="mono muted" style="font-size:12px">${un?(open?"свернуть ▲":"открыть ▼"):"🔒"}</div></div>`;
+    if(open&&un){
+      worlds+=`<div class="card pad" style="margin-top:10px"><p class="muted" style="margin:0 0 12px">${w.desc}</p><div class="mlist">`;
+      w.miss.forEach((m,j)=>{const d=!!S.mis[m.id];
+        worlds+=`<button class="mrow" data-act="mis" data-w="${w.id}" data-m="${m.id}">
+          <span class="dot ${d?"done":""}">${d?"✓":j+1}</span>
+          <span><strong>${m.t}</strong><small>${m.goal}</small></span>
+          <span class="mono muted" style="font-size:12px">${d?"пройдено":"+"+m.ch.length*12+"xp"}</span></button>`;});
+      const misDone=w.miss.filter(m=>S.mis[m.id]).length;
+      L2.forEach(l=>{const d=!!S.labs[l.id];const lock=misDone<Math.min(2,w.miss.length);
+        worlds+=`<button class="mrow ${lock?"locked":""}" data-act="lab" data-w="${w.id}" data-l="${l.id}" style="border-color:${d?"rgba(63,191,143,.4)":"rgba(240,135,63,.35)"}">
+          <span class="dot ${d?"done":""}" style="color:var(--amber-2)">${d?"✓":"⌁"}</span>
+          <span><strong>Лаборатория · ${l.t}</strong><small>${lock?"Пройди хотя бы 2 миссии мира":l.tasks.length+" шагов в настоящем терминале · "+(d?"можно перепройти":"диагностика и починка")}</small></span>
+          <span class="mono muted" style="font-size:12px">+${l.xp}xp</span></button>`;});
+      const bl=misDone<w.miss.length;
+      worlds+=`<button class="mrow ${bl?"locked":""}" data-act="boss" data-w="${w.id}" style="border-color:rgba(124,107,242,.4)">
+        <span class="dot ${S.boss[w.id]?"done":""}" style="color:var(--violet)">${S.boss[w.id]?"✓":"⚔"}</span>
+        <span><strong>Босс · ${w.boss.t}</strong><small>${bl?"Пройди все миссии мира, чтобы открыть":"3 жизни. Ошибёшься трижды — заново."}</small></span>
+        <span class="mono muted" style="font-size:12px">+120xp</span></button></div></div>`;
+    }
+  });
+  return hero+`<div class="lbl" style="margin:6px 0 12px">миры</div>`+worlds;
+}
+function viewRepair(){
+  const d=dueList(),all=Object.keys(S.srs).length;
+  return `<section class="card pad" style="margin-bottom:18px">
+    <div class="lbl">интервальные повторы</div><h1 style="font-size:26px;margin:4px 0 8px">Ремонт памяти</h1>
+    <p class="muted" style="max-width:62ch;margin:0 0 14px">Знание держится не с первого раза, а с пятого. Игра сама возвращает задания через 1, 3, 7, 16 и 35 дней. Ответил верно — интервал растёт. Ошибся — вернётся завтра.</p>
+    <div class="row"><b class="mono" style="font-size:24px">${d.length}</b><span class="muted">к повтору сегодня · всего в памяти ${all} · закрыто повторов ${S.repairs}</span></div>
+    ${d.length?`<div class="row" style="margin-top:14px"><button class="btn" data-act="repair">⟳ Начать повтор</button></div>`
+    :`<p style="margin-top:14px;color:var(--ok)">Всё повторено. Возвращайся завтра.</p>`}</section>`;
+}
+function viewRoad(){
+  return `<section class="card pad" style="margin-bottom:20px">
+    <div class="lbl">дорожная карта</div><h1 style="font-size:28px;margin:4px 0 8px">План: 0 → Middle DevOps</h1>
+    <p class="muted" style="max-width:66ch;margin:0">Реалистичный срок при 30–60 минутах в день — 7–9 месяцев до уверенного junior+/middle. Каждый мир на карте соответствует блоку ниже.</p></section>
+  <div>${ROADMAP.map((r,i)=>`<div class="stage"><div class="rail"><b>${r.n}</b>${i<ROADMAP.length-1?"<s></s>":""}</div>
+    <div class="body"><h3>${r.t}</h3><div class="when">${r.when}</div><div class="muted">${r.b}</div></div></div>`).join("")}</div>
+  ${mappingHTML()}
+  <section class="card pad" style="margin-top:16px">
+    <h3 style="margin-bottom:10px">Как учиться, если не получается долго сидеть</h3>
+    <div class="grid2">
+      <ul class="tight"><li><b>Сессия = 1 миссия.</b> 6–10 минут. Закончил — можно уходить без чувства вины.</li>
+      <li><b>Лабораторию можно бросить и вернуться</b> — состояние терминала держится, пока открыта вкладка, а прогресс шагов виден справа.</li>
+      <li><b>Каждый день, а не помногу.</b> Стрик важнее объёма.</li></ul>
+      <ul class="tight"><li><b>Ошибка — механика, а не провал.</b> Промах возвращается повтором.</li>
+      <li><b>Раз в неделю — руками.</b> Повтори на своей VPS то, что прошёл в лаборатории.</li>
+      <li><b>Пет-проект с 4-й недели.</b> Всё новое сразу прикручивай к нему.</li></ul>
+    </div></section>`;
+}
+function viewProf(){
+  const l=LVL(S.xp),T=totals();
+  return `<section class="card pad" style="margin-bottom:18px">
+   <div class="lbl">профиль</div><h1 style="font-size:28px;margin:4px 0 12px">Уровень ${l} · ${S.xp} XP</h1>
+   <div class="tw"><table>
+    <tr><th>показатель</th><th>значение</th></tr>
+    <tr><td>Миссий пройдено</td><td class="mono">${Object.keys(S.mis).length} / ${T.m}</td></tr>
+    <tr><td>Лабораторий закрыто</td><td class="mono">${Object.keys(S.labs).length} / ${T.l}</td></tr>
+    <tr><td>Боссов побеждено</td><td class="mono">${Object.keys(S.boss).length} / ${T.b}</td></tr>
+    <tr><td>Текущий стрик</td><td class="mono">${S.streak} дн.</td></tr>
+    <tr><td>Дней в игре</td><td class="mono">${S.days.length}</td></tr>
+    <tr><td>Заданий в памяти</td><td class="mono">${Object.keys(S.srs).length}</td></tr>
+   </table></div></section>
+   <div class="lbl" style="margin-bottom:10px">бейджи</div>
+   <div class="badges">${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"":"off"}"><div class="ic">${b.ic}</div><b>${b.n}</b><small>${b.d}</small></div>`).join("")}</div>
+   <section class="card pad" style="margin-top:18px">
+     <h3 style="margin-bottom:8px">Данные</h3>
+     <p class="muted" style="font-size:13.5px;margin:0 0 12px">Прогресс хранится в этом браузере. Сохрани копию, если меняешь устройство.</p>
+     <div class="row"><button class="btn ghost" data-act="export">Скопировать сохранение</button>
+     <button class="btn ghost" data-act="import">Вставить сохранение</button>
+     <button class="btn ghost" data-act="reset" style="color:var(--bad)">Сбросить всё</button></div></section>`;
+}

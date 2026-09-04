@@ -1,0 +1,230 @@
+/* ---- вспомогательная команда CI для лаборатории пайплайна ---- */
+CMD.ci=(ctx,a)=>{
+  const C=ctx.extra.ci||{};
+  if(a[0]==="secrets"){
+    if(a[1]==="list")return (C.secrets||[]).join("\n")||"{{d|(секретов не задано)}}";
+    if(a[1]==="set"){C.secrets=(C.secrets||[]).concat(a[2]);ctx.flags["secret:"+a[2]]=true;return `{{p|секрет ${a[2]} сохранён в хранилище проекта}}`}
+  }
+  if(a[0]==="log")return (C.lastLog||["{{d|запусков не было}}"]).join("\n");
+  if(a[0]==="run"){
+    ctx.flags["ci run"]=true;
+    const dep=ctx.fs["/home/dev/app/scripts/deploy.sh"];
+    const execOk=dep&&fnode(dep).mode.includes("x");
+    const tokenOk=(C.secrets||[]).includes("REGISTRY_TOKEN");
+    let out=["{{d|› lint}}    {{p|passed  (8s)}}","{{d|› test}}    {{p|passed  (54s)}}","{{d|› build}}   {{p|passed  (1m 12s)}}"];
+    if(!tokenOk){out.push("{{d|› push}}    {{e|failed  (4s)}}","{{e|  Error: denied: requested access to the resource is denied}}","{{e|  unauthorized: authentication required — переменная REGISTRY_TOKEN пуста}}");
+      C.lastLog=out;ctx.flags.ciStage="push";return out.join("\n")}
+    out.push("{{d|› push}}    {{p|passed  (22s)}}");
+    if(!execOk){out.push("{{d|› deploy}}  {{e|failed  (1s)}}","{{e|  ./scripts/deploy.sh: Permission denied}}","{{e|  Process completed with exit code 126}}");
+      C.lastLog=out;ctx.flags.ciStage="deploy";ctx.flags.sawDeployFail=true;return out.join("\n")}
+    out.push("{{d|› deploy}}  {{p|passed  (31s)}}","","{{p|✔ пайплайн зелёный — 2m 51s}}");
+    C.lastLog=out;ctx.flags.ciGreen=true;ctx.flags.ciStage="done";return out.join("\n");
+  }
+  return "{{d|ci run | ci log | ci secrets list | ci secrets set NAME}}";
+};
+
+LABS.pipeline={w:"cicd",t:"Инцидент: пайплайн красный",xp:75,
+ brief:`Релиз заблокирован: пайплайн падает и никто не понимает почему. Запусти его, прочитай ошибку, устрани — и добейся зелёного прогона. Ошибок будет две.`,
+ hint:`<code>ci run</code> запускает пайплайн, <code>ci log</code> показывает последний вывод. Секреты — <code>ci secrets list</code> и <code>ci secrets set ИМЯ</code>. Права на файл смотри через <code>ls -l</code>.`,
+ spec:{host:"runner-01",user:"dev",cwd:"/home/dev/app",
+  fs:{"/home/dev/app/.github/workflows/ci.yml":{c:"name: ci\non:\n  push:\n    branches: [main]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - run: npm ci && npm test\n      - run: docker build -t registry/app:${{ github.sha }} .\n      - run: docker login -u ci -p ${{ secrets.REGISTRY_TOKEN }}\n      - run: docker push registry/app:${{ github.sha }}\n      - run: ./scripts/deploy.sh",own:"dev dev"},
+      "/home/dev/app/scripts/deploy.sh":{c:"#!/bin/bash\nset -euo pipefail\nkubectl set image deploy/api api=registry/app:$GITHUB_SHA",mode:"-rw-r--r--",own:"dev dev"},
+      "/home/dev/app/package.json":{c:"{\"name\":\"app\"}",own:"dev dev"}},
+  extra:{ci:{secrets:[]}}},
+ tasks:[
+  {t:"Прочитать конфигурацию пайплайна",hint:"cat .github/workflows/ci.yml",ok:c=>c.flags["cat:/home/dev/app/.github/workflows/ci.yml"]},
+  {t:"Запустить пайплайн и увидеть первую ошибку",hint:"ci run",ok:c=>c.flags["ci run"]},
+  {t:"Проверить, какие секреты заданы",hint:"ci secrets list",ok:c=>c.cmds.some(x=>x.includes("secrets list"))},
+  {t:"Добавить недостающий секрет",hint:"ci secrets set REGISTRY_TOKEN",ok:c=>c.flags["secret:REGISTRY_TOKEN"]},
+  {t:"Найти вторую ошибку — права на скрипт деплоя",hint:"ls -l scripts/",ok:c=>c.flags.sawDeployFail},
+  {t:"Сделать скрипт исполняемым",hint:"chmod 755 scripts/deploy.sh",ok:c=>{const f=c.fs["/home/dev/app/scripts/deploy.sh"];return f&&fnode(f).mode.includes("x")}},
+  {t:"Добиться зелёного пайплайна",hint:"ci run",ok:c=>c.flags.ciGreen}],
+ debrief:`<p><b>Exit code 126</b> — «команда найдена, но не исполняема». <b>127</b> — «команда не найдена». Эти два числа экономят часы при отладке CI.</p>
+ <p>Права на файлы <b>хранятся в git</b> (бит выполнения). Правильный способ починить навсегда: <code>git update-index --chmod=+x scripts/deploy.sh</code> и коммит — иначе каждый свежий клон снова упадёт.</p>
+ <p>И про секреты: пустая переменная не должна выглядеть как «отказ в доступе». Хорошая практика — проверка в начале пайплайна: <code>test -n "$REGISTRY_TOKEN" || { echo "нет токена"; exit 1; }</code>.</p>`};
+
+LABS.tfplan={w:"iac",t:"Инцидент: terraform хочет удалить прод",xp:75,
+ brief:`Коллега поменял пару строк в <code>main.tf</code>, и теперь <code>terraform plan</code> показывает уничтожение боевого сервера. Разберись, какое поле вызывает пересоздание, и приведи план к безопасному виду.`,
+ hint:`Читай <code>main.tf</code>, сравнивай с тем, что записано в state (<code>terraform state list</code> и комментарии в файле). Правь через <code>sed -i</code>, потом снова <code>terraform plan</code>.`,
+ spec:{host:"laptop",user:"dev",cwd:"/home/dev/infra",
+  fs:{"/home/dev/infra/main.tf":{c:'resource "aws_instance" "app" {\n  ami               = "ami-0c55b159cbfafe1f0"\n  instance_type     = "t3.small"\n  availability_zone = "eu-central-1b"   # было eu-central-1a\n  tags = {\n    Name = "app-prod"\n    Env  = "prod"\n  }\n}\n\nresource "aws_security_group" "web" {\n  name = "web-sg"\n}',own:"dev dev"},
+      "/home/dev/infra/backend.tf":{c:'terraform {\n  # backend "s3" {\n  #   bucket = "company-tfstate"\n  #   key    = "prod/terraform.tfstate"\n  #   dynamodb_table = "tf-locks"\n  # }\n}',own:"dev dev"},
+      "/home/dev/infra/terraform.tfstate":{c:'{"resources":[{"type":"aws_instance","name":"app","attributes":{"availability_zone":"eu-central-1a","instance_type":"t3.small","db_password":"Pr0d_Pa55w0rd!"}}]}',own:"dev dev",size:4210},
+      "/home/dev/infra/.gitignore":{c:"# пусто",own:"dev dev"}},
+  tf:{add:1,change:0,destroy:1,state:["aws_instance.app","aws_security_group.web"],
+    plan:["{{e|-/+ resource \"aws_instance\" \"app\" {  # forces replacement}}",
+      "      ~ availability_zone = \"eu-central-1a\" -> \"eu-central-1b\" {{e|# forces replacement}}",
+      "        instance_type     = \"t3.small\"",
+      "      ~ id                = \"i-0a1b2c3d\" -> (known after apply)"]}},
+ after(ctx){
+   const f=ctx.fs["/home/dev/infra/main.tf"];if(!f)return;
+   const c=fnode(f).c;
+   const azOk=/availability_zone\s*=\s*"eu-central-1a"/.test(c);
+   if(azOk){ctx.tf.destroy=0;ctx.tf.add=0;ctx.tf.change=1;
+     ctx.tf.plan=["{{p|~ resource \"aws_instance\" \"app\" {  # обновление на месте}}","      ~ tags.Name = \"app-prod\" -> \"app-prod\"","{{d|      (пересоздание не требуется)}}"];
+     ctx.flags.tfSafe=true;}
+   const gi=ctx.fs["/home/dev/infra/.gitignore"];
+   if(gi&&/tfstate/.test(fnode(gi).c))ctx.flags.stateIgnored=true;
+   const b=ctx.fs["/home/dev/infra/backend.tf"];
+   if(b&&/^\s*backend "s3"/m.test(fnode(b).c))ctx.flags.backendOn=true;
+ },
+ tasks:[
+  {t:"Посмотреть план и увидеть уничтожение",hint:"terraform plan",ok:c=>c.flags["tf plan"]},
+  {t:"Прочитать конфигурацию",hint:"cat main.tf",ok:c=>c.flags["cat:/home/dev/infra/main.tf"]},
+  {t:"Посмотреть, что уже есть в state",hint:"terraform state list",ok:c=>c.cmds.some(x=>x.includes("state list"))},
+  {t:"Вернуть зону доступности к текущему значению",hint:"sed -i 's/eu-central-1b/eu-central-1a/' main.tf",ok:c=>c.flags.tfSafe},
+  {t:"Убедиться, что план больше не уничтожает ресурс",hint:"terraform plan ещё раз",ok:c=>c.flags.tfSafe&&c.cmds.filter(x=>x.includes("terraform plan")).length>1},
+  {t:"Заметить пароль в state-файле",hint:"cat terraform.tfstate",ok:c=>c.flags["cat:/home/dev/infra/terraform.tfstate"]},
+  {t:"Исключить state из git",hint:"echo '*.tfstate*' > .gitignore",ok:c=>c.flags.stateIgnored}],
+ debrief:`<p><b>ForceNew-атрибуты</b> — поля, которые нельзя изменить у существующего ресурса (зона, подсеть, AMI у некоторых провайдеров, имя). Terraform честно пишет <code>forces replacement</code> — этот маркер надо искать глазами в каждом плане перед прод-apply.</p>
+ <p><b>State — секретный артефакт:</b> он хранит значения атрибутов в открытом виде, включая пароли. Место ему — в S3/GCS с шифрованием, версионированием и блокировкой (<code>dynamodb_table</code>), а не в git.</p>
+ <p>Практика зрелой команды: <code>terraform plan</code> публикуется в PR, а <code>apply</code> запускается только после аппрува ревьюера.</p>`};
+
+LABS.oom={w:"k8s",t:"Инцидент: CrashLoopBackOff",xp:85,
+ brief:`Поды приложения <code>api</code> бесконечно рестартуют, часть запросов теряется. Найди причину по событиям и логам, исправь манифест и раскати.`,
+ hint:`<code>kubectl get pods</code> → <code>kubectl describe pod ИМЯ</code> (секция Events) → <code>kubectl logs ИМЯ --previous</code>. Манифест лежит в /opt/k8s/deploy.yaml.`,
+ spec:{host:"bastion",user:"deploy",cwd:"/opt/k8s",
+  k8s:{ns:"prod",
+   pods:[{name:"api-7d4f9b6c5-x8k2p",ready:"0/1",status:"CrashLoopBackOff",restarts:7,age:"9m",image:"registry/api:2.4.1",
+     memLim:"128Mi",memReq:"64Mi",last:"Terminated (OOMKilled), exit code 137",
+     events:[{type:"Normal",reason:"Pulled",age:"9m",msg:"Container image already present"},
+             {type:"Warning",reason:"BackOff",age:"1m",msg:"Back-off restarting failed container"},
+             {type:"Warning",reason:"OOMKilling",age:"2m",msg:"Memory cgroup out of memory: Killed process (node)"}],
+     logs:["{{d|(контейнер только что стартовал, логов ещё нет)}}"],
+     prev:["09:41:02 API стартует, загружаю справочник товаров в память","09:41:09 загружено 240 000 записей","{{e|09:41:11 <--- Last few GCs --->  JS heap out of memory}}","{{e|killed (137)}}"]},
+    {name:"api-7d4f9b6c5-q2m9r",ready:"0/1",status:"CrashLoopBackOff",restarts:7,age:"9m",image:"registry/api:2.4.1",memLim:"128Mi",
+     events:[{type:"Warning",reason:"OOMKilling",age:"2m",msg:"Memory cgroup out of memory"}],prev:["{{e|killed (137)}}"]},
+    {name:"web-5c8d7f9b4-t7v3n",ready:"1/1",status:"Running",restarts:0,age:"6d",image:"registry/web:1.9.0"}],
+   deploys:[{name:"api",ready:"0/2",up:"2",avail:"0",age:"6d",replicas:"2/2"},{name:"web",ready:"1/1",up:"1",avail:"1",age:"6d"}],
+   svcs:[{name:"api",type:"ClusterIP",cip:"10.96.14.2",ports:"80/TCP",selector:"app=api",endpoints:[]}],
+   events:[{age:"2m",type:"Warning",reason:"OOMKilling",obj:"pod/api-7d4f9b6c5-x8k2p",msg:"Memory cgroup out of memory"},
+           {age:"1m",type:"Warning",reason:"BackOff",obj:"pod/api-7d4f9b6c5-q2m9r",msg:"Back-off restarting failed container"}]},
+  fs:{"/opt/k8s/deploy.yaml":{c:"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\nspec:\n  replicas: 2\n  template:\n    spec:\n      containers:\n        - name: api\n          image: registry/api:2.4.1\n          resources:\n            requests:\n              memory: 64Mi\n            limits:\n              memory: 128Mi\n          readinessProbe:\n            httpGet: { path: /health, port: 8080 }",own:"deploy deploy"}},
+  http:{"api.shop.ru":{code:503,msg:"Service Unavailable"}},dns:{"api.shop.ru":"10.0.1.9"}},
+ after(ctx){
+   const f=ctx.fs["/opt/k8s/deploy.yaml"];if(!f)return;
+   const c=fnode(f).c;
+   const m=c.match(/limits:\s*\n\s*memory:\s*(\d+)Mi/);
+   ctx.flags.memRaised=!!m&&(+m[1])>=384;
+   if(ctx.flags.memRaised&&ctx.flags.apply){
+     ctx.k8s.pods.forEach(p=>{if(p.name.startsWith("api")){p.status="Running";p.ready="1/1";p.restarts=0;p.memLim="512Mi"}});
+     ctx.k8s.deploys[0].ready="2/2";ctx.k8s.deploys[0].avail="2";
+     ctx.k8s.svcs[0].endpoints=["10.244.1.14:8080","10.244.2.9:8080"];
+     ctx.http["api.shop.ru"]={code:200,msg:"OK",body:"{\"ok\":true}"};ctx.flags.k8sFixed=true;}
+ },
+ tasks:[
+  {t:"Увидеть состояние подов",hint:"kubectl get pods",ok:c=>c.flags["get:po"]||c.flags["get:pod"]},
+  {t:"Посмотреть события проблемного пода",hint:"kubectl describe pod api-7d4f9b6c5-x8k2p",ok:c=>Object.keys(c.flags).some(k=>k.startsWith("describe:api"))},
+  {t:"Прочитать логи ПРЕДЫДУЩЕГО, упавшего контейнера",hint:"kubectl logs api-7d4f9b6c5-x8k2p --previous",ok:c=>Object.keys(c.flags).some(k=>k.startsWith("logsp:"))},
+  {t:"Прочитать манифест деплоймента",hint:"cat /opt/k8s/deploy.yaml",ok:c=>c.flags["cat:/opt/k8s/deploy.yaml"]},
+  {t:"Поднять лимит памяти минимум до 384–512Mi",hint:"sed -i 's/memory: 128Mi/memory: 512Mi/' /opt/k8s/deploy.yaml",ok:c=>c.flags.memRaised},
+  {t:"Применить манифест",hint:"kubectl apply -f /opt/k8s/deploy.yaml",ok:c=>c.flags.apply},
+  {t:"Убедиться, что поды Running",hint:"kubectl get pods",ok:c=>c.flags.k8sFixed}],
+ debrief:`<p><b>OOMKilled = exit 137.</b> Контейнер превысил <code>limits.memory</code> — его убило ядро, а не Kubernetes «по своей воле». Поднять лимит — это временная мера; правильный следующий шаг — понять, почему приложению нужно 400 МБ (здесь: грузит весь справочник в память при старте).</p>
+ <p><b>Важная разница:</b> превышение <code>limits.cpu</code> вызывает троттлинг (приложение тормозит), превышение памяти — мгновенное убийство. Поэтому CPU-лимиты часто ставят щедро или не ставят вовсе, а память — обязательно и с запасом.</p>
+ <p><b>requests vs limits:</b> по requests планировщик выбирает ноду, limits — жёсткий потолок. Если requests сильно занижены, поды поедут на переполненную ноду и будут страдать все.</p>`};
+
+LABS.svcep={w:"k8s",t:"Инцидент: Service никуда не ведёт",xp:80,
+ brief:`Поды <code>Running</code>, приложение живо, но через Service запросы получают 503. Найди разрыв между Service и подами.`,
+ hint:`Если <code>kubectl get endpoints</code> пуст — Service не находит поды. Сравни <code>selector</code> в Service с лейблами подов.`,
+ spec:{host:"bastion",user:"deploy",cwd:"/opt/k8s",
+  k8s:{ns:"prod",
+   pods:[{name:"api-6b9c4d8f7-h4n2x",ready:"1/1",status:"Running",restarts:0,age:"14m",image:"registry/api:2.5.0",labels:"app=api-v2",
+     logs:["09:52:01 API 2.5.0 слушает :8080","09:52:01 health ok"],
+     events:[{type:"Normal",reason:"Started",age:"14m",msg:"Started container api"}]},
+    {name:"api-6b9c4d8f7-p8q5z",ready:"1/1",status:"Running",restarts:0,age:"14m",image:"registry/api:2.5.0",labels:"app=api-v2",
+     logs:["09:52:01 API 2.5.0 слушает :8080"]}],
+   deploys:[{name:"api",ready:"2/2",up:"2",avail:"2",age:"6d"}],
+   svcs:[{name:"api",type:"ClusterIP",cip:"10.96.14.2",ports:"80/TCP",selector:"app=api",endpoints:[]}],
+   ing:[{name:"api",host:"api.shop.ru",addr:"10.0.1.9"}],
+   events:[{age:"3m",type:"Warning",reason:"FailedToUpdateEndpoint",obj:"service/api",msg:"no pods match selector app=api"}]},
+  fs:{"/opt/k8s/svc.yaml":{c:"apiVersion: v1\nkind: Service\nmetadata:\n  name: api\nspec:\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 8080",own:"deploy deploy"},
+      "/opt/k8s/deploy.yaml":{c:"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\nspec:\n  selector:\n    matchLabels:\n      app: api-v2\n  template:\n    metadata:\n      labels:\n        app: api-v2      # переименовали при выкатке v2\n    spec:\n      containers:\n        - name: api\n          image: registry/api:2.5.0",own:"deploy deploy"}},
+  http:{"api.shop.ru":{code:503,msg:"Service Unavailable",body:"no healthy upstream"}},dns:{"api.shop.ru":"10.0.1.9"}},
+ after(ctx){
+   const f=ctx.fs["/opt/k8s/svc.yaml"];if(!f)return;
+   const ok=/app:\s*api-v2/.test(fnode(f).c);
+   ctx.flags.selFixed=ok;
+   if(ok&&ctx.flags.apply){
+     ctx.k8s.svcs[0].selector="app=api-v2";
+     ctx.k8s.svcs[0].endpoints=["10.244.1.21:8080","10.244.2.14:8080"];
+     ctx.http["api.shop.ru"]={code:200,msg:"OK",body:"{\"version\":\"2.5.0\"}"};ctx.flags.epFixed=true;}
+ },
+ tasks:[
+  {t:"Воспроизвести 503",hint:"curl -I https://api.shop.ru",ok:c=>c.flags["curl:api.shop.ru"]},
+  {t:"Убедиться, что поды здоровы",hint:"kubectl get pods",ok:c=>c.flags["get:po"]||c.flags["get:pod"]},
+  {t:"Проверить логи пода — приложение точно живо?",hint:"kubectl logs api-6b9c4d8f7-h4n2x",ok:c=>Object.keys(c.flags).some(k=>k.startsWith("logs:api"))},
+  {t:"Увидеть пустые endpoints",hint:"kubectl get endpoints",ok:c=>c.flags["get:ep"]||c.flags["get:endpoint"]},
+  {t:"Сравнить selector сервиса и лейблы подов",hint:"cat svc.yaml и cat deploy.yaml",ok:c=>c.flags["cat:/opt/k8s/svc.yaml"]&&c.flags["cat:/opt/k8s/deploy.yaml"]},
+  {t:"Исправить selector в Service",hint:"sed -i 's/app: api$/app: api-v2/' svc.yaml",ok:c=>c.flags.selFixed},
+  {t:"Применить и проверить, что появились endpoints",hint:"kubectl apply -f svc.yaml, затем kubectl get endpoints",ok:c=>c.flags.epFixed}],
+ debrief:`<p><b>Правило:</b> Service находит поды <i>только</i> по лейблам. Ни имя деплоймента, ни неймспейс, ни порядок создания роли не играют. Пустой <code>ENDPOINTS</code> — однозначный диагноз рассинхрона лейблов и селектора.</p>
+ <p>Вторая по частоте причина пустых endpoints — <b>readinessProbe не проходит</b>: поды Running, но не Ready, и Service их исключает. Проверяется колонкой READY в <code>get pods</code>.</p>
+ <p>Третья — <code>targetPort</code> не совпадает с портом, который реально слушает контейнер.</p>`};
+
+LABS.night={w:"obs",t:"Инцидент: ночной алерт 5xx",xp:90,
+ brief:`03:40. Алерт: доля 5xx — 12%. Ты incident commander. Оцени влияние, стабилизируй сервис, найди причину и подтверди восстановление метриками. Порядок действий важнее скорости.`,
+ hint:`Сначала масштаб (метрики), потом «что менялось» (<code>kubectl rollout history</code>), потом стабилизация (<code>rollout undo</code>), и только потом расследование логов.`,
+ spec:{host:"bastion",user:"oncall",cwd:"/home/oncall",
+  k8s:{ns:"prod",
+   pods:[{name:"api-9f7c2b1a4-k3m8x",ready:"1/1",status:"Running",restarts:0,age:"11m",image:"registry/api:2.6.0",
+     logs:["03:29 деплой 2.6.0","03:31 {{e|ERROR unhandled promise rejection: cache.get is not a function}}","03:31 {{e|500 GET /api/cart}}","03:32 {{e|500 GET /api/cart}}"]},
+    {name:"api-9f7c2b1a4-w9n4t",ready:"1/1",status:"Running",restarts:0,age:"11m",image:"registry/api:2.6.0",
+     logs:["03:31 {{e|ERROR cache.get is not a function}}"]}],
+   deploys:[{name:"api",ready:"2/2",up:"2",avail:"2",age:"7d",replicas:"2/2"}],
+   svcs:[{name:"api",type:"ClusterIP",cip:"10.96.14.2",ports:"80/TCP",selector:"app=api",endpoints:["10.244.1.30:8080","10.244.2.18:8080"]}],
+   events:[{age:"11m",type:"Normal",reason:"ScalingReplicaSet",obj:"deployment/api",msg:"Scaled up replica set api-9f7c2b1a4 to 2 (образ 2.6.0)"}]},
+  http:{"localhost:9090/metrics":{code:200,msg:"OK",body:"# HELP http_requests_total\nhttp_requests_total{status=\"200\"} 41822\nhttp_requests_total{status=\"500\"} 5701\n{{e|error_ratio_5m 0.121}}\nhttp_request_duration_p95_seconds 0.41"},
+   "api.shop.ru":{code:500,msg:"Internal Server Error",body:"{\"error\":\"internal\"}"}},
+  dns:{"api.shop.ru":"10.0.1.9",localhost:"127.0.0.1"},
+  fs:{"/home/oncall/runbook.md":{c:"# Runbook: рост 5xx\n1. Подтвердить по метрикам (curl localhost:9090/metrics)\n2. Проверить, что менялось: kubectl rollout history deploy/api\n3. Стабилизировать: kubectl rollout undo deploy/api\n4. Только потом искать первопричину в логах\n5. Написать постмортем",own:"oncall oncall"}}},
+ after(ctx){
+   if(ctx.flags["undo:api"]){
+     ctx.k8s.pods.forEach(p=>{p.image="registry/api:2.5.9";p.logs=["03:44 деплой 2.5.9 (откат)","03:44 {{p|200 GET /api/cart}}"]});
+     ctx.http["localhost:9090/metrics"]={code:200,msg:"OK",body:"# HELP http_requests_total\nhttp_requests_total{status=\"200\"} 44210\nhttp_requests_total{status=\"500\"} 5702\n{{p|error_ratio_5m 0.001}}\nhttp_request_duration_p95_seconds 0.19"};
+     ctx.http["api.shop.ru"]={code:200,msg:"OK",body:"{\"ok\":true}"};
+     ctx.flags.stabilized=true;
+     if(ctx.flags.metricsSeen)ctx.flags.metricsAfter=ctx.cmds.filter(x=>x.includes("9090/metrics")).length>1;
+   }
+   if(ctx.flags["curl:localhost:9090/metrics"])ctx.flags.metricsSeen=true;
+ },
+ tasks:[
+  {t:"Открыть runbook — он для этого и написан",hint:"cat runbook.md",ok:c=>c.flags["cat:/home/oncall/runbook.md"]},
+  {t:"Подтвердить масштаб по метрикам",hint:"curl localhost:9090/metrics",ok:c=>c.flags.metricsSeen},
+  {t:"Выяснить, что менялось перед инцидентом",hint:"kubectl rollout history deploy/api",ok:c=>c.cmds.some(x=>x.includes("rollout history"))},
+  {t:"Стабилизировать сервис откатом",hint:"kubectl rollout undo deploy/api",ok:c=>c.flags["undo:api"]},
+  {t:"Подтвердить восстановление метриками",hint:"снова curl localhost:9090/metrics",ok:c=>c.flags.metricsAfter},
+  {t:"Только теперь — искать первопричину в логах",hint:"kubectl logs api-9f7c2b1a4-k3m8x",ok:c=>Object.keys(c.flags).some(k=>k.startsWith("logs:api"))}],
+ debrief:`<p><b>Ты сделал главное:</b> сначала вернул сервис, потом расследовал. Обратный порядок — самая дорогая ошибка дежурного: пока ты читаешь стектрейс, клиенты уходят.</p>
+ <p><b>Что попадёт в постмортем:</b> таймлайн (03:29 деплой → 03:31 первые 500 → 03:40 алерт → 03:44 откат), влияние (12% запросов, ~11 минут), первопричина (несовместимое изменение API кэша), <b>и отдельным пунктом</b> — почему алерт пришёл только через 9 минут после начала ошибок.</p>
+ <p>Action items здесь очевидны: canary-выкатка вместо полной, алерт по error_ratio с окном 2 минуты, автоматический откат по SLO.</p>`};
+
+/* ---- свободная песочница ---- */
+const SANDBOX={host:"sandbox",user:"deploy",cwd:"/home/deploy",
+ df:[{fs:"/dev/sda1",size:"40G",used:"11G",avail:"27G",pct:"29%",mnt:"/"}],
+ du:{"/var/log":"640M","/var/lib/docker":"2.1G","/home/deploy":"84M"},
+ fs:{"/home/deploy/notes.txt":{c:"Песочница. Здесь ничего не сломать.\nПопробуй: ls -la /var/log, ps aux | grep nginx, systemctl status nginx,\nss -tulpn, docker ps -a, kubectl get pods, curl localhost:8080",own:"deploy deploy"},
+  "/var/log/nginx/access.log":{c:'10.0.0.5 - - [12/Feb/2025:09:00:01] "GET / HTTP/1.1" 200 1043\n10.0.0.7 - - [12/Feb/2025:09:00:04] "GET /api/cart HTTP/1.1" 500 87\n10.0.0.5 - - [12/Feb/2025:09:00:06] "GET /img/logo.png HTTP/1.1" 200 8821\n10.0.0.9 - - [12/Feb/2025:09:00:09] "POST /api/order HTTP/1.1" 502 61\n10.0.0.7 - - [12/Feb/2025:09:00:11] "GET /api/cart HTTP/1.1" 500 87',own:"root root"},
+  "/var/log/app/app.log":{c:"09:00:01 INFO старт\n09:00:04 ERROR db timeout\n09:00:06 INFO ok\n09:00:09 ERROR db timeout",own:"app app"},
+  "/etc/nginx/nginx.conf":{c:"worker_processes auto;\nhttp {\n  server {\n    listen 80;\n    location / { proxy_pass http://127.0.0.1:8080; }\n  }\n}",own:"root root"}},
+ ps:[{pid:711,user:"root",cmd:"nginx: master process",cpu:"0.2",mem:"0.6"},
+     {pid:712,user:"www-data",cmd:"nginx: worker process",cpu:"0.4",mem:"0.8"},
+     {pid:902,user:"app",cmd:"/opt/app/bin/api --port 8080",cpu:"3.1",mem:"6.2"},
+     {pid:640,user:"root",cmd:"dockerd",cpu:"1.1",mem:"2.4"}],
+ svc:{nginx:{state:"active",pid:711,desc:"nginx web server",port:80,log:["ready"]},
+      app:{state:"active",pid:902,desc:"API service",port:8080,log:["09:00:01 старт","09:00:04 ERROR db timeout"]},
+      postgresql:{state:"active",pid:820,desc:"PostgreSQL 16",port:5432,log:["ready to accept connections"]}},
+ ports:[{proto:"tcp",port:80,pid:711,proc:"nginx"},{proto:"tcp",port:8080,pid:902,proc:"api"},{proto:"tcp",port:5432,pid:820,proc:"postgres",addr:"127.0.0.1"}],
+ docker:[{id:"a1b2c3d4e5f6",name:"redis",image:"redis:7-alpine",status:"Up 3 days",ports:"6379/tcp",logs:["Ready to accept connections"]},
+         {id:"b2c3d4e5f6a1",name:"worker",image:"shop/worker:1.2",status:"Exited (0) 2 hours ago",ports:"",logs:["job done","shutting down"]}],
+ images:[{repo:"shop/web",tag:"2.4.1",id:"9f2c1ab44e10",size:"142MB"},{repo:"redis",tag:"7-alpine",id:"c0d1e2f3a4b5",size:"41MB"}],
+ k8s:{ns:"prod",pods:[{name:"api-7d4f9b6c5-x8k2p",ready:"1/1",status:"Running",restarts:0,age:"3d",image:"registry/api:2.4.1",logs:["ok"]},
+      {name:"web-5c8d7f9b4-t7v3n",ready:"1/1",status:"Running",restarts:0,age:"3d",image:"registry/web:1.9.0",logs:["ok"]}],
+  deploys:[{name:"api",ready:"1/1",up:"1",avail:"1",age:"3d"},{name:"web",ready:"1/1",up:"1",avail:"1",age:"3d"}],
+  svcs:[{name:"api",type:"ClusterIP",cip:"10.96.14.2",ports:"80/TCP",selector:"app=api",endpoints:["10.244.1.4:8080"]}],
+  events:[{age:"3d",type:"Normal",reason:"Scheduled",obj:"pod/api-7d4f9b6c5-x8k2p",msg:"Successfully assigned"}]},
+ git:{branch:"main",modified:["src/db.js"],untracked:["debug.log"],log:[{h:"9f8e7d6",m:"fix: таймаут БД"},{h:"a1b2c3d",m:"init"}]},
+ tf:{add:0,change:0,destroy:0,plan:["  # инфраструктура соответствует конфигурации"]},
+ http:{"localhost:8080":{code:200,msg:"OK",body:"{\"status\":\"ok\"}"},"localhost":{code:200,msg:"OK",body:"<html>ok</html>"},
+       "shop.ru":{code:200,msg:"OK",body:"<html>Магазин</html>"}},
+ dns:{localhost:"127.0.0.1","shop.ru":"10.0.1.20","google.com":"142.250.74.78"}};

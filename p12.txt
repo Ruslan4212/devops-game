@@ -1,0 +1,152 @@
+/* =====================================================================
+   МОДУЛИ КУРСОВ «Git простым языком» и «Gitlab CI простым языком»
+   ===================================================================== */
+W("git").miss.push(
+{id:"g5",t:"Переписывание истории",goal:"Привести ветку в вид, за который не стыдно в PR",
+ cards:[
+ {h:"Сначала — настройка",b:"<pre>git config --global user.name \"Имя\"\ngit config --global user.email \"me@company.ru\"\ngit config --global init.defaultBranch main\ngit config --global pull.rebase true\ngit config --global alias.lg \"log --oneline --graph --all\"</pre><p>Без <code>user.email</code> коммиты не привяжутся к твоему профилю. <code>pull.rebase true</code> избавляет от мусорных merge-коммитов «Merge branch main into main».</p>"},
+ {h:"amend, rebase -i, cherry-pick",b:"<pre>git commit --amend -m \"новое сообщение\"   <span class='c'># поправить ПОСЛЕДНИЙ коммит</span>\ngit rebase -i HEAD~5      <span class='c'># переписать последние 5</span>\n\n<span class='c'># в редакторе rebase -i:</span>\npick   a1b2c3d feat: корзина\nsquash b2c3d4e fix: опечатка      <span class='c'># склеить с предыдущим</span>\nreword c3d4e5f chore: депсы       <span class='c'># изменить сообщение</span>\ndrop   d4e5f6a debug: временный лог\n\ngit cherry-pick a1b2c3d   <span class='c'># взять один коммит из другой ветки</span></pre><p>Типичный сценарий: 12 коммитов вида «фикс», «ещё фикс», «точно последний» превращаются в 2 осмысленных перед ревью.</p>"},
+ {h:"Красная линия",b:"<p>Переписывать можно <b>только то, что ещё не ушло к другим</b>. Свою ветку до PR — сколько угодно. Общую ветку — никогда.</p><p>Если после rebase своей ветки нужен push, он потребует форса. Используй <code>git push --force-with-lease</code>: он откажется затирать чужие изменения, появившиеся после твоего последнего fetch. Обычный <code>--force</code> такой проверки не делает.</p>"}],
+ ch:[
+ {t:"q",q:"Забыл добавить файл в последний коммит, ветка ещё не запушена. Быстрое решение?",a:["Новый коммит «fix»","git add файл && git commit --amend --no-edit","git revert","git reset --hard"],c:1,why:"--no-edit сохраняет прежнее сообщение. Так история остаётся чистой без лишних коммитов-заплаток."},
+ {t:"q",q:"Что делает <code>squash</code> в интерактивном rebase?",a:["Удаляет коммит","Склеивает коммит с предыдущим в один","Меняет автора","Создаёт ветку"],c:1,why:"fixup — то же самое, но выбрасывает сообщение склеиваемого коммита. Для «ещё один фикс» подходит лучше."},
+ {t:"q",q:"Почему <code>--force-with-lease</code> безопаснее, чем <code>--force</code>?",a:["Он быстрее","Откажется затирать чужие коммиты, появившиеся после твоего последнего fetch","Он не требует прав","Разницы нет"],c:1,why:"Единственный форс, который можно применять к своей ветке в общем репозитории без риска снести чужую работу."},
+ {t:"c",q:"Перенеси один коммит a1b2c3d из другой ветки в текущую.",ans:["git cherry-pick a1b2c3d"],hint:"cherry-pick",why:"Типично для хотфиксов: починил в main — перенёс в release-ветку одним коммитом."},
+ {t:"q",q:"Ты сделал rebase ветки, которую уже видел коллега и взял себе. Что произойдёт у него?",a:["Ничего","Его история разойдётся с твоей: одинаковые изменения с разными хешами, конфликты при следующем pull","Его ветка удалится","Git запретит операцию"],c:1,why:"Отсюда правило: rebase — до публикации либо по договорённости, с явным предупреждением команды."}]},
+{id:"g6",t:"Спасение: reflog, bisect, blame",goal:"Вернуть потерянное и найти виновный коммит",
+ cards:[
+ {h:"reflog — машина времени",b:"<pre>git reflog\nb8c9d0e HEAD@{0}: reset: moving to HEAD~3\nf2a3b4c HEAD@{1}: commit: feat: уведомления\n\ngit reset --hard f2a3b4c    <span class='c'># вернуть как было</span></pre><p>Reflog хранит все положения HEAD за последние ~90 дней, включая «удалённые» коммиты. Практически всё, что ты «потерял» в git, восстанавливается отсюда — паниковать почти никогда не нужно.</p>"},
+ {h:"bisect — бинарный поиск по истории",b:"<pre>git bisect start\ngit bisect bad              <span class='c'># текущий коммит сломан</span>\ngit bisect good v1.4.0      <span class='c'># здесь работало</span>\n<span class='c'># git checkout'ит середину, ты проверяешь и говоришь:</span>\ngit bisect good  |  git bisect bad\n<span class='c'># ...повторяешь; в конце:</span>\ngit bisect reset</pre><p>Из 1000 коммитов виновный находится за 10 шагов. Можно автоматизировать: <code>git bisect run ./test.sh</code> — git сам прогонит бинарный поиск по коду возврата скрипта.</p>"},
+ {h:"blame и поиск по истории",b:"<pre>git blame -L 40,60 src/app.js   <span class='c'># кто и когда менял строки</span>\ngit log -S \"cache.get\"          <span class='c'># коммиты, где появилась/исчезла строка</span>\ngit log -p src/db.js            <span class='c'># история файла с диффами</span>\ngit stash / git stash pop       <span class='c'># отложить незакоммиченное</span></pre><p><code>git log -S</code> («кирка») — недооценённая команда: находит коммит, где строка впервые появилась, даже если файл переименовывали.</p>"}],
+ ch:[
+ {t:"c",q:"Ты сделал reset --hard и потерял коммиты. Чем посмотреть, куда HEAD ходил раньше?",ans:["git reflog","git reflog show"],hint:"одно слово",why:"Reflog локален и не уезжает в remote — но именно он спасает в 9 случаях из 10."},
+ {t:"q",q:"Баг появился где-то между релизами v1.4 и v1.9 — 400 коммитов. Инструмент?",a:["Читать все диффы","git bisect — бинарный поиск, ~9 проверок","git blame по всем файлам","Спросить команду"],c:1,why:"log₂(400) ≈ 9. И если есть скрипт-проверка, git bisect run сделает всё сам."},
+ {t:"q",q:"Что делает <code>git log -S \"cache.get\"</code>?",a:["Ищет в сообщениях коммитов","Находит коммиты, где число вхождений этой строки в код изменилось","Сортирует лог","Ищет по авторам"],c:1,why:"Ищет по содержимому изменений, а не по тексту коммита. Так находят, когда именно появилась злополучная строка."},
+ {t:"q",q:"Зачем <code>git bisect reset</code> в конце?",a:["Удаляет ветку","Возвращает рабочую копию на исходный коммит и завершает сессию поиска","Отменяет коммиты","Чистит reflog"],c:1,why:"Иначе останешься в состоянии detached HEAD на середине истории и потом долго будешь удивляться."}]},
+{id:"g7",t:"Работа в команде и продвинутые инструменты",goal:"Жить в чужом репозитории по правилам",
+ cards:[
+ {h:"Fork и Pull Request",b:"<p><b>Fork</b> — своя копия чужого репозитория (для внешней контрибуции). Внутри команды форки обычно не нужны: работают ветками в одном репозитории.</p><pre>git remote add upstream git@github.com:orig/repo.git\ngit fetch upstream &amp;&amp; git rebase upstream/main</pre><p><b>Хороший PR:</b> маленький (до ~400 строк), одно логическое изменение, описание «что и зачем», зелёный CI, скриншот или лог результата.</p><p><b>Хорошее ревью:</b> отвечает на вопрос «стало ли лучше», а не «сделал бы я так же». Блокирующие замечания отделены от предложений.</p>"},
+ {h:"Hooks",b:"<pre>.git/hooks/pre-commit     <span class='c'># локально, не версионируется</span>\n\n# современный вариант — pre-commit framework\nrepos:\n  - repo: https://github.com/gitleaks/gitleaks\n    hooks: [{id: gitleaks}]</pre><p>Хуки ловят проблему до коммита: секреты, форматирование, линтер. Важно: локальные хуки легко обойти, поэтому те же проверки обязаны быть и в CI. Хук — удобство, CI — гарантия.</p>"},
+ {h:"Подмодули, LFS, worktree",b:"<ul><li><b>Submodule</b> — вложенный репозиторий, зафиксированный на конкретном коммите. Мощно и болезненно: клонировать надо с <code>--recurse-submodules</code>, обновлять вручную. Сегодня чаще выбирают монорепо или пакеты.</li><li><b>Git LFS</b> — большие бинарники (макеты, видео, датасеты) хранятся отдельно, в репозитории лежат указатели. Без LFS такой репозиторий распухает навсегда — история не чистится сама.</li><li><b>Worktree</b> — несколько рабочих копий одного репозитория рядом: <code>git worktree add ../hotfix main</code>. Срочный фикс без stash и переключения веток.</li></ul>"}],
+ ch:[
+ {t:"q",q:"Почему PR на 2000 строк — плохо?",a:["Долго грузится","Ревьюер физически не может вникнуть: качество проверки падает, а риск растёт","Git не выдержит","Нельзя откатить"],c:1,why:"Исследования и практика сходятся: после ~400 строк находимость дефектов резко падает. Дели на несколько PR."},
+ {t:"q",q:"Локальный pre-commit хук ловит секреты. Достаточно ли этого?",a:["Да","Нет: хук можно обойти (--no-verify) и он есть не у всех — та же проверка нужна в CI","Да, если у всех настроен","Хуки не нужны"],c:1,why:"Хук — быстрая обратная связь разработчику, CI — обязательный барьер. Нужны оба."},
+ {t:"q",q:"В репозиторий закоммитили 500 МБ видео. Что делать на будущее?",a:["Ничего","Git LFS для бинарников + чистка истории; иначе каждый клон тянет эти 500 МБ навсегда","Сжать файл","Удалить файл новым коммитом"],c:1,why:"Удаление новым коммитом не уменьшает репозиторий: объект остаётся в истории."},
+ {t:"q",q:"Нужен срочный хотфикс, но в рабочей копии куча незаконченных правок. Аккуратное решение?",a:["Закоммитить как есть","git worktree add ../hotfix main — отдельная рабочая копия рядом","Удалить изменения","Работать в том же каталоге"],c:1,why:"Альтернатива — git stash. Worktree удобнее, когда правки долгие и переключаться придётся не раз."}]}
+);
+W("cicd").miss.push(
+{id:"c7",t:"GitLab CI: rules, needs, environments",goal:"Управлять тем, что и когда запускается",
+ cards:[
+ {h:"rules — вместо only/except",b:"<pre>deploy:prod:\n  stage: deploy\n  script: ./deploy.sh\n  rules:\n    - if: '$CI_COMMIT_TAG =~ /^v/'\n      when: manual\n    - if: '$CI_COMMIT_BRANCH == \"main\"'\n      when: on_success\n    - when: never\n\ntest:\n  rules:\n    - changes: [\"src/**/*\"]      <span class='c'># только если менялся код</span></pre><p><code>rules</code> проверяются сверху вниз, срабатывает первое совпадение. Финальное <code>when: never</code> — явный запрет во всех остальных случаях; без него легко получить деплой из случайной ветки.</p>"},
+ {h:"needs: граф вместо лестницы",b:"<pre>build:\n  stage: build\ntest:unit:\n  stage: test\n  needs: [build]\ndeploy:\n  stage: deploy\n  needs: [\"test:unit\"]        <span class='c'># не ждёт остальные job'ы стадии</span></pre><p>Без <code>needs</code> job ждёт завершения <b>всей</b> предыдущей стадии. С <code>needs</code> пайплайн превращается из лестницы в граф (DAG) и заметно ускоряется.</p><p><code>dependencies</code> — про передачу артефактов между job'ами; <code>needs</code> — про порядок. Их часто путают.</p>"},
+ {h:"Environments",b:"<pre>deploy:staging:\n  environment:\n    name: staging\n    url: https://stage.shop.ru\n    on_stop: stop:staging</pre><p>GitLab показывает, какая версия где развёрнута, историю выкаток и кнопку отката. Плюс к окружению привязываются защищённые переменные и список тех, кто вправе нажать деплой.</p>"}],
+ ch:[
+ {t:"q",q:"Нужно, чтобы прод-деплой запускался только по тегу вида v1.2.3 и только вручную. Чем?",a:["only: branches","rules с условием на $CI_COMMIT_TAG и when: manual","Отдельным репозиторием","script с if"],c:1,why:"rules заменили устаревшие only/except и умеют комбинировать условия, changes и when."},
+ {t:"q",q:"Зачем финальное <code>- when: never</code> в списке rules?",a:["Для читаемости","Явно запретить запуск во всех не перечисленных случаях","Ускоряет пайплайн","Обязательно синтаксически"],c:1,why:"Без него поведение по умолчанию может внезапно запустить job там, где ты не ожидал. Безопасность по умолчанию."},
+ {t:"q",q:"Чем <code>needs</code> отличается от <code>dependencies</code>?",a:["Ничем","needs задаёт порядок выполнения (DAG), dependencies — какие артефакты забрать","needs только для деплоя","dependencies быстрее"],c:1,why:"Частый вопрос на собеседовании по GitLab CI. needs ещё и позволяет стартовать job раньше, не дожидаясь всей стадии."},
+ {t:"q",q:"Что даёт объявление <code>environment</code> у job'а?",a:["Ускорение","Историю выкаток, ссылку на среду, кнопку отката и привязку защищённых переменных","Больше памяти","Изоляцию сети"],c:1,why:"Плюс защищённые окружения: право деплоить на прод выдаётся списку людей, а не всем с доступом к репозиторию."}]},
+{id:"c8",t:"Шаблоны, сборка образов в CI, отчёты",goal:"Не копировать один и тот же YAML в десять проектов",
+ cards:[
+ {h:"include и extends",b:"<pre>include:\n  - project: 'devops/ci-templates'\n    file: '/docker.yml'\n  - template: Security/SAST.gitlab-ci.yml\n\n.build-template: &amp;build\n  stage: build\n  image: docker:24\n\nbuild:app:\n  extends: .build-template\n  variables: { IMAGE: app }</pre><p>Задания, начинающиеся с точки (<code>.build-template</code>), — скрытые: сами не выполняются, служат основой. Централизованные шаблоны — способ навести порядок в десятках репозиториев одной правкой.</p>"},
+ {h:"Сборка образов внутри CI",b:"<p>Три способа, и у каждого своя цена:</p><ul><li><b>Docker socket</b> (проброс <code>/var/run/docker.sock</code>) — просто, но даёт раннеру фактический root на хосте. Для общих раннеров недопустимо.</li><li><b>DinD</b> (docker:dind как service) — изолированнее, но требует privileged и теряет кэш между запусками.</li><li><b>Kaniko / Buildah</b> — сборка без демона и без привилегий. Рекомендуемый вариант в Kubernetes-раннерах.</li></ul><pre>build:\n  image: gcr.io/kaniko-project/executor:debug\n  script:\n    - /kaniko/executor --context $CI_PROJECT_DIR\n        --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA</pre>"},
+ {h:"Reports",b:"<pre>test:\n  artifacts:\n    reports:\n      junit: report.xml\n      coverage_report:\n        coverage_format: cobertura\n        path: coverage.xml\n</pre><p>GitLab показывает упавшие тесты и изменение покрытия прямо в merge request — ревьюер видит результат, не открывая логи. Туда же встают отчёты сканеров безопасности.</p>"}],
+ ch:[
+ {t:"q",q:"Одинаковый блок сборки скопирован в 12 репозиториев. Как навести порядок?",a:["Оставить как есть","Вынести в общий репозиторий шаблонов и подключать через include","Скрипт копирования","Монорепо"],c:1,why:"Одна правка в шаблоне — и обновились все проекты. Плюс единый стандарт качества пайплайнов."},
+ {t:"q",q:"Почему проброс docker.sock в раннер — плохая идея на общих раннерах?",a:["Медленно","Доступ к сокету = фактически root на хосте раннера; чужой пайплайн может захватить машину","Не работает","Требует лицензии"],c:1,why:"Именно поэтому в Kubernetes-раннерах собирают через kaniko/buildah — без демона и привилегий."},
+ {t:"q",q:"Что даёт <code>artifacts:reports:junit</code>?",a:["Ускоряет тесты","Показывает упавшие тесты прямо в merge request","Сохраняет логи навсегда","Запускает тесты"],c:1,why:"Обратная связь там, где принимается решение о слиянии. Логи открывают только когда отчёта недостаточно."},
+ {t:"q",q:"Job с именем <code>.deploy-base</code> — что это?",a:["Ошибка","Скрытый job-шаблон: сам не выполняется, используется через extends","Задание для прода","Устаревший синтаксис"],c:1,why:"Точка в начале имени = не выполнять. База для extends или YAML-якорей."}]}
+);
+
+/* ---- git bisect для лаборатории ---- */
+const _git=CMD.git;
+CMD.git=(ctx,a)=>{
+  const G=ctx.git;
+  if(a[0]==="bisect"){
+    if(!G.commits)return "{{e|git bisect: в этом репозитории нечего искать}}";
+    const idx=r=>{if(!r||r==="HEAD")return G.headIdx;const i=G.commits.findIndex(c=>c.h===r||c.h.startsWith(r));return i};
+    const B=G.bisect=G.bisect||{};
+    const step=()=>{
+      if(B.lo===undefined||B.hi===undefined)return "";
+      if(B.hi-B.lo<=1){B.done=true;ctx.flags.bisectFound=G.commits[B.hi].h;
+        const c=G.commits[B.hi];
+        return `{{hl|${c.h} is the first bad commit}}\n    ${c.m}\n{{d|(проверено ${B.steps||0} шагов; выйти из режима — git bisect reset)}}`;}
+      B.cur=Math.floor((B.lo+B.hi)/2);G.headIdx=B.cur;
+      const left=B.hi-B.lo-1,steps=Math.max(0,Math.round(Math.log2(left||1)));
+      const c=G.commits[B.cur];
+      return `Bisecting: ${left} revisions left to test after this (roughly ${steps} steps)\n[${c.h}] ${c.m}\n{{d|проверь состояние и скажи: git bisect good  или  git bisect bad}}`;
+    };
+    if(a[1]==="start"){B.lo=undefined;B.hi=undefined;B.done=false;B.steps=0;ctx.flags.bisectStart=true;
+      return "{{d|режим поиска включён: отметь плохой и хороший коммиты}}"}
+    if(a[1]==="bad"||a[1]==="good"){
+      if(!ctx.flags.bisectStart)return "{{e|You need to start by \"git bisect start\"}}";
+      const i=idx(a[2]);
+      if(i<0)return `{{e|неизвестная ревизия: ${a[2]}}}`;
+      if(a[1]==="bad")B.hi=i; else B.lo=i;
+      B.steps=(B.steps||0)+1;ctx.flags.bisectSteps=B.steps;
+      return step();
+    }
+    if(a[1]==="reset"){G.headIdx=G.commits.length-1;G.bisect={};ctx.flags.bisectReset=true;
+      return "{{p|Previous HEAD position restored}}"}
+    if(a[1]==="log")return (G.commits||[]).slice(0,(G.headIdx||0)+1).map(c=>`${c.h} ${c.m}`).join("\n");
+    return "{{d|git bisect start | bad | good | reset}}";
+  }
+  if(a[0]==="show"){
+    const G2=ctx.git;if(!G2.commits)return _git(ctx,a);
+    const r=a[1]&&a[1]!=="HEAD"?a[1]:null;
+    const c=r?G2.commits.find(x=>x.h.startsWith(r)):G2.commits[G2.headIdx];
+    if(!c)return `{{e|fatal: bad object ${a[1]}}}`;
+    ctx.flags["show:"+c.h]=true;
+    return `commit ${c.h}\nAuthor: ${c.a||"dev@shop.ru"}\n\n    ${c.m}\n\n${c.diff||"{{d|(изменения не показаны)}}"}`;
+  }
+  if(a[0]==="log"&&ctx.git.commits){
+    const G3=ctx.git;ctx.flags["git log"]=true;
+    return G3.commits.slice().reverse().map((c,i)=>
+      `{{hl|${c.h}}} ${c.m}${G3.commits.length-1-i===G3.headIdx?" {{p|(HEAD)}}":""}`).join("\n");
+  }
+  if(a[0]==="revert"&&ctx.git.commits){ctx.flags["revert:"+a[1]]=true;
+    return `[main f0f0f0f] Revert "${(ctx.git.commits.find(c=>c.h.startsWith(a[1]))||{}).m||a[1]}"\n{{p|1 file changed}}`}
+  return _git(ctx,a);
+};
+CMD["./test.sh"]=(ctx)=>{
+  const G=ctx.git;const bad=G.badFrom!==undefined?G.badFrom:99;
+  ctx.flags.testRuns=(ctx.flags.testRuns||0)+1;
+  const c=G.commits[G.headIdx];
+  if(G.headIdx>=bad)return `{{d|проверка корзины на коммите ${c.h}...}}\n{{e|FAIL: TypeError: cache.get is not a function}}\n{{d|код возврата: 1}}`;
+  return `{{d|проверка корзины на коммите ${c.h}...}}\n{{p|OK: корзина считается верно}}\n{{d|код возврата: 0}}`;
+};
+
+LABS.bisect={w:"git",t:"Расследование: кто сломал корзину",xp:80,
+ brief:`Корзина считает неверно. Две недели назад всё работало, с тех пор — 12 коммитов, и никто не помнит, что менял. Найди коммит, который сломал функциональность, бинарным поиском — и откати его.`,
+ hint:`<code>./test.sh</code> проверяет корзину на текущем коммите. Порядок: <code>git bisect start</code> → <code>git bisect bad</code> (сейчас сломано) → <code>git bisect good a1b2c3d</code> (там работало) → на каждом шаге запускай тест и говори <code>good</code> или <code>bad</code>.`,
+ spec:{host:"laptop",user:"dev",cwd:"/home/dev/shop",
+  git:{branch:"main",headIdx:11,badFrom:4,
+   commits:[
+    {h:"a1b2c3d",m:"init: базовый каталог"},
+    {h:"b2c3d4e",m:"feat: корзина"},
+    {h:"c3d4e5f",m:"chore: обновлены зависимости"},
+    {h:"d4e5f6a",m:"fix: опечатка в письме заказа"},
+    {h:"e5f6a7b",m:"refactor: вынесен клиент кэша",
+     diff:"- const cache = new Map()\n- cache.get(key)\n+ const cache = require('./cacheClient')\n+ cache.fetch(key)   {{e|// метод переименован, вызовы в корзине не поправлены}}"},
+    {h:"f6a7b8c",m:"feat: промокоды"},
+    {h:"a7b8c9d",m:"test: покрытие оплаты"},
+    {h:"b8c9d0e",m:"chore: bump node 20"},
+    {h:"c9d0e1f",m:"feat: экспорт отчётов"},
+    {h:"d0e1f2a",m:"fix: таймаут БД"},
+    {h:"e1f2a3b",m:"docs: обновлён readme"},
+    {h:"f2a3b4c",m:"feat: уведомления"}]},
+  fs:{"/home/dev/shop/test.sh":{c:"#!/bin/bash\n# проверяет расчёт корзины на текущем коммите\nnode ./tests/cart.test.js",mode:"-rwxr-xr-x",own:"dev dev"},
+      "/home/dev/shop/README.md":{c:"# Shop\nЗапуск тестов корзины: ./test.sh",own:"dev dev"}}},
+ tasks:[
+  {t:"Посмотреть историю коммитов",hint:"git log",ok:c=>c.flags["git log"]},
+  {t:"Убедиться, что на текущем коммите баг воспроизводится",hint:"./test.sh",ok:c=>c.flags.testRuns>=1},
+  {t:"Начать бинарный поиск",hint:"git bisect start",ok:c=>c.flags.bisectStart},
+  {t:"Задать границы: плохой сейчас и хороший в начале",hint:"git bisect bad, затем git bisect good a1b2c3d",ok:c=>c.flags.bisectSteps>=2},
+  {t:"Прогнать проверки на промежуточных коммитах",hint:"на каждом шаге: ./test.sh, затем git bisect good или git bisect bad",ok:c=>c.flags.testRuns>=3},
+  {t:"Найти первый сломанный коммит",hint:"продолжай, пока git не скажет «is the first bad commit»",ok:c=>c.flags.bisectFound==="e5f6a7b"},
+  {t:"Посмотреть, что в нём изменилось",hint:"git show e5f6a7b",ok:c=>c.flags["show:e5f6a7b"]},
+  {t:"Выйти из режима поиска",hint:"git bisect reset",ok:c=>c.flags.bisectReset},
+  {t:"Откатить виновный коммит",hint:"git revert e5f6a7b",ok:c=>c.flags["revert:e5f6a7b"]}],
+ debrief:`<p><b>Почему это работает.</b> 12 коммитов — 4 проверки вместо 12. На 1000 коммитов бинарный поиск даёт 10 шагов вместо тысячи: <code>log₂(n)</code> вместо <code>n</code>. Это единственный способ расследовать «когда-то давно сломалось» за разумное время.</p>
+ <p><b>Автоматизация:</b> если есть скрипт, возвращающий 0 при успехе и не 0 при провале, весь поиск делается одной командой — <code>git bisect run ./test.sh</code>. Git сам пройдёт все шаги и назовёт коммит.</p>
+ <p><b>Что делает bisect возможным:</b> маленькие атомарные коммиты, каждый из которых собирается и проходит тесты. В истории из огромных коммитов «всё сразу» бинарный поиск укажет на коммит на 3000 строк — и не поможет. Это ещё один аргумент за короткие PR.</p>
+ <p><b>И про откат:</b> <code>revert</code> здесь правильнее <code>reset</code> — коммит давно в общей ветке, историю переписывать нельзя.</p>`};
