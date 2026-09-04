@@ -4414,6 +4414,15 @@ const SKILLS=[
  {id:"docker",n:"Docker",ic:"▣"},{id:"cicd",n:"CI/CD",ic:"⇉"},{id:"iac",n:"IaC",ic:"⌗"},
  {id:"k8s",n:"Kubernetes",ic:"⎈"},{id:"obs",n:"Мониторинг",ic:"◉"},{id:"cloudsec",n:"Облако и безопасность",ic:"⛨"}
 ];
+/* доп. навыки для новых миров (блок C) — используются в req/ivFeedback вакансий,
+   но НЕ добавлены в основной массив SKILLS выше, чтобы не менять формулу overall() */
+const EXTRA_SKILLS=[
+ {id:"zabbix",n:"Zabbix",ic:"⚑"},{id:"prometheus",n:"Prometheus",ic:"🔥"},
+ {id:"grafana",n:"Grafana",ic:"📊"},{id:"terraform",n:"Terraform (глубоко)",ic:"⌬"},
+ {id:"python",n:"Python для DevOps",ic:"🐍"}
+];
+const ALL_SKILLS=SKILLS.concat(EXTRA_SKILLS);
+const skillMeta=id=>ALL_SKILLS.find(s=>s.id===id)||{id,n:id,ic:"•"};
 function skillOf(wid){
   const w=WORLDS.find(x=>x.id===wid); if(!w)return 0;
   const labs=labsOf(wid);
@@ -4514,16 +4523,16 @@ const JOBS=[
   intro:"Тебя сажают в комнату и говорят: «Сайт отдаёт 502. Пять минут. Рассуждай вслух»."},
  {id:"oblako",n:"«Облачные решения»",g:"middle-",pay:"210 000 ₽",tag:"Аутсорс инфраструктуры, 40 кластеров",
   desc:"Кубернетес и терраформ каждый день, у разных клиентов. Быстрый рост, много контекста.",
-  req:{k8s:58,cicd:55,iac:45,docker:55},w:["k8s","iac","cicd"],lab:"oom",qn:9,pass:0.75,
-  intro:"Два интервьюера. Один спрашивает про поды, второй молча смотрит, как ты формулируешь. Оба важны."},
+  req:{k8s:58,cicd:55,iac:45,docker:55,terraform:45},w:["k8s","iac","cicd","terraform"],lab:"oom",qn:9,pass:0.75,
+  intro:"Два интервьюера. Один спрашивает про поды, второй — про модули и state Terraform на реальных клиентских проектах. Оба важны."},
  {id:"polka",n:"Маркетплейс «Полка»",g:"middle",pay:"280 000 ₽",tag:"12 команд разработки, платформа для них",
   desc:"Платформенная команда: делаешь так, чтобы 12 команд деплоились сами и не звонили тебе.",
   req:{k8s:72,cicd:65,obs:60,iac:55},w:["k8s","cicd","obs"],lab:"svcep",qn:10,pass:0.78,
   intro:"Полтора часа. Архитектурная секция, отладка вживую и разговор про то, как ты работаешь с людьми."},
  {id:"granit",n:"Банк «Гранит»",g:"middle",pay:"300 000 ₽",tag:"SRE-команда, дежурства 24/7",
   desc:"SLO, error budget, постмортемы. Инженерная культура, за которой сюда и идут.",
-  req:{obs:72,k8s:65,cloudsec:60,net:60},w:["obs","k8s","cloudsec"],lab:"night",qn:10,pass:0.8,
-  intro:"Первый вопрос: «Расскажи про инцидент, где ты был неправ». Дальше — по нарастающей."},
+  req:{obs:72,k8s:65,cloudsec:60,net:60,prometheus:55},w:["obs","k8s","cloudsec","prometheus"],lab:"night",qn:10,pass:0.8,
+  intro:"Первый вопрос: «Расскажи про инцидент, где ты был неправ». Второй — сразу PromQL на доске: «напиши p95 латентности из histogram»."},
  {id:"stream",n:"Контур.Стрим",g:"middle",pay:"320 000 ₽",tag:"Продукт, платформа на IaC целиком",
   desc:"Вся инфраструктура — код, всё через PR. Уровень, к которому стоит идти.",
   req:{iac:70,k8s:70,cicd:65,cloudsec:60},w:["iac","k8s","cloudsec"],lab:"tfplan",qn:10,pass:0.8,
@@ -4611,7 +4620,7 @@ function startInterview(id){
 function ivFeedback(){
   const j=IV.j;
   return Object.entries(j.req).map(([k,v])=>{
-    const cur=skillOf(k),s=SKILLS.find(x=>x.id===k);
+    const cur=skillOf(k),s=skillMeta(k);
     return {n:s.n,cur,need:v,gap:v-cur,w:k};
   }).sort((a,b)=>b.gap-a.gap);
 }
