@@ -53,7 +53,7 @@ JSON.stringify({bad,dup,totals:totals()})
 | `p14.txt` | персонаж/карьера/сюжет: `SKILLS`, `RANKS`, `SOFTQ` (поведенческие вопросы), `JOBS` (9 вакансий), `STORY`, `QUESTS`, собеседование (`startInterview`, `ivFinish`) |
 | `p15.txt` | экраны персонажа (`viewHero`) и карьеры (`viewCareer`), обработчики кликов для drill/career/story |
 | `p19.txt` | мир «Сети и веб» — новый формат, готово (блок B1 выполнен) |
-| `p20.txt` | **мир «Git»** — то же самое, блок B2 |
+| `p20.txt` | мир «Git» — новый формат, готово (блок B2 выполнен) |
 | `p21.txt` | **мир «Docker»** — блок B3 |
 | `p22.txt` | **мир «CI/CD»** — блок B4 |
 | `p23.txt` | **мир «IaC» (Terraform/Ansible теория)** — блок B5 |
