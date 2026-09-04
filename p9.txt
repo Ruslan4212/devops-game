@@ -19,7 +19,7 @@ function saveMissionPos(){
   if(!R||R.mode!=="mis")return;
   S.mpos=S.mpos||{};
   if(R.phase==="res"){delete S.mpos[R.m.id]}
-  else S.mpos[R.m.id]={ci:R.ci,phase:R.phase};
+  else S.mpos[R.m.id]={ci:R.ci,phase:R.phase==="try"?"card":R.phase};
   save();
 }
 function startBoss(wid){
@@ -37,10 +37,11 @@ function drawRunner(){
   const v=document.getElementById("view");
   document.getElementById("tabs").innerHTML="";
   if(R.phase==="card")v.innerHTML=uiCard();
+  else if(R.phase==="try")v.innerHTML=uiTry();
   else if(R.phase==="intro")v.innerHTML=uiIntro();
   else if(R.phase==="q")v.innerHTML=uiQ();
   else v.innerHTML=uiRes();
-  const inp=v.querySelector(".term input"); if(inp)inp.focus();
+  const inp=v.querySelector(".term input"); if(inp&&!inp.disabled)inp.focus();
   window.scrollTo({top:0});
 }
 function uiCard(){
@@ -52,8 +53,49 @@ function uiCard(){
    <div class="teach"><h2>${c.h}</h2>${c.b}</div>
    <div class="row" style="margin-top:18px">
      ${R.ci>0?`<button class="btn ghost" data-nav="back">← Назад</button>`:""}
-     <button class="btn" data-nav="fwd">${R.ci<R.cards.length-1?"Дальше →":"К заданиям →"}</button>
+     ${c.t?`<button class="btn" data-nav="try">Отработать →</button>`
+          :`<button class="btn" data-nav="fwd">${R.ci<R.cards.length-1?"Дальше →":"К заданиям →"}</button>`}
      <button class="btn ghost" data-nav="quit" style="margin-left:auto">Выйти</button></div></div>`;
+}
+function uiTry(){
+  const c=R.cards[R.ci],t=c.t,last=R.ci>=R.cards.length-1;
+  const isCmd=!t.a;
+  let body;
+  if(isCmd){
+    const cl=R.tchecked?(R.tok?"right":"wrong"):"";
+    body=`<div class="term ${cl}">
+      <div class="ln">deploy@prod:~$ </div>
+      <div class="in"><span>$</span><input id="tin" autocomplete="off" autocapitalize="off" spellcheck="false"
+        ${R.tchecked?"disabled":""} value="${R.tans?esc(R.tans):""}" placeholder="набери команду и нажми Enter"></div></div>
+      ${!R.tchecked&&t.hint?`<div class="hint">подсказка: ${t.hint}</div>`:""}`;
+  }else{
+    body=`<div class="opts">${t.a.map((o,i)=>{
+      let cl=""; if(R.tchecked){if(i===t.c)cl="right";else if(R.tans===i)cl="wrong"}else if(R.tans===i)cl="sel";
+      return `<button class="opt ${cl}" data-topt="${i}" ${R.tchecked?"disabled":""}><kbd>${i+1}</kbd><span>${o}</span></button>`}).join("")}</div>`;
+  }
+  return `<div class="runner">
+   <div class="prog"><i style="width:${(R.ci+0.5)/(R.cards.length+2)*100}%"></i></div>
+   <div class="row" style="margin-bottom:14px"><span class="lbl">${R.w.n} · ${R.m.t}</span>
+     <span class="lbl" style="margin-left:auto">отработка ${R.ci+1}/${R.cards.length}</span></div>
+   <div class="card pad" style="border-left:3px solid var(--ok)">
+     <div class="lbl" style="color:var(--ok);margin-bottom:6px">закрепим сразу</div>
+     <h2 style="font-size:18px;margin-bottom:14px">${t.q}</h2>
+     ${body}
+     ${R.tchecked?`<div class="fb ${R.tok?"ok":"no"}"><b>${R.tok?"Верно":"Ещё раз"}</b>${t.why}
+       ${!R.tok&&isCmd?`<div class="mono" style="margin-top:8px;color:var(--ok)">${esc(t.ans[0])}</div>`:""}</div>`:""}
+     <div class="row" style="margin-top:16px">
+       ${R.tchecked?`<button class="btn" data-nav="tnext">${last?"К заданиям →":"Следующий раздел →"}</button>`
+                   :`<button class="btn" data-nav="tcheck" ${!isCmd&&R.tans===null?"disabled":""}>Проверить</button>`}
+       <button class="btn ghost" data-nav="tback">← к теории</button>
+       <button class="btn ghost" data-nav="quit" style="margin-left:auto">Выйти</button></div>
+   </div></div>`;
+}
+function missionCheat(m){
+  const rows=m.cards.filter(c=>c.cheat).map(c=>`<tr><td class="mono" style="color:var(--amber-2);white-space:nowrap">${esc(c.cheat.split(" — ")[0])}</td><td>${c.cheat.split(" — ").slice(1).join(" — ")}</td></tr>`).join("");
+  if(!rows)return "";
+  return `<div class="card pad" style="margin-bottom:14px;border-color:rgba(240,135,63,.35)">
+    <div class="lbl" style="margin-bottom:8px">шпаргалка по миссии</div>
+    <div class="tw"><table>${rows}</table></div></div>`;
 }
 function uiIntro(){
   return `<div class="runner">
@@ -63,6 +105,14 @@ function uiIntro(){
    <ul class="tight" style="margin-top:8px"><li>${R.items.length} вопросов подряд.</li><li>3 жизни. Потерял все — бой заново.</li><li>Победа: +120 XP и бейдж мира.</li></ul>
    <div class="row" style="margin-top:16px"><button class="btn" data-nav="fwd">Начать бой</button>
    <button class="btn ghost" data-nav="quit">Позже</button></div></div></div>`;
+}
+const HINT_COST=200;
+function hintBlock(it){
+  if(R.checked||!it.hint)return "";
+  if(R.hintShown)return `<div class="hint">подсказка: ${it.hint}</div>`;
+  const canPay=S.life&&S.life.created&&!S.life.dead;
+  const price=canPay?` · ${HINT_COST} ₽`:"";
+  return `<div class="row" style="margin-top:8px"><button class="btn ghost sm" data-nav="hint">Показать подсказку${price}</button></div>`;
 }
 function uiQ(){
   const it=R.items[R.idx],n=R.cards.length+R.idx,tot=R.cards.length+R.items.length;
@@ -77,7 +127,7 @@ function uiQ(){
     body=`${pre}<div class="term ${cl}">
       <div class="ln">${it.t==="c"?"deploy@prod:~$ ":"# впиши недостающее"}</div>
       <div class="in"><span>${it.t==="c"?"$":"›"}</span><input id="cin" autocomplete="off" autocapitalize="off" spellcheck="false" ${R.checked?"disabled":""} value="${R.ans?esc(R.ans):""}" placeholder="напиши команду и нажми Enter"></div></div>
-      ${!R.checked&&it.hint?`<div class="hint">подсказка: ${it.hint}</div>`:""}`;
+      ${hintBlock(it)}`;
   }else if(it.t==="o"){
     body=`<div class="ord">${R.ord.map((x,i)=>{
       let cl=""; if(R.checked)cl=it.items[i]===x?"right":"wrong";
@@ -89,7 +139,10 @@ function uiQ(){
    <div class="prog"><i style="width:${n/tot*100}%"></i></div>
    <div class="row" style="margin-bottom:14px">
      <span class="lbl">${R.mode==="rep"?"Ремонт памяти":(R.w?R.w.n+" · ":"")+R.m.t}</span>
-     <span style="margin-left:auto">${hp}</span><span class="lbl">${R.idx+1}/${R.items.length}</span></div>
+     <span style="margin-left:auto">${hp}</span>
+     ${R.mode==="mis"?`<button class="btn ghost sm" data-nav="cheat">${S.cheat?"скрыть шпаргалку":"шпаргалка"}</button>`:""}
+     <span class="lbl">${R.idx+1}/${R.items.length}</span></div>
+   ${S.cheat&&R.m.cards?missionCheat(R.m):""}
    <div class="qbox card pad"><h2>${it.q}</h2>
      <div class="qmeta lbl">${it.d?`<span style="color:${DIFFC[it.d]}">${"◆".repeat(it.d)}${"◇".repeat(5-it.d)} ${DIFF[it.d]}</span> · `:""}${{q:"выбери ответ",c:"введи команду",f:"заполни пропуск",o:"расставь по порядку"}[it.t]}</div>
      ${body}
@@ -123,6 +176,16 @@ function uiRes(){
       ${R.mode==="mis"?`<button class="btn ghost" data-nav="again">Задания снова</button>`:""}
     </div></div></div>`;
 }
+function checkTry(){
+  const t=R.cards[R.ci].t;
+  if(t.a)R.tok=R.tans===t.c;
+  else{const el=document.getElementById("tin");R.tans=el?el.value:"";
+    R.tok=t.ans.some(a=>norm(a)===norm(R.tans));}
+  R.tchecked=true;
+  if(R.tok){addXP(6);if(typeof lifeReward==="function")lifeReward("drill")}
+  srsUpdate(t.q,R.tok,t.a?{t:"q",q:t.q,a:t.a,c:t.c,why:t.why}:{t:"c",q:t.q,ans:t.ans,hint:t.hint,why:t.why});
+  save();drawRunner();
+}
 const norm=s=>String(s||"").toLowerCase().replace(/["']/g,"").replace(/\s+/g," ").trim();
 function checkAnswer(){
   const it=R.items[R.idx];
@@ -135,6 +198,7 @@ function checkAnswer(){
   srsUpdate(it.q,R.ok,it);save();drawRunner();
 }
 function nextItem(){
+  R.hintShown=false;
   if(R.mode==="boss"&&R.hp<=0){R.phase="res";drawRunner();return}
   if(R.idx<R.items.length-1){R.idx++;R.ans=null;R.checked=false;R.ok=false;
     const it=R.items[R.idx];if(it.t==="o")R.ord=shuffle(it.items.slice());}
@@ -142,7 +206,7 @@ function nextItem(){
   drawRunner();
 }
 function toQuestions(){
-  R.phase="q";R.idx=0;R.ans=null;R.checked=false;saveMissionPos();
+  R.phase="q";R.idx=0;R.ans=null;R.checked=false;R.hintShown=false;saveMissionPos();
   const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice());
   drawRunner();
 }
@@ -257,7 +321,7 @@ function sbExec(line){
 }
 /* ================= СОБЫТИЯ ================= */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-tab],[data-go],[data-world],[data-act],[data-nav],[data-opt],[data-mv],[data-lab]");
+  const t=e.target.closest("[data-tab],[data-go],[data-world],[data-act],[data-nav],[data-opt],[data-topt],[data-mv],[data-lab]");
   if(!t)return;
   if(t.dataset.tab){go(t.dataset.tab);return}
   if(t.dataset.go){go(t.dataset.go);return}
@@ -269,6 +333,7 @@ document.addEventListener("click",e=>{
   }
   if(t.dataset.mv){const[i,d]=t.dataset.mv.split(":").map(Number);const j=i+d;
     if(j<0||j>=R.ord.length)return;[R.ord[i],R.ord[j]]=[R.ord[j],R.ord[i]];drawRunner();return}
+  if(t.dataset.topt!==undefined){if(R.tchecked)return;R.tans=+t.dataset.topt;drawRunner();return}
   if(t.dataset.opt!==undefined){if(R.checked)return;R.ans=+t.dataset.opt;drawRunner();return}
   const a=t.dataset.act;
   if(a==="mis"){startMission(t.dataset.w,t.dataset.m);return}
@@ -281,7 +346,21 @@ document.addEventListener("click",e=>{
   if(a==="reset"){if(confirm("Удалить весь прогресс без возможности вернуть?")){S=defState();save();render()}return}
   if(t.dataset.world){S.openWorld=S.openWorld===t.dataset.world?null:t.dataset.world;save();render();return}
   const n=t.dataset.nav;
-  if(n==="back"){R.ci--;saveMissionPos();drawRunner()}
+  if(n==="hint"){
+    if(S.life&&S.life.created&&!S.life.dead){
+      if(S.life.money<HINT_COST){toast("Не хватает денег на подсказку");return}
+      S.life.money-=HINT_COST;S.life.totalSpent+=HINT_COST;lifeAdd("Подсказка в задании",-HINT_COST);
+    }
+    R.hintShown=true;save();drawRunner();return;
+  }
+  if(n==="cheat"){S.cheat=!S.cheat;save();drawRunner()}
+  else if(n==="try"){R.phase="try";R.tans=null;R.tchecked=false;R.tok=false;saveMissionPos();drawRunner()}
+  else if(n==="tback"){R.phase="card";drawRunner()}
+  else if(n==="tcheck"){checkTry()}
+  else if(n==="tnext"){
+    if(R.ci<R.cards.length-1){R.ci++;R.phase="card";saveMissionPos();drawRunner()}
+    else toQuestions();}
+  else if(n==="back"){R.ci--;saveMissionPos();drawRunner()}
   else if(n==="fwd"){if(R.phase==="intro")toQuestions();else if(R.ci<R.cards.length-1){R.ci++;saveMissionPos();drawRunner()}else toQuestions()}
   else if(n==="check")checkAnswer();
   else if(n==="next")nextItem();
@@ -302,6 +381,15 @@ document.addEventListener("keydown",e=>{
     if(e.key==="Enter"){e.preventDefault();const v=sb.value;sb.value="";sbExec(v);return}
     if(e.key==="ArrowUp"){e.preventDefault();if(SB.hi>0){SB.hi--;sb.value=SB.hist[SB.hi]||""}return}
     if(e.key==="ArrowDown"){e.preventDefault();if(SB.hi<SB.hist.length-1){SB.hi++;sb.value=SB.hist[SB.hi]||""}else{SB.hi=SB.hist.length;sb.value=""}return}
+    return;
+  }
+  if(R&&R.phase==="try"){
+    const tt=R.cards[R.ci].t;
+    if(e.key==="Enter"){e.preventDefault();
+      if(R.tchecked){if(R.ci<R.cards.length-1){R.ci++;R.phase="card";saveMissionPos();drawRunner()}else toQuestions()}
+      else if(tt.a?R.tans!==null:true)checkTry();
+      return}
+    if(tt.a&&!R.tchecked&&/^[1-9]$/.test(e.key)){const i=+e.key-1;if(i<tt.a.length){R.tans=i;drawRunner()}}
     return;
   }
   if(!R||R.phase!=="q")return;

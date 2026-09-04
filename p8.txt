@@ -9,7 +9,7 @@ ROADMAP.splice(1,0,{n:"—",t:"Как устроена эта игра",when:"ч
 /* ================= STATE ================= */
 const KEY="pipeline_devops_v2";
 const today=()=>new Date().toISOString().slice(0,10);
-const defState=()=>({xp:0,mis:{},boss:{},labs:{},srs:{},streak:0,last:null,days:[],badges:[],repairs:0,tab:"map",openWorld:null,hintsUsed:0,mpos:{},life:null,shopTab:"food",
+const defState=()=>({xp:0,mis:{},boss:{},labs:{},srs:{},streak:0,last:null,days:[],badges:[],repairs:0,tab:"map",openWorld:null,hintsUsed:0,mpos:{},life:null,shopTab:"food",cheat:false,
   drill:{},drillRuns:0,drillOk:0,quests:null,storySeen:[],storyPick:{},interviews:[],job:null,rep:0});
 let S=load();
 function load(){try{const r=localStorage.getItem(KEY)||localStorage.getItem("pipeline_devops_v1");
