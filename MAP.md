@@ -54,7 +54,7 @@ JSON.stringify({bad,dup,totals:totals()})
 | `p15.txt` | экраны персонажа (`viewHero`) и карьеры (`viewCareer`), обработчики кликов для drill/career/story |
 | `p19.txt` | мир «Сети и веб» — новый формат, готово (блок B1 выполнен) |
 | `p20.txt` | мир «Git» — новый формат, готово (блок B2 выполнен) |
-| `p21.txt` | **мир «Docker»** — блок B3 |
+| `p21.txt` | мир «Docker» — новый формат, готово (блок B3 выполнен) |
 | `p22.txt` | **мир «CI/CD»** — блок B4 |
 | `p23.txt` | **мир «IaC» (Terraform/Ansible теория)** — блок B5 |
 | `p24.txt` | **мир «Kubernetes»** — блок B6 |
