@@ -68,6 +68,13 @@ function viewHero(){
        <div class="muted" style="font-size:13px">${(S.storyPick&&S.storyPick[s.id])||""}</div></div>`).join("")
       :`<p class="muted" style="margin:0">Пока пусто. Сцены открываются по мере роста персонажа.</p>`}
   </section>
+  <section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">управление прогрессом</div>
+    <p class="muted" style="font-size:13.5px;margin:8px 0 12px;max-width:64ch">Прогресс хранится в этом браузере. Сбросить можно в любой момент — навыки, миссии, лаборатории, тренажёр и карьера обнулятся и игра начнётся с нуля. Перед сбросом имеет смысл скопировать сохранение: его можно вставить обратно и вернуться к текущему состоянию.</p>
+    <div class="row"><button class="btn ghost" data-act="export">Скопировать сохранение</button>
+      <button class="btn ghost" data-act="import">Вставить сохранение</button>
+      <button class="btn ghost" data-act="reset" style="color:var(--bad);border-color:rgba(226,86,90,.45)">Сбросить весь прогресс</button></div>
+  </section>
   <div class="lbl" style="margin-bottom:10px">бейджи · ${S.badges.length}/${BADGES.length}</div>
   <div class="badges">${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"":"off"}"><div class="ic">${b.ic}</div><b>${b.n}</b><small>${b.d}</small></div>`).join("")}</div>`;
 }

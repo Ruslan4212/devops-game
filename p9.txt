@@ -1,9 +1,14 @@
 /* ================= RUNNER: миссии, боссы, повторы ================= */
 let R=null,L=null;
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+const DIFF=["","разминка","крепче","сложное","очень сложное","инцидент"];
+const DIFFC=["","var(--ok)","var(--amber-2)","var(--amber)","var(--warn)","var(--bad)"];
 function startMission(wid,mid){
   const w=WORLDS.find(x=>x.id===wid),m=w.miss.find(x=>x.id===mid);
-  R={mode:"mis",w,m,cards:m.cards,ci:0,items:shuffle(m.ch.slice()),idx:0,phase:"card",wrong:0,ans:null,checked:false};
+  // миссии с лесенкой сложности идут строго по порядку, остальные перемешиваются
+  const graded=m.ch.some(c=>c.d);
+  const items=graded?m.ch.slice().sort((a,b)=>(a.d||0)-(b.d||0)):shuffle(m.ch.slice());
+  R={mode:"mis",w,m,cards:m.cards,ci:0,items,idx:0,phase:"card",wrong:0,ans:null,checked:false};
   drawRunner();
 }
 function startBoss(wid){
@@ -75,7 +80,7 @@ function uiQ(){
      <span class="lbl">${R.mode==="rep"?"Ремонт памяти":(R.w?R.w.n+" · ":"")+R.m.t}</span>
      <span style="margin-left:auto">${hp}</span><span class="lbl">${R.idx+1}/${R.items.length}</span></div>
    <div class="qbox card pad"><h2>${it.q}</h2>
-     <div class="qmeta lbl">${{q:"выбери ответ",c:"введи команду",f:"заполни пропуск",o:"расставь по порядку"}[it.t]}</div>
+     <div class="qmeta lbl">${it.d?`<span style="color:${DIFFC[it.d]}">${"◆".repeat(it.d)}${"◇".repeat(5-it.d)} ${DIFF[it.d]}</span> · `:""}${{q:"выбери ответ",c:"введи команду",f:"заполни пропуск",o:"расставь по порядку"}[it.t]}</div>
      ${body}
      ${R.checked?`<div class="fb ${R.ok?"ok":"no"}"><b>${R.ok?"Верно":"Мимо"}</b>${it.why}${!R.ok&&(it.t==="c"||it.t==="f")?`<div class="mono" style="margin-top:8px;color:var(--ok)">Правильно: ${esc(it.ans[0])}</div>`:""}</div>`:""}
      <div class="row" style="margin-top:18px">
@@ -271,7 +276,7 @@ document.addEventListener("click",e=>{
   else if(n==="next")nextItem();
   else if(n==="quit"||n==="map"){go("map")}
   else if(n==="retry")startBoss(R.w.id);
-  else if(n==="again"){R.items=shuffle(R.items);R.idx=0;R.wrong=0;R.done=false;R.phase="q";R.ans=null;R.checked=false;
+  else if(n==="again"){if(!R.items.some(x=>x.d))R.items=shuffle(R.items);R.idx=0;R.wrong=0;R.done=false;R.phase="q";R.ans=null;R.checked=false;
     const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice());drawRunner()}
 });
 document.addEventListener("keydown",e=>{

@@ -11,6 +11,9 @@ PARTS=(
   p7.txt   # дополнительные миссии
   p10.txt  # миссии и план по программе «DevOps: Junior»
   p11.txt  # миссии по модулям курса Linux
+  p16.txt  # мир Linux, переработка: миссии 1-5 с лесенкой заданий
+  p17.txt  # мир Linux: миссии 6-10
+  p18.txt  # мир Linux: миссии 11-15
   p4.txt   # лаборатории: linux, сети, git, docker
   p5.txt   # лаборатории: ci/cd, iac, k8s, sre + песочница
   p12.txt  # миссии Git и GitLab CI + лаборатория с git bisect
