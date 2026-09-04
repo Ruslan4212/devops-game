@@ -23,6 +23,7 @@ PARTS=(
   p25.txt  # миры «Мониторинг» и «Облако, безопасность, собеседование»
   p32.txt  # мир «Zabbix» (новый, блок C1)
   p33.txt  # мир «Prometheus» (новый, блок C2)
+  p34.txt  # мир «Grafana» (новый, блок C3)
   p4.txt   # лаборатории: linux, сети, git, docker
   p5.txt   # лаборатории: ci/cd, iac, k8s, sre + песочница
   p12.txt  # миссии Git и GitLab CI + лаборатория с git bisect
