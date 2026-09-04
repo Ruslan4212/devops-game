@@ -15,42 +15,7 @@ W("linux").miss.push(
  {t:"q",q:"Разница между <code>apt remove</code> и <code>apt purge</code>?",a:["Никакой","purge удаляет ещё и конфигурационные файлы","remove быстрее","purge только для ядра"],c:1,why:"После remove конфиги остаются в /etc — иногда это спасает, иногда мешает переустановке «начисто»."}]}
 );
 /* миссии Docker перенесены в p21.txt (переработанная версия мира) */
-W("k8s").miss.unshift(
-{id:"k0",t:"Свой кластер за 10 минут",goal:"Поднять окружение, где можно всё ломать",
- cards:[
- {h:"Чем поднимать локально",b:"<div class='tw'><table><tr><th>инструмент</th><th>когда</th></tr><tr><td>minikube</td><td>универсальный старт, много аддонов</td></tr><tr><td>kind</td><td>кластер внутри Docker, быстрый, удобен для CI</td></tr><tr><td>k3s / k3d</td><td>лёгкий, годится и для настоящего маленького прода на VPS</td></tr></table></div><pre>minikube start --cpus=2 --memory=4g\nminikube addons enable ingress\nkubectl get nodes</pre>"},
- {h:"Контексты и namespace",b:"<pre>kubectl config get-contexts\nkubectl config use-context prod        <span class='c'># ОСТОРОЖНО</span>\nkubectl config set-context --current --namespace=dev\nkubectl get pods -A                    <span class='c'># во всех namespace</span></pre><p><b>Namespace</b> — логическое разделение (dev/stage/prod, команды), к нему привязывают квоты и права.</p><p>Правило безопасности: держи в промпте терминала текущий контекст (kube-ps1, starship). Большинство аварий вида «я думал, что я в стейдже» лечится этой одной настройкой.</p>"},
- {h:"Инструменты, которые экономят часы",b:"<ul><li><b>k9s</b> — терминальный интерфейс к кластеру, смотреть поды и логи в разы быстрее.</li><li><b>kubectx / kubens</b> — быстрое переключение контекста и namespace.</li><li><b>stern</b> — логи сразу из нескольких подов.</li><li><code>kubectl explain deployment.spec.template</code> — встроенная документация по любому полю манифеста, работает офлайн.</li></ul>"}],
- ch:[
- {t:"c",q:"Проверь, какие узлы есть в кластере.",ans:["kubectl get nodes","kubectl get node","k get nodes"],hint:"kubectl get ...",why:"Первая команда после установки. NotReady у ноды — смотри kubelet и сеть (CNI)."},
- {t:"q",q:"Что такое namespace в Kubernetes?",a:["Физический сервер","Логическое разделение ресурсов внутри кластера, к которому привязывают квоты и права","Тип сети","Хранилище"],c:1,why:"Изоляция логическая, не сетевая: по умолчанию поды разных namespace спокойно ходят друг к другу, пока нет NetworkPolicy."},
- {t:"c",q:"Посмотри поды во всех неймспейсах сразу.",ans:["kubectl get pods -a","kubectl get pods --all-namespaces","kubectl get po -a","kubectl get pods -a"],hint:"флаг -A",why:"-A = --all-namespaces. Полезно, когда «под где-то есть, но я его не вижу»."},
- {t:"q",q:"Как узнать, какие поля бывают у объекта, без интернета?",a:["Никак","kubectl explain deployment.spec","google","kubectl get -o yaml"],c:1,why:"explain читает схему прямо из API-сервера — всегда актуально для твоей версии кластера."}]}
-);
-W("k8s").miss.push(
-{id:"k7",t:"Жизненный цикл приложения",goal:"Управлять запуском, остановкой и разовыми задачами",
- cards:[
- {h:"initContainers и порядок",b:"<pre>initContainers:\n  - name: wait-db\n    image: busybox\n    command: ['sh','-c','until nc -z db 5432; do sleep 2; done']</pre><p>Init-контейнеры отрабатывают <b>до</b> основного и по очереди: миграции БД, ожидание зависимостей, подготовка файлов.</p>"},
- {h:"Job и CronJob",b:"<pre>kind: CronJob\nspec:\n  schedule: \"0 3 * * *\"\n  concurrencyPolicy: Forbid\n  jobTemplate:\n    spec:\n      backoffLimit: 3\n      template:\n        spec:\n          restartPolicy: OnFailure</pre><p><b>Job</b> — задача, которая должна завершиться (миграция, импорт). <b>CronJob</b> — по расписанию. <code>concurrencyPolicy: Forbid</code> не даст запуститься второму экземпляру поверх зависшего первого.</p>"},
- {h:"Корректная остановка",b:"<p>При выселении пода: под помечается Terminating → убирается из endpoints → в контейнер летит SIGTERM → ждём <code>terminationGracePeriodSeconds</code> (30 по умолчанию) → SIGKILL.</p><pre>lifecycle:\n  preStop:\n    exec: { command: [\"sleep\",\"5\"] }</pre><p>Эта пауза в preStop — известный приём: даёт балансировщику успеть убрать под из ротации, чтобы не потерять запросы в момент деплоя.</p>"}],
- ch:[
- {t:"q",q:"Нужно прогнать миграцию БД перед стартом приложения. Чем?",a:["CronJob","initContainer или отдельный Job перед выкаткой","DaemonSet","Service"],c:1,why:"Init-контейнер гарантирует порядок внутри пода; отдельный Job — когда миграция одна на весь релиз, а не на каждую реплику."},
- {t:"q",q:"Задача по расписанию иногда запускается второй раз поверх зависшей первой. Что настроить?",a:["backoffLimit","concurrencyPolicy: Forbid","restartPolicy: Always","replicas: 1"],c:1,why:"Forbid пропускает запуск, Replace убивает предыдущий. Без этого получаются гонки и двойные списания."},
- {t:"q",q:"Часть запросов теряется при каждом деплое, хотя readiness настроен. Что добавить?",a:["Больше реплик","preStop-паузу и корректную обработку SIGTERM — чтобы под успел выйти из ротации","liveness","HPA"],c:1,why:"Удаление из endpoints и остановка контейнера происходят параллельно — отсюда гонка. preStop sleep её закрывает."},
- {t:"q",q:"Что означает <code>restartPolicy: OnFailure</code> у Job?",a:["Перезапускать всегда","Перезапускать только при ненулевом коде выхода","Никогда","Только вручную"],c:1,why:"У Job допустимы OnFailure и Never; Always — только у долгоживущих подов Deployment."}]},
-{id:"k8sec",t:"Безопасность кластера",goal:"Не отдать кластер вместе с приложением",
- cards:[
- {h:"RBAC",b:"<pre>kind: Role            # права внутри namespace\nrules:\n  - apiGroups: [\"\"]\n    resources: [\"pods\",\"pods/log\"]\n    verbs: [\"get\",\"list\"]\n---\nkind: RoleBinding     # кому эти права выдать</pre><p><b>Role</b> — в пределах namespace, <b>ClusterRole</b> — на весь кластер. Раздача <code>cluster-admin</code> всем подряд — самая частая находка аудита.</p><pre>kubectl auth can-i delete pods --as dev@company.ru</pre>"},
- {h:"securityContext",b:"<pre>securityContext:\n  runAsNonRoot: true\n  runAsUser: 1000\n  readOnlyRootFilesystem: true\n  allowPrivilegeEscalation: false\n  capabilities: { drop: [\"ALL\"] }</pre><p>Четыре строки, которые закрывают большинство сценариев побега из контейнера. В зрелых кластерах это проверяется политиками (Pod Security Admission, Kyverno, OPA Gatekeeper) — манифест без них просто не примут.</p>"},
- {h:"Сеть и секреты",b:"<p><b>NetworkPolicy</b>: по умолчанию сеть плоская — любой под ходит к любому. Политика «deny all + разрешить нужное» ограничивает горизонтальное перемещение атакующего.</p><p><b>Secret</b> — base64, а не шифрование. Нужны: шифрование etcd at rest, ограничение доступа через RBAC, внешний менеджер (Vault, External Secrets) и запрет монтировать чужие секреты.</p>"}],
- ch:[
- {t:"q",q:"Разработчику нужен доступ только к логам подов в одном namespace. Что выдашь?",a:["cluster-admin","Role с verbs get/list на pods и pods/log + RoleBinding","admin на кластер","Ничего"],c:1,why:"Наименьшие привилегии. Проверить результат: kubectl auth can-i --as пользователь."},
- {t:"q",q:"Что делает <code>readOnlyRootFilesystem: true</code>?",a:["Ускоряет под","Запрещает запись в файловую систему контейнера — атакующему негде разместить payload","Экономит место","Отключает логи"],c:1,why:"Для временных файлов монтируют отдельный emptyDir. Это стандартное требование в защищённых кластерах."},
- {t:"q",q:"По умолчанию под A может обратиться к поду B в другом namespace?",a:["Нет","Да — сеть плоская, пока нет NetworkPolicy","Только по HTTPS","Только с RBAC"],c:1,why:"Namespace изолирует объекты API, но не сеть. Микросегментация — отдельная работа."},
- {t:"q",q:"Каким должен быть первый шаг при аудите чужого кластера?",a:["Обновить версию","Посмотреть, у кого cluster-admin и какие поды идут от root/privileged","Включить логи","Добавить ноды"],c:1,why:"Избыточные права и привилегированные контейнеры дают самый большой риск при минимальных усилиях атакующего."}]}
-);
-/* миссии CI/CD перенесены в p22.txt */
-
+/* миссии Kubernetes перенесены в p24.txt */
 /* ===== ПЛАН, ПЕРЕСОБРАННЫЙ ПО ПРОГРАММЕ «DevOps: Junior» ===== */
 ROADMAP.length=0;
 ROADMAP.push(
