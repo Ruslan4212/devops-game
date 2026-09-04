@@ -14,6 +14,8 @@ PARTS=(
   p16.txt  # мир Linux, переработка: миссии 1-5 с лесенкой заданий
   p17.txt  # мир Linux: миссии 6-10
   p18.txt  # мир Linux: миссии 11-15
+  p19.txt  # мир «Сети и веб», переработка
+  p20.txt  # мир «Git», переработка
   p4.txt   # лаборатории: linux, сети, git, docker
   p5.txt   # лаборатории: ci/cd, iac, k8s, sre + песочница
   p12.txt  # миссии Git и GitLab CI + лаборатория с git bisect
