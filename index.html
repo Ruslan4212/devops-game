@@ -4223,6 +4223,53 @@ dr("obs","Скорость запросов в секунду за 5 минут"
 dr("obs","95-й перцентиль латентности из гистограммы","histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))");
 dr("obs","Забрать метрики приложения локально","curl localhost:9090/metrics","curl -s localhost:9090/metrics");
 
+/* ---- zabbix ---- */
+dr("zabbix","Проверить item agent.ping с сервера на хосте 10.0.1.20","zabbix_get -s 10.0.1.20 -k agent.ping");
+dr("zabbix","Проверить item локально на агенте, не дожидаясь опроса сервером","zabbix_agentd -t agent.ping");
+dr("zabbix","Ключ item: процент свободного места на разделе /","vfs.fs.size[/,pfree]");
+dr("zabbix","Ключ item: число процессов nginx","proc.num[nginx]");
+dr("zabbix","Ключ item: слушает ли хост порт 443","net.tcp.port[,443]");
+dr("zabbix","Функция триггера: данные не поступают 3 минуты","nodata(/host/item,3m)","nodata(item,3m)");
+dr("zabbix","Функция триггера: среднее значение за 5 минут","avg(/host/item,5m)","avg(item,5m)");
+dr("zabbix","Перезапустить службу агента","systemctl restart zabbix-agent");
+
+/* ---- prometheus ---- */
+dr("prometheus","Проверить сырой вывод метрик приложения на localhost:8080","curl localhost:8080/metrics","curl http://localhost:8080/metrics");
+dr("prometheus","Скорость роста counter http_requests_total за 5 минут","rate(http_requests_total[5m])");
+dr("prometheus","Суммарный rps по метрике, сгруппированный по status","sum(rate(http_requests_total[5m])) by (status)");
+dr("prometheus","p95 латентности из histogram http_request_duration_seconds_bucket","histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))");
+dr("prometheus","Топ-3 инстанса по rps","topk(3, sum(rate(http_requests_total[5m])) by (instance))");
+dr("prometheus","Название метрики живости цели скрейпинга","up");
+dr("prometheus","Название метрики текущего числа активных рядов Prometheus","prometheus_tsdb_head_series");
+
+/* ---- grafana ---- */
+dr("grafana","Функция переменной: список значений лейбла job у метрики up","label_values(up, job)");
+dr("grafana","Кнопка проверки соединения нового источника данных","Save & Test");
+dr("grafana","Инструмент, показывающий реальный запрос и ответ источника данных","Query Inspector");
+
+/* ---- terraform (углублённый) ---- */
+dr("terraform","Атрибут блока provider для второй конфигурации того же провайдера","alias");
+dr("terraform","Зафиксировать модуль из git на тег v2.3.0","?ref=v2.3.0");
+dr("terraform","Constraint версии провайдера: патчи/минор 5.40, без мажора","~> 5.40");
+dr("terraform","Создать новый workspace stage","terraform workspace new stage");
+dr("terraform","Показать текущий активный workspace","terraform workspace show");
+dr("terraform","Применить план с отдельным файлом переменных для prod","terraform apply -var-file=envs/prod.tfvars","terraform apply -var-file=\"envs/prod.tfvars\"");
+dr("terraform","Сгенерировать .tf-код из импортируемого ресурса","terraform plan -generate-config-out=generated.tf");
+dr("terraform","Перенести адрес ресурса в state без пересоздания","terraform state mv aws_instance.old aws_instance.new");
+dr("terraform","Атрибут lifecycle, запрещающий уничтожение ресурса","prevent_destroy = true","prevent_destroy");
+
+/* ---- python ---- */
+dr("python","Открыть файл app.log с гарантированным закрытием","with open(\"app.log\") as f:");
+dr("python","Прочитать YAML-файл безопасно","yaml.safe_load(f)");
+dr("python","Прочитать JSON-файл в переменную config","json.load(f)","config = json.load(f)");
+dr("python","subprocess: бросить исключение при ненулевом коде возврата","check=True");
+dr("python","subprocess: ограничить время ожидания команды 5 секундами","timeout=5");
+dr("python","requests: ограничить время ожидания ответа 5 секундами","timeout=5","requests.get(url, timeout=5)");
+dr("python","requests: превратить код 4xx/5xx в исключение","resp.raise_for_status()");
+dr("python","argparse: флаг --dry-run без значения после себя","action=\"store_true\"");
+dr("python","Построить путь через pathlib: домашняя папка / .config / app.yaml","Path.home() / \".config\" / \"app.yaml\"");
+dr("python","Создать метрику Prometheus типа Gauge","Gauge('queue_size', 'Current queue size')");
+
 /* ---- движок тренажёра ---- */
 const drKey=d=>d.q;
 function drMastery(q){return (S.drill&&S.drill[q]&&S.drill[q].m)||0}
