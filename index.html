@@ -5590,7 +5590,8 @@ function uiTry(){
      <span class="lbl" style="margin-left:auto">отработка ${R.ci+1}/${R.cards.length}</span></div>
    <div class="card pad" style="border-left:3px solid var(--ok)">
      <div class="lbl" style="color:var(--ok);margin-bottom:6px">закрепим сразу</div>
-     <h2 style="font-size:18px;margin-bottom:14px">${t.q}</h2>
+     <h2 style="font-size:18px;margin-bottom:4px">${t.q}</h2>
+     <div class="qmeta lbl" style="margin-bottom:10px">${isCmd?"введи команду в терминал":"выбери ответ"}</div>
      ${body}
      ${R.tchecked?`<div class="fb ${R.tok?"ok":"no"}"><b>${R.tok?"Верно":"Ещё раз"}</b>${t.why}
        ${!R.tok&&isCmd?`<div class="mono" style="margin-top:8px;color:var(--ok)">${esc(t.ans[0])}</div>`:""}</div>`:""}
