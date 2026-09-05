@@ -1,3 +1,81 @@
+/* ================= TAB-АВТОДОПОЛНЕНИЕ ================= */
+/* Общий движок: работает и для настоящего терминала (лаборатории/песочница —
+   дополняет команды из CMD и пути из виртуальной ФС), и для полей ввода
+   команды в миссиях/заданиях (дополняет из словаря, собранного из всех
+   правильных ответов игры). Поведение как в bash: Tab дополняет до общего
+   префикса кандидатов; если префикс уже полный — повторный Tab перебирает
+   варианты по кругу. */
+let TABCYCLE=null;
+function doTabComplete(el,getCandidates){
+  if(!el)return;
+  const v=el.value;
+  // продолжение предыдущего цикла Tab: поле не менялось с последней подстановки —
+  // крутим следующий вариант из уже готового списка, не пересчитывая слово заново
+  // (иначе "слово" — это уже подставленный кандидат, а не то, что печатал игрок).
+  if(TABCYCLE&&TABCYCLE.id===el.id&&v===TABCYCLE.before+TABCYCLE.list[TABCYCLE.idx]){
+    TABCYCLE.idx=(TABCYCLE.idx+1)%TABCYCLE.list.length;
+    el.value=TABCYCLE.before+TABCYCLE.list[TABCYCLE.idx];
+    if(el.setSelectionRange)el.setSelectionRange(el.value.length,el.value.length);
+    return;
+  }
+  const sp=v.lastIndexOf(" ");
+  const before=sp<0?"":v.slice(0,sp+1);
+  const word=sp<0?v:v.slice(sp+1);
+  if(!word){TABCYCLE=null;return}
+  let list=getCandidates(word,before);
+  if(!list||!list.length){TABCYCLE=null;return}
+  list=[...new Set(list)].sort();
+  let pick;
+  if(list.length===1){
+    pick=list[0];TABCYCLE=null;
+  }else{
+    let common=list[0];
+    for(const c of list){ while(!c.startsWith(common))common=common.slice(0,-1); }
+    if(common.length>word.length){pick=common;TABCYCLE=null;}
+    else{pick=list[0];TABCYCLE={id:el.id,before,list,idx:0};}
+  }
+  el.value=before+pick;
+  if(el.setSelectionRange)el.setSelectionRange(el.value.length,el.value.length);
+}
+function termCandidates(ctx){
+  return (word,before)=>{
+    if(before.trim()===""){
+      return Object.keys(CMD).filter(c=>c.startsWith(word));
+    }
+    let dirPart="",prefix=word;
+    const slash=word.lastIndexOf("/");
+    if(slash>=0){dirPart=word.slice(0,slash+1);prefix=word.slice(slash+1);}
+    const base=dirPart?abspath(ctx,dirPart):ctx.cwd;
+    const kids=children(ctx,base);
+    const names=Object.keys(kids).filter(n=>n.startsWith(prefix));
+    if(!names.length)return[];
+    return names.map(n=>dirPart+n+(kids[n]==="d"?"/":""));
+  };
+}
+let TABWORDS=null;
+function buildTabWords(){
+  if(TABWORDS)return TABWORDS;
+  const set=new Set();
+  const add=s=>{ if(!s)return; String(s).split(/\s+/).forEach(tok=>{
+    tok=tok.replace(/^['"]|['"]$/g,"").replace(/[,;:]+$/,"");
+    if(tok.length<2||/[<>{}(),;]/.test(tok))return;
+    set.add(tok);
+  });};
+  WORLDS.forEach(w=>{
+    w.miss.forEach(m=>{
+      m.cards.forEach(c=>{ if(c.t&&c.t.ans)c.t.ans.forEach(add); });
+      m.ch.forEach(c=>{ if(c.ans)c.ans.forEach(add); });
+    });
+    if(w.boss)w.boss.ch.forEach(c=>{ if(c.ans)c.ans.forEach(add); });
+  });
+  if(typeof DR!=="undefined")DR.forEach(d=>d.a.forEach(add));
+  TABWORDS=[...set];
+  return TABWORDS;
+}
+function practiceCandidates(word){
+  return buildTabWords().filter(w=>w.startsWith(word));
+}
+
 /* ================= RUNNER: миссии, боссы, повторы ================= */
 let R=null,L=null;
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -66,7 +144,7 @@ function uiTry(){
     body=`<div class="term ${cl}">
       <div class="ln">deploy@prod:~$ </div>
       <div class="in"><span>$</span><input id="tin" autocomplete="off" autocapitalize="off" spellcheck="false"
-        ${R.tchecked?"disabled":""} value="${R.tans?esc(R.tans):""}" placeholder="набери команду и нажми Enter"></div></div>
+        ${R.tchecked?"disabled":""} value="${R.tans?esc(R.tans):""}" placeholder="набери команду · Tab — автодополнение · Enter — проверить"></div></div>
       ${!R.tchecked&&t.hint?`<div class="hint">подсказка: ${t.hint}</div>`:""}`;
   }else{
     body=`<div class="opts">${t.a.map((o,i)=>{
@@ -126,7 +204,7 @@ function uiQ(){
     const cl=R.checked?(R.ok?"right":"wrong"):"";
     body=`${pre}<div class="term ${cl}">
       <div class="ln">${it.t==="c"?"deploy@prod:~$ ":"# впиши недостающее"}</div>
-      <div class="in"><span>${it.t==="c"?"$":"›"}</span><input id="cin" autocomplete="off" autocapitalize="off" spellcheck="false" ${R.checked?"disabled":""} value="${R.ans?esc(R.ans):""}" placeholder="напиши команду и нажми Enter"></div></div>
+      <div class="in"><span>${it.t==="c"?"$":"›"}</span><input id="cin" autocomplete="off" autocapitalize="off" spellcheck="false" ${R.checked?"disabled":""} value="${R.ans?esc(R.ans):""}" placeholder="напиши команду · Tab — автодополнение · Enter — проверить"></div></div>
       ${hintBlock(it)}`;
   }else if(it.t==="o"){
     body=`<div class="ord">${R.ord.map((x,i)=>{
@@ -256,7 +334,7 @@ function drawLab(){
       <div class="card pad" style="margin-top:12px">
         <div class="lbl">шпаргалка</div>
         <p class="muted" style="font-size:12.5px;margin:8px 0 0">
-        <span class="kbd">↑</span> <span class="kbd">↓</span> — история команд · <span class="kbd">help</span> — список команд · поддерживаются пайпы <span class="kbd">|</span> и редирект <span class="kbd">&gt;</span></p>
+        <span class="kbd">↑</span> <span class="kbd">↓</span> — история команд · <span class="kbd">Tab</span> — автодополнение команд и путей · <span class="kbd">help</span> — список команд · поддерживаются пайпы <span class="kbd">|</span> и редирект <span class="kbd">&gt;</span></p>
       </div>
     </div></div>
   ${L.done?`<div class="card pad" style="margin-top:16px;border-color:rgba(63,191,143,.5);background:rgba(63,191,143,.06)">
@@ -372,29 +450,43 @@ document.addEventListener("click",e=>{
 document.addEventListener("keydown",e=>{
   const cli=document.getElementById("cliin"),sb=document.getElementById("sbin");
   if(L&&cli&&document.activeElement===cli){
-    if(e.key==="Enter"){e.preventDefault();const v=cli.value;cli.value="";labExec(v);return}
+    if(e.key==="Tab"){e.preventDefault();doTabComplete(cli,termCandidates(L.ctx));return}
+    if(e.key==="Enter"){e.preventDefault();const v=cli.value;cli.value="";TABCYCLE=null;labExec(v);return}
     if(e.key==="ArrowUp"){e.preventDefault();if(L.hi>0){L.hi--;cli.value=L.hist[L.hi]||""}return}
     if(e.key==="ArrowDown"){e.preventDefault();if(L.hi<L.hist.length-1){L.hi++;cli.value=L.hist[L.hi]||""}else{L.hi=L.hist.length;cli.value=""}return}
     return;
   }
   if(SB&&sb&&document.activeElement===sb){
-    if(e.key==="Enter"){e.preventDefault();const v=sb.value;sb.value="";sbExec(v);return}
+    if(e.key==="Tab"){e.preventDefault();doTabComplete(sb,termCandidates(SB.ctx));return}
+    if(e.key==="Enter"){e.preventDefault();const v=sb.value;sb.value="";TABCYCLE=null;sbExec(v);return}
     if(e.key==="ArrowUp"){e.preventDefault();if(SB.hi>0){SB.hi--;sb.value=SB.hist[SB.hi]||""}return}
     if(e.key==="ArrowDown"){e.preventDefault();if(SB.hi<SB.hist.length-1){SB.hi++;sb.value=SB.hist[SB.hi]||""}else{SB.hi=SB.hist.length;sb.value=""}return}
     return;
   }
   if(R&&R.phase==="try"){
     const tt=R.cards[R.ci].t;
+    if(tt.a){
+      if(e.key==="Enter"){e.preventDefault();
+        if(R.tchecked){if(R.ci<R.cards.length-1){R.ci++;R.phase="card";saveMissionPos();drawRunner()}else toQuestions()}
+        else if(R.tans!==null)checkTry();
+        return}
+      if(!R.tchecked&&/^[1-9]$/.test(e.key)){const i=+e.key-1;if(i<tt.a.length){R.tans=i;drawRunner()}}
+      return;
+    }
+    const tin=document.getElementById("tin");
+    if(e.key==="Tab"&&tin&&!R.tchecked){e.preventDefault();doTabComplete(tin,practiceCandidates);return}
     if(e.key==="Enter"){e.preventDefault();
       if(R.tchecked){if(R.ci<R.cards.length-1){R.ci++;R.phase="card";saveMissionPos();drawRunner()}else toQuestions()}
-      else if(tt.a?R.tans!==null:true)checkTry();
+      else {TABCYCLE=null;checkTry();}
       return}
-    if(tt.a&&!R.tchecked&&/^[1-9]$/.test(e.key)){const i=+e.key-1;if(i<tt.a.length){R.tans=i;drawRunner()}}
     return;
   }
   if(!R||R.phase!=="q")return;
   const it=R.items[R.idx];
-  if(e.key==="Enter"){e.preventDefault();R.checked?nextItem():((it.t!=="q"||R.ans!==null)&&checkAnswer());return}
+  if((it.t==="c"||it.t==="f")&&e.key==="Tab"&&!R.checked){
+    e.preventDefault();doTabComplete(document.getElementById("cin"),practiceCandidates);return;
+  }
+  if(e.key==="Enter"){e.preventDefault();TABCYCLE=null;R.checked?nextItem():((it.t!=="q"||R.ans!==null)&&checkAnswer());return}
   if(it.t==="q"&&!R.checked&&/^[1-9]$/.test(e.key)){const i=+e.key-1;if(i<it.a.length){R.ans=i;drawRunner()}}
 });
 checkDay();
