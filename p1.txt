@@ -130,6 +130,22 @@ code:not(pre code){background:var(--panel-2);border:1px solid var(--line);paddin
 .res .big{font-family:var(--disp);font-size:46px;font-weight:800;letter-spacing:-.03em}
 .res .big.ok{color:var(--ok)}.res .big.no{color:var(--warn)}
 .xpfly{font-family:var(--mono);color:var(--amber);font-size:15px}
+.glofab{position:fixed;right:20px;bottom:20px;z-index:500;width:50px;height:50px;border-radius:50%;
+  background:var(--panel-2);border:1px solid var(--line);font-size:22px;box-shadow:0 6px 20px rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;transition:transform .15s,border-color .15s}
+.glofab:hover{transform:scale(1.08);border-color:var(--amber)}
+.modal-back{position:fixed;inset:0;background:rgba(6,8,12,.72);backdrop-filter:blur(3px);z-index:600;
+  display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow-y:auto}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:640px;width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:88vh;display:flex;flex-direction:column}
+.gloinput{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);
+  font-family:var(--mono);font-size:14px;padding:10px 12px;outline:none}
+.gloinput:focus{border-color:var(--amber)}
+.glolist{overflow-y:auto;margin-top:4px;flex:1}
+.glogrp:first-child .mono{margin-top:4px!important}
+.glorow{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:5px 0;font-size:13.5px;border-top:1px solid rgba(255,255,255,.04);align-items:baseline}
+.glorow:first-of-type{border-top:none}
+@media(max-width:520px){.glorow{grid-template-columns:1fr;gap:2px}}
 .stage{display:grid;grid-template-columns:auto 1fr;gap:18px}
 .stage .rail{display:flex;flex-direction:column;align-items:center;gap:6px}
 .stage .rail b{font-family:var(--mono);font-size:12px;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--panel-2);border:1px solid var(--line);color:var(--amber)}

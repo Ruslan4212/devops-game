@@ -1,3 +1,113 @@
+/* ================= ГЛОССАРИЙ КОМАНД И ФЛАГОВ =================
+   Доступен в любой момент прохождения (кнопка «📖 команды») — чтобы ни один
+   флаг команды не оставался непонятным. Покрывает весь набор инструментов
+   симулятора терминала плюс IaC/оркестрацию/мониторинг. */
+const GLOSSARY={
+ general:{
+  "|":"пайп — передаёт вывод левой команды на вход правой. Так из простых команд строят конвейер обработки.",
+  ">":"перенаправление вывода в файл, перезаписывая его содержимое.",
+  ">>":"перенаправление вывода в файл, дописывая в конец (в отличие от > файл не стирается).",
+  "2>&1":"перенаправить поток ошибок (2) туда же, куда идёт обычный вывод (1) — чтобы собрать всё в один файл.",
+  "&&":"выполнить следующую команду только если предыдущая завершилась успешно (код возврата 0).",
+  "||":"выполнить следующую команду только если предыдущая завершилась с ошибкой.",
+  "~":"домашний каталог текущего пользователя (/home/имя).",
+  ".":"текущий каталог (в путях) или «выполнить скрипт в текущей оболочке» (source).",
+  "..":"родительский каталог, на уровень выше."
+ },
+ commands:{
+  pwd:{d:"печатает путь текущего каталога — твой компас на незнакомом сервере."},
+  ls:{d:"список файлов в каталоге.",f:{"-l":"длинный формат: права, владелец, размер, дата.","-a":"показать и скрытые файлы (начинающиеся с точки).","-h":"размеры в человекочитаемом виде (КБ/МБ/ГБ), а не в байтах."}},
+  cd:{d:"сменить текущий каталог.",f:{"-":"вернуться в предыдущий каталог, где был до этого."}},
+  cat:{d:"вывести содержимое файла целиком в терминал."},
+  less:{d:"листать файл постранично: пробел — вперёд, q — выход, / — поиск. Не грузит весь файл в память."},
+  head:{d:"первые строки файла.",f:{"-n":"сколько строк показать (по умолчанию 10)."}},
+  tail:{d:"последние строки файла.",f:{"-n":"сколько строк показать.","-f":"следить за файлом в реальном времени — печатать новые строки по мере появления."}},
+  grep:{d:"искать строки, совпадающие с шаблоном.",f:{"-i":"игнорировать регистр букв.","-c":"вывести не сами строки, а их количество.","-n":"показывать номер строки перед каждым совпадением.","-v":"инвертировать — показать строки, НЕ содержащие шаблон.","-r":"рекурсивно искать по всем файлам в каталоге и подкаталогах.","-A":"показать N строк ПОСЛЕ совпадения.","-B":"показать N строк ДО совпадения.","-C":"показать N строк контекста вокруг совпадения (и до, и после)."}},
+  find:{d:"искать файлы по критериям в дереве каталогов.",f:{"-name":"искать по имени файла (с шаблоном *?).","-type":"тип объекта: f — файл, d — каталог.","-size":"искать по размеру файла (+100M — больше 100 мегабайт).","-perm":"искать по правам доступа (например, -4000 — с битом SUID)."}},
+  wc:{d:"подсчёт строк/слов/символов.",f:{"-l":"посчитать только строки."}},
+  sort:{d:"отсортировать строки ввода.",f:{"-n":"сортировать по числовому значению, а не по алфавиту.","-r":"обратный порядок (по убыванию).","-h":"сортировать человекочитаемые размеры (1K, 2M) правильно по величине."}},
+  uniq:{d:"убрать соседние повторяющиеся строки (перед этим обычно нужен sort).",f:{"-c":"показать, сколько раз встретилась каждая строка."}},
+  cut:{d:"вырезать колонку из текста.",f:{"-d":"символ-разделитель между полями.","-f":"номер поля (колонки), которое нужно вывести."}},
+  awk:{d:"обработка текста по колонкам, самый частый паттерн — {print $N}, где $N — номер колонки (разделитель — пробел по умолчанию)."},
+  sed:{d:"потоковый редактор текста.",f:{"-i":"править файл на месте (без флага sed только печатает результат, не меняя файл). sed -i.bak — то же самое, но со резервной копией с суффиксом .bak.","s/старое/новое/g":"заменить все (g — global) вхождения «старое» на «новое» в строке."}},
+  chmod:{d:"изменить права доступа к файлу.",f:{"755":"владелец: read+write+execute (7), группа и остальные: read+execute (5) — типично для исполняемых скриптов.","600":"только владелец может читать и писать — обязательно для приватных SSH-ключей.","-R":"применить рекурсивно ко всем файлам внутри каталога."}},
+  chown:{d:"сменить владельца (и опционально группу через владелец:группа) файла или каталога.",f:{"-R":"рекурсивно, включая всё содержимое каталога."}},
+  ps:{d:"список процессов.",f:{"aux":"все процессы всех пользователей в подробном формате — стандартная связка флагов, почти всегда используется вместе."}},
+  top:{d:"живой монитор процессов и нагрузки, обновляется в реальном времени."},
+  kill:{d:"послать сигнал процессу по PID.",f:{"-15 / -TERM":"мягкое завершение (по умолчанию) — процесс может корректно закрыть файлы и соединения.","-9 / -KILL":"немедленное принудительное уничтожение без возможности процесса отреагировать — последнее средство.","-1 / -HUP":"попросить процесс перечитать конфигурацию без полного перезапуска."}},
+  pkill:{d:"как kill, но ищет процесс по имени, а не по PID."},
+  pgrep:{d:"найти PID процесса по имени, ничего не завершая."},
+  free:{d:"использование оперативной памяти.",f:{"-h":"в человекочитаемом виде."}},
+  df:{d:"занятость дисковых разделов.",f:{"-h":"в человекочитаемом виде (ГБ вместо блоков).","-i":"показать использование inode вместо места — диск может быть забит мелкими файлами при формально свободном месте."}},
+  du:{d:"размер файлов/каталогов.",f:{"-s":"только итоговая сумма, без деталей по подкаталогам.","-h":"в человекочитаемом виде."}},
+  lsof:{d:"список открытых файлов процессами — помогает найти, кто держит файл или порт занятым."},
+  systemctl:{d:"управление systemd-сервисами.",sub:{status:"текущее состояние сервиса.",start:"запустить сервис.",stop:"остановить сервис.",restart:"полностью перезапустить (разрывает соединения).",reload:"применить новый конфиг без перезапуска процесса и разрыва соединений — предпочтительнее restart, если сервис это поддерживает.",enable:"включить автозапуск сервиса при загрузке системы.","daemon-reload":"заставить systemd перечитать изменённые unit-файлы с диска."}},
+  journalctl:{d:"чтение системного журнала (логов systemd).",f:{"-u":"логи конкретного юнита/сервиса.","-f":"следить в реальном времени.","-b":"логи только с текущей загрузки системы.","-p":"минимальный уровень важности (например, err — только ошибки и выше)."}},
+  ss:{d:"какие сетевые порты слушаются и каким процессом (современная замена netstat).",f:{"-t":"TCP-сокеты.","-u":"UDP-сокеты.","-l":"только слушающие (listening) сокеты.","-p":"показать процесс, которому принадлежит сокет.","-n":"показывать порты числом, не резолвя имена сервисов."}},
+  ip:{d:"управление сетевыми интерфейсами и маршрутами.",sub:{a:"показать адреса интерфейсов (addr).",r:"показать таблицу маршрутизации (route)."}},
+  ping:{d:"проверка доступности хоста по ICMP — работает даже без открытых TCP-портов."},
+  dig:{d:"DNS-запрос к резолверу.",f:{"+short":"только итоговое значение, без служебной информации.","@адрес":"спросить конкретный DNS-сервер, а не системный по умолчанию."}},
+  nc:{d:"netcat — универсальный сетевой инструмент, здесь чаще всего для проверки, открыт ли TCP-порт.",f:{"-z":"режим сканирования — просто проверить, открыт ли порт, не отправляя данные.","-v":"подробный вывод (verbose)."}},
+  curl:{d:"HTTP-запросы из терминала.",f:{"-I":"только заголовки ответа (HEAD-запрос), без тела.","-i":"заголовки вместе с телом ответа.","-v":"подробный вывод — видно весь процесс, включая TLS-рукопожатие.","-L":"следовать за редиректами (3xx).","-X":"метод запроса (POST, PUT, DELETE...).","-d":"тело запроса (данные).","-H":"добавить заголовок запроса.","-o":"записать ответ в файл вместо вывода в терминал.","-s":"тихий режим — без индикатора прогресса.","-w":"вывести дополнительную информацию по шаблону, например код ответа."}},
+  ssh:{d:"защищённое подключение к удалённому серверу.",f:{"-p":"нестандартный порт SSH.","-L":"проброс локального порта на удалённый хост через туннель.","-i":"путь к приватному ключу для авторизации."}},
+  scp:{d:"копирование файлов между хостами через SSH-протокол."},
+  tar:{d:"архивирование файлов.",f:{"c":"создать новый архив.","x":"извлечь (распаковать) архив.","t":"показать список файлов в архиве, не распаковывая.","z":"сжать/распаковать через gzip (.tar.gz).","f":"указать имя файла архива."}},
+  ln:{d:"создать ссылку на файл.",f:{"-s":"символическая ссылка (указатель на путь) вместо жёсткой."}},
+  rsync:{d:"синхронизация файлов, копирует только изменения.",f:{"-a":"архивный режим — сохранить права, символические ссылки, время изменения.","-v":"подробный вывод.","-z":"сжимать данные при передаче."}},
+  ufw:{d:"простой фаервол Ubuntu.",sub:{allow:"разрешить трафик (порт/протокол).",deny:"запретить трафик.","default deny":"политика по умолчанию — блокировать всё, что явно не разрешено."}},
+  docker:{d:"работа с контейнерами.",sub:{run:"создать и запустить новый контейнер из образа.",ps:"список запущенных контейнеров.",logs:"логи контейнера.",exec:"выполнить команду внутри уже запущенного контейнера.",build:"собрать образ из Dockerfile.",images:"список локальных образов.",stop:"остановить контейнер (SIGTERM, затем SIGKILL).",rm:"удалить контейнер.",inspect:"подробная информация об объекте в формате JSON.",stats:"потребление ресурсов контейнерами в реальном времени.",push:"отправить образ в реестр.",tag:"присвоить образу дополнительное имя/тег.",compose:"управление многоконтейнерным стеком по файлу docker-compose.yml"},f:{"-d":"detached — запустить контейнер в фоне, не занимая терминал.","-p":"проброс порта: хост:контейнер.","--name":"задать читаемое имя контейнеру.","-it":"интерактивный терминал (i — держать stdin открытым, t — псевдо-TTY) — вместе для интерактивной оболочки.","-v":"смонтировать том или каталог хоста внутрь контейнера.","-f":"следить за выводом в реальном времени (для logs) или указать файл (для build/compose: -f Dockerfile.prod).","-a":"показать все контейнеры, включая остановленные (для ps).","--rm":"автоматически удалить контейнер после его остановки.","-e":"передать переменную окружения в контейнер."}},
+  kubectl:{d:"управление кластером Kubernetes.",sub:{get:"список объектов (подов, деплойментов, сервисов...).",describe:"подробности и события конкретного объекта.",logs:"логи контейнера в поде.",apply:"применить манифест — создать или обновить объекты по описанию.",rollout:"управление процессом выкатки (status/history/undo/restart).",scale:"изменить число реплик.",exec:"выполнить команду внутри контейнера пода.",explain:"встроенная документация по полю манифеста.",config:"настройка контекста/неймспейса подключения.",auth:"проверка прав доступа (can-i).",top:"потребление ресурсов подами/нодами.",delete:"удалить объект."},f:{"-n":"неймспейс, в котором искать/создавать объект.","-A":"все неймспейсы сразу.","-f":"путь к файлу манифеста.","-o":"формат вывода (wide/yaml/json).","--previous":"логи предыдущего (упавшего) экземпляра контейнера, а не текущего.","--replicas":"желаемое число реплик (для scale).","-l":"фильтр по лейблам."}},
+  git:{d:"система контроля версий.",sub:{status:"состояние рабочего каталога: что изменено, что в индексе.",log:"история коммитов.",add:"добавить изменения в индекс (staging area) перед коммитом.",commit:"зафиксировать изменения из индекса в истории.",push:"отправить локальные коммиты на сервер.",pull:"забрать и слить изменения с сервера.",fetch:"забрать изменения с сервера, не сливая их.",switch:"переключиться на другую ветку (современная замена части checkout).",branch:"управление ветками.",merge:"слить одну ветку в другую.",rebase:"перенести коммиты поверх другой базовой точки, переписывая историю.",stash:"временно отложить незакоммиченные изменения.",tag:"пометить конкретный коммит версией.",blame:"кто и когда последний раз менял каждую строку файла.",bisect:"бинарный поиск коммита, внёсшего баг.",reflog:"журнал перемещений HEAD — спасательный трос при потере коммитов.",revert:"отменить коммит новым коммитом, не переписывая историю.",reset:"переместить текущую ветку на другой коммит."},f:{"-m":"сообщение коммита прямо в команде, без открытия редактора.","-a / --all":"добавить в индекс вообще все изменения.","-c":"создать новую ветку (для switch -c) или новый файл.","--soft":"reset, сохраняющий изменения в индексе.","--hard":"reset, полностью стирающий изменения без возможности восстановления обычным способом.","-i":"интерактивный режим (для rebase -i).","--force-with-lease":"безопасный force push — откажется перезаписать чужие коммиты, о которых ты не знал.","-S":"искать коммиты, где менялась указанная строка кода (git log -S)."}},
+  terraform:{d:"инфраструктура как код.",sub:{init:"скачать провайдеры и настроить backend — первая команда в новом проекте.",plan:"показать, что изменится при apply, ничего не применяя.",apply:"применить изменения к реальной инфраструктуре.",destroy:"уничтожить всю управляемую инфраструктуру.",validate:"проверить синтаксис конфигурации.",fmt:"привести .tf-файлы к единому стилю форматирования.",state:"операции с файлом состояния (list/mv/rm/show).",workspace:"переключение между независимыми state для одного кода.",import:"привязать существующий ресурс к state.",test:"встроенный фреймворк тестирования модулей."},f:{"-out":"сохранить план в файл для последующего apply именно этого плана.","-var-file":"подключить файл со значениями переменных для конкретного окружения.","-recursive":"применить действие ко всем файлам в подкаталогах (для fmt).","-generate-config-out":"сгенерировать .tf-код на основе импортируемого ресурса."}},
+  ansible:{d:"агентless-автоматизация конфигурации серверов по SSH.",sub:{"ansible-playbook":"запустить сценарий (playbook) на хостах инвентаря.","ansible-vault":"шифрование чувствительных данных в файлах."},f:{"-m":"модуль для разового выполнения (например -m ping).","-i":"путь к файлу инвентаря.","--check":"сухой прогон — показать, что изменилось бы, не применяя.","--diff":"показать различия в изменяемых файлах."}}
+ }
+};
+function glossarySearch(q){
+  const words=(q||"").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const rows=[];
+  const hay=(...parts)=>parts.join(" ").toLowerCase();
+  Object.entries(GLOSSARY.commands).forEach(([cmd,info])=>{
+    const cmdMatch=!words.length||words.some(w=>cmd.includes(w));
+    if(!words.length||cmdMatch)rows.push({cmd,tok:cmd,d:info.d,head:true});
+    Object.entries(info.sub||{}).forEach(([k,v])=>{
+      const h=hay(cmd,k,v);
+      if(!words.length||words.every(w=>h.includes(w)))rows.push({cmd,tok:k,d:v});
+    });
+    Object.entries(info.f||{}).forEach(([k,v])=>{
+      const h=hay(cmd,k,v);
+      if(!words.length||words.every(w=>h.includes(w)))rows.push({cmd,tok:k,d:v,flag:true});
+    });
+  });
+  if(words.length)Object.entries(GLOSSARY.general).forEach(([k,v])=>{
+    const h=hay(k,v); if(words.every(w=>h.includes(w)))rows.push({cmd:"общее",tok:k,d:v});
+  });
+  return rows.slice(0,150);
+}
+let GLOPEN=false,GLQ="";
+function viewGlossary(){
+  const rows=glossarySearch(GLQ);
+  const groups={};
+  rows.forEach(r=>{ (groups[r.cmd]=groups[r.cmd]||[]).push(r); });
+  const body=Object.entries(groups).map(([cmd,items])=>`
+    <div class="glogrp"><div class="mono" style="color:var(--amber-2);font-weight:700;margin:12px 0 4px">${esc(cmd)}</div>
+    ${items.map(it=>`<div class="glorow"><span class="mono" style="color:${it.flag?"var(--violet)":"var(--ok)"};white-space:nowrap">${esc(it.tok)}</span><span>${esc(it.d)}</span></div>`).join("")}</div>`).join("")
+    ||`<p class="muted" style="margin-top:16px">Ничего не найдено. Попробуй другое слово — например часть команды или флага.</p>`;
+  return `<div class="modal-back" data-nav="gloclose"><div class="modal" onclick="event.stopPropagation()">
+    <div class="row" style="margin-bottom:10px"><h2 style="font-size:19px">📖 Глоссарий команд</h2>
+      <button class="btn ghost sm" data-nav="gloclose" style="margin-left:auto">Закрыть ✕</button></div>
+    <input id="gloq" class="gloinput" autocomplete="off" spellcheck="false" placeholder="ищи команду, подкоманду или флаг… например: docker -p, kubectl rollout, sed -i" value="${esc(GLQ)}">
+    <div class="glolist">${body}</div>
+    <p class="muted" style="font-size:12px;margin-top:10px">Открывается в любой момент прохождения — если непонятен флаг в примере кода, ищи его здесь.</p>
+  </div></div>`;
+}
+function toggleGlossary(open){
+  GLOPEN=open===undefined?!GLOPEN:open;
+  let host=document.getElementById("glohost");
+  if(!host){host=document.createElement("div");host.id="glohost";document.body.appendChild(host);}
+  host.innerHTML=GLOPEN?viewGlossary():"";
+  if(GLOPEN){const el=document.getElementById("gloq");if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}}
+}
+
 /* ================= TAB-АВТОДОПОЛНЕНИЕ ================= */
 /* Общий движок: работает и для настоящего терминала (лаборатории/песочница —
    дополняет команды из CMD и пути из виртуальной ФС), и для полей ввода
@@ -76,6 +186,82 @@ function practiceCandidates(word){
   return buildTabWords().filter(w=>w.startsWith(word));
 }
 
+/* ================= РАЗБОР ИМЕННО ТВОЕЙ ОШИБКИ ================= */
+function levenshtein(a,b){
+  const m=a.length,n=b.length;
+  if(!m)return n; if(!n)return m;
+  let prev=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){
+    const cur=[i];
+    for(let j=1;j<=n;j++)cur[j]=a[i-1]===b[j-1]?prev[j-1]:1+Math.min(prev[j-1],prev[j],cur[j-1]);
+    prev=cur;
+  }
+  return prev[n];
+}
+/* сравнивает то, что реально напечатал игрок, с ближайшим правильным
+   вариантом — и объясняет конкретно эту разницу, а не абстрактную теорию */
+function diffAnswer(userRaw,correctList){
+  const user=norm(userRaw);
+  if(!user)return "Ты ничего не ввёл — начни печатать в строке терминала и нажми Enter.";
+  let best=correctList[0],bestD=Infinity;
+  correctList.forEach(c=>{const d=levenshtein(user,norm(c));if(d<bestD){bestD=d;best=c;}});
+  const correct=norm(best);
+  if(bestD>0&&bestD<=2&&Math.abs(user.length-correct.length)<=2&&user.length>3){
+    return `Очень близко: ты написал «${esc(userRaw.trim())}», а нужно «${esc(best)}» — разница буквально в паре символов, присмотрись.`;
+  }
+  const uT=user.split(" ").filter(Boolean),cT=correct.split(" ").filter(Boolean);
+  if(uT[0]&&cT[0]&&uT[0]!==cT[0]){
+    return `Ты начал с «${esc(uT[0])}», а здесь нужна команда «${esc(cT[0])}» — проверь, тот ли инструмент ты вызываешь.`;
+  }
+  const uSet=new Set(uT),cSet=new Set(cT);
+  const missing=cT.filter(t=>!uSet.has(t)),extra=uT.filter(t=>!cSet.has(t));
+  if(missing.length&&!extra.length){
+    return `Почти верно — в твоей команде не хватает: ${missing.map(x=>"«"+esc(x)+"»").join(", ")}.`;
+  }
+  if(extra.length&&!missing.length){
+    return `В твоей команде лишнее: ${extra.map(x=>"«"+esc(x)+"»").join(", ")} — убери и сверься с правильным вариантом ниже.`;
+  }
+  if(missing.length&&extra.length){
+    return `Ты написал ${extra.map(x=>"«"+esc(x)+"»").join(", ")} там, где нужно ${missing.map(x=>"«"+esc(x)+"»").join(", ")}.`;
+  }
+  return `Ты написал «${esc(userRaw.trim())}» — это не совпадает с ожидаемым ответом, посмотри правильный вариант ниже.`;
+}
+function diffChoice(userIdx,item){
+  const picked=item.a[userIdx];
+  return picked!==undefined?`Ты выбрал: «${esc(picked)}». `:"";
+}
+
+/* ================= ДОФАМИН: комбо, похвала, конфетти ================= */
+const PRAISE=["Верно","Точно!","Красавчик","В точку","Именно так","Есть!","Чётко","Так держать","Отлично","Ты в потоке"];
+const MISSTXT=["Не то","Мимо","Почти, но нет","Ещё разок","Промах","Не в этот раз","Близко, но не оно"];
+const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+function comboLabel(n){
+  if(n>=10)return `🔥🔥 комбо ×${n} — невозможно остановить`;
+  if(n>=5)return `🔥 комбо ×${n} — в ударе`;
+  if(n>=3)return `комбо ×${n}`;
+  return "";
+}
+function burst(el){
+  if(!el)return;
+  const r=el.getBoundingClientRect();
+  const cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const colors=["var(--ok)","var(--amber)","var(--amber-2)","var(--violet)"];
+  const host=document.createElement("div");
+  host.style.cssText="position:fixed;left:0;top:0;width:0;height:0;z-index:9999;pointer-events:none";
+  for(let i=0;i<14;i++){
+    const p=document.createElement("i");
+    const ang=Math.random()*Math.PI*2,dist=40+Math.random()*70;
+    const dx=Math.cos(ang)*dist,dy=Math.sin(ang)*dist;
+    p.style.cssText=`position:fixed;left:${cx}px;top:${cy}px;width:${5+Math.random()*4}px;height:${5+Math.random()*4}px;
+      background:${colors[i%colors.length]};border-radius:${Math.random()>0.5?"50%":"2px"};
+      transform:translate(-50%,-50%);opacity:1;transition:transform .7s cubic-bezier(.2,.7,.3,1),opacity .7s ease-out`;
+    host.appendChild(p);
+    requestAnimationFrame(()=>{p.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${Math.random()*360}deg)`;p.style.opacity="0";});
+  }
+  document.body.appendChild(host);
+  setTimeout(()=>host.remove(),750);
+}
+
 /* ================= RUNNER: миссии, боссы, повторы ================= */
 let R=null,L=null;
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -89,7 +275,7 @@ function startMission(wid,mid){
   // возвращаемся туда, где прервались в прошлый раз
   const pos=(S.mpos||{})[mid]||{};
   const ci=Math.min(pos.ci||0,m.cards.length-1);
-  R={mode:"mis",w,m,cards:m.cards,ci,items,idx:0,phase:pos.phase==="q"?"q":"card",wrong:0,ans:null,checked:false};
+  R={mode:"mis",w,m,cards:m.cards,ci,items,idx:0,phase:pos.phase==="q"?"q":"card",wrong:0,ans:null,checked:false,combo:0,best:0};
   if(R.phase==="q"){const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice())}
   drawRunner();
 }
@@ -102,12 +288,12 @@ function saveMissionPos(){
 }
 function startBoss(wid){
   const w=WORLDS.find(x=>x.id===wid);
-  R={mode:"boss",w,m:w.boss,cards:[],ci:0,items:w.boss.ch.slice(),idx:0,phase:"intro",wrong:0,hp:3,ans:null,checked:false};
+  R={mode:"boss",w,m:w.boss,cards:[],ci:0,items:w.boss.ch.slice(),idx:0,phase:"intro",wrong:0,hp:3,ans:null,checked:false,combo:0,best:0};
   drawRunner();
 }
 function startRepair(){
   const d=dueList(); if(!d.length)return;
-  R={mode:"rep",w:null,m:{t:"Ремонт памяти"},cards:[],ci:0,items:shuffle(d).slice(0,12),idx:0,phase:"q",wrong:0,ans:null,checked:false};
+  R={mode:"rep",w:null,m:{t:"Ремонт памяти"},cards:[],ci:0,items:shuffle(d).slice(0,12),idx:0,phase:"q",wrong:0,ans:null,checked:false,combo:0,best:0};
   const it=R.items[0]; if(it.t==="o")R.ord=shuffle(it.items.slice());
   drawRunner();
 }
@@ -118,7 +304,14 @@ function drawRunner(){
   else if(R.phase==="try")v.innerHTML=uiTry();
   else if(R.phase==="intro")v.innerHTML=uiIntro();
   else if(R.phase==="q")v.innerHTML=uiQ();
-  else v.innerHTML=uiRes();
+  else{
+    const already=R.done;
+    v.innerHTML=uiRes();
+    if(!already){
+      const tot=R.items.length,right=tot-R.wrong;
+      if(right/tot>=0.8||R.wrong===0)setTimeout(()=>burst(v.querySelector(".big")),150);
+    }
+  }
   const inp=v.querySelector(".term input"); if(inp&&!inp.disabled)inp.focus();
   window.scrollTo({top:0});
 }
@@ -154,13 +347,15 @@ function uiTry(){
   return `<div class="runner">
    <div class="prog"><i style="width:${(R.ci+0.5)/(R.cards.length+2)*100}%"></i></div>
    <div class="row" style="margin-bottom:14px"><span class="lbl">${R.w.n} · ${R.m.t}</span>
-     <span class="lbl" style="margin-left:auto">отработка ${R.ci+1}/${R.cards.length}</span></div>
+     ${comboLabel(R.combo)?`<span class="mono" style="margin-left:auto;color:var(--amber)">${comboLabel(R.combo)}</span>`:""}
+     <span class="lbl" ${comboLabel(R.combo)?"":'style="margin-left:auto"'}>отработка ${R.ci+1}/${R.cards.length}</span></div>
    <div class="card pad" style="border-left:3px solid var(--ok)">
      <div class="lbl" style="color:var(--ok);margin-bottom:6px">закрепим сразу</div>
      <h2 style="font-size:18px;margin-bottom:4px">${t.q}</h2>
      <div class="qmeta lbl" style="margin-bottom:10px">${isCmd?"введи команду в терминал":"выбери ответ"}</div>
      ${body}
-     ${R.tchecked?`<div class="fb ${R.tok?"ok":"no"}"><b>${R.tok?"Верно":"Ещё раз"}</b>${t.why}
+     ${R.tchecked?`<div class="fb ${R.tok?"ok":"no"}"><b>${R.praise||(R.tok?"Верно":"Ещё раз")}</b>
+       ${!R.tok&&R.tdiag?`<p style="margin:6px 0">${R.tdiag}</p>`:""}${t.why}
        ${!R.tok&&isCmd?`<div class="mono" style="margin-top:8px;color:var(--ok)">${esc(t.ans[0])}</div>`:""}</div>`:""}
      <div class="row" style="margin-top:16px">
        ${R.tchecked?`<button class="btn" data-nav="tnext">${last?"К заданиям →":"Следующий раздел →"}</button>`
@@ -218,14 +413,17 @@ function uiQ(){
    <div class="prog"><i style="width:${n/tot*100}%"></i></div>
    <div class="row" style="margin-bottom:14px">
      <span class="lbl">${R.mode==="rep"?"Ремонт памяти":(R.w?R.w.n+" · ":"")+R.m.t}</span>
-     <span style="margin-left:auto">${hp}</span>
+     ${comboLabel(R.combo)?`<span class="mono" style="margin-left:auto;color:var(--amber)">${comboLabel(R.combo)}</span>`:""}
+     <span style="margin-left:${comboLabel(R.combo)?"12px":"auto"}">${hp}</span>
      ${R.mode==="mis"?`<button class="btn ghost sm" data-nav="cheat">${S.cheat?"скрыть шпаргалку":"шпаргалка"}</button>`:""}
      <span class="lbl">${R.idx+1}/${R.items.length}</span></div>
    ${S.cheat&&R.m.cards?missionCheat(R.m):""}
    <div class="qbox card pad"><h2>${it.q}</h2>
      <div class="qmeta lbl">${it.d?`<span style="color:${DIFFC[it.d]}">${"◆".repeat(it.d)}${"◇".repeat(5-it.d)} ${DIFF[it.d]}</span> · `:""}${{q:"выбери ответ",c:"введи команду",f:"заполни пропуск",o:"расставь по порядку"}[it.t]}</div>
      ${body}
-     ${R.checked?`<div class="fb ${R.ok?"ok":"no"}"><b>${R.ok?"Верно":"Мимо"}</b>${it.why}${!R.ok&&(it.t==="c"||it.t==="f")?`<div class="mono" style="margin-top:8px;color:var(--ok)">Правильно: ${esc(it.ans[0])}</div>`:""}</div>`:""}
+     ${R.checked?`<div class="fb ${R.ok?"ok":"no"}"><b>${R.praise||(R.ok?"Верно":"Мимо")}</b>
+       ${!R.ok&&R.diag?`<p style="margin:6px 0">${R.diag}</p>`:""}${it.why}
+       ${!R.ok&&(it.t==="c"||it.t==="f")?`<div class="mono" style="margin-top:8px;color:var(--ok)">Правильно: ${esc(it.ans[0])}</div>`:""}</div>`:""}
      <div class="row" style="margin-top:18px">
        ${R.checked?`<button class="btn" data-nav="next">${R.idx<R.items.length-1?"Следующее →":"Завершить"}</button>`
                   :`<button class="btn" data-nav="check" ${it.t==="q"&&R.ans===null?"disabled":""}>Проверить</button>`}
@@ -240,14 +438,16 @@ function uiRes(){
     else if(R.mode==="boss"&&win){xp=120;S.boss[R.w.id]=1;award(R.w.id);lifeReward("boss");
       if(R.w.id==="cloudsec"){award("hired");extra=`<p style="max-width:56ch;margin:12px auto 0" class="muted">Финальный раунд пройден. Собери пет-проект из блока 10 плана, отрепетируй ответы вслух — и иди на настоящие собеседования.</p>`}}
     else if(R.mode==="rep"){xp=right*8;S.repairs+=right;if(S.repairs>=20)award("repair");questTick("repair",1)}
+    const comboXp=(R.best||0)>=3?Math.min(40,R.best*2):0;
+    xp+=comboXp; R.comboXp=comboXp;
     R.xp=xp; if(xp){addXP(xp);checkDay()} save();
   }
   return `<div class="runner"><div class="card res">
     <div class="lbl">${R.mode==="boss"?(win?"босс повержен":"поражение"):"итог"}</div>
     <div class="big ${pct>=70?"ok":"no"}">${pct}%</div>
-    <p class="muted" style="margin:6px 0 4px">${right} из ${tot} верно${R.mode==="boss"&&!win?" · жизни кончились":""}</p>
-    <p class="xpfly">+${R.xp||0} XP</p>
-    ${R.wrong?`<p class="muted" style="max-width:52ch;margin:12px auto 0;font-size:14px">Промахи отправлены в «Повторы» — вернутся завтра, пока не станут рефлексом.</p>`:`<p style="color:var(--ok);margin-top:10px">Чисто. Так и держи.</p>`}
+    <p class="muted" style="margin:6px 0 4px">${right} из ${tot} верно${R.mode==="boss"&&!win?" · жизни кончились":""}${R.best>=3?` · лучшее комбо ×${R.best}`:""}</p>
+    <p class="xpfly">+${R.xp||0} XP${R.comboXp?` <span style="color:var(--amber)">(из них +${R.comboXp} за комбо)</span>`:""}</p>
+    ${R.wrong?`<p class="muted" style="max-width:52ch;margin:12px auto 0;font-size:14px">Промахи отправлены в «Повторы» — вернутся завтра, пока не станут рефлексом.</p>`:`<p style="color:var(--ok);margin-top:10px">${pick(["Чисто. Так и держи.","Ни одной ошибки — красота.","Идеальный забег.","Вот это точность."])}</p>`}
     ${extra}
     <div class="row" style="justify-content:center;margin-top:22px">
       <button class="btn" data-nav="map">К карте</button>
@@ -257,24 +457,35 @@ function uiRes(){
 }
 function checkTry(){
   const t=R.cards[R.ci].t;
-  if(t.a)R.tok=R.tans===t.c;
+  R.tdiag="";
+  if(t.a){R.tok=R.tans===t.c; if(!R.tok)R.tdiag=diffChoice(R.tans,t);}
   else{const el=document.getElementById("tin");R.tans=el?el.value:"";
-    R.tok=t.ans.some(a=>norm(a)===norm(R.tans));}
+    R.tok=t.ans.some(a=>norm(a)===norm(R.tans));
+    if(!R.tok)R.tdiag=diffAnswer(R.tans,t.ans);}
   R.tchecked=true;
-  if(R.tok){addXP(6);if(typeof lifeReward==="function")lifeReward("drill")}
+  R.praise=pick(R.tok?PRAISE:MISSTXT);
+  if(R.tok){addXP(6);if(typeof lifeReward==="function")lifeReward("drill");
+    R.combo=(R.combo||0)+1;R.best=Math.max(R.best||0,R.combo);
+  }else R.combo=0;
   srsUpdate(t.q,R.tok,t.a?{t:"q",q:t.q,a:t.a,c:t.c,why:t.why}:{t:"c",q:t.q,ans:t.ans,hint:t.hint,why:t.why});
   save();drawRunner();
+  if(R.tok)setTimeout(()=>burst(document.querySelector(".fb.ok")),30);
 }
 const norm=s=>String(s||"").toLowerCase().replace(/["']/g,"").replace(/\s+/g," ").trim();
 function checkAnswer(){
   const it=R.items[R.idx];
-  if(it.t==="q")R.ok=R.ans===it.c;
+  R.diag="";
+  if(it.t==="q"){R.ok=R.ans===it.c; if(!R.ok)R.diag=diffChoice(R.ans,it);}
   else if(it.t==="c"||it.t==="f"){const el=document.getElementById("cin");R.ans=el?el.value:"";
-    const u=norm(R.ans);R.ok=it.ans.some(a=>norm(a)===u);}
+    const u=norm(R.ans);R.ok=it.ans.some(a=>norm(a)===u);
+    if(!R.ok)R.diag=diffAnswer(R.ans,it.ans);}
   else if(it.t==="o")R.ok=R.ord.every((x,i)=>x===it.items[i]);
   R.checked=true;
-  if(!R.ok){R.wrong++;if(R.mode==="boss")R.hp--}
+  R.praise=pick(R.ok?PRAISE:MISSTXT);
+  if(!R.ok){R.wrong++;R.combo=0;if(R.mode==="boss")R.hp--}
+  else{R.combo=(R.combo||0)+1;R.best=Math.max(R.best||0,R.combo);}
   srsUpdate(it.q,R.ok,it);save();drawRunner();
+  if(R.ok)setTimeout(()=>burst(document.querySelector(".fb.ok")),30);
 }
 function nextItem(){
   R.hintShown=false;
@@ -425,6 +636,8 @@ document.addEventListener("click",e=>{
   if(a==="reset"){if(confirm("Удалить весь прогресс без возможности вернуть?")){S=defState();save();render()}return}
   if(t.dataset.world){S.openWorld=S.openWorld===t.dataset.world?null:t.dataset.world;save();render();return}
   const n=t.dataset.nav;
+  if(n==="gloopen"){toggleGlossary(true);return}
+  if(n==="gloclose"){toggleGlossary(false);return}
   if(n==="hint"){
     if(S.life&&S.life.created&&!S.life.dead){
       if(S.life.money<HINT_COST){toast("Не хватает денег на подсказку");return}
@@ -445,10 +658,11 @@ document.addEventListener("click",e=>{
   else if(n==="next")nextItem();
   else if(n==="quit"||n==="map"){saveMissionPos();go("map")}
   else if(n==="retry")startBoss(R.w.id);
-  else if(n==="again"){if(!R.items.some(x=>x.d))R.items=shuffle(R.items);R.idx=0;R.wrong=0;R.done=false;R.phase="q";R.ans=null;R.checked=false;
+  else if(n==="again"){if(!R.items.some(x=>x.d))R.items=shuffle(R.items);R.idx=0;R.wrong=0;R.done=false;R.phase="q";R.ans=null;R.checked=false;R.combo=0;R.best=0;
     const it=R.items[0];if(it.t==="o")R.ord=shuffle(it.items.slice());drawRunner()}
 });
 document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&GLOPEN){toggleGlossary(false);return}
   const cli=document.getElementById("cliin"),sb=document.getElementById("sbin");
   if(L&&cli&&document.activeElement===cli){
     if(e.key==="Tab"){e.preventDefault();doTabComplete(cli,termCandidates(L.ctx));return}
@@ -490,6 +704,21 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Enter"){e.preventDefault();TABCYCLE=null;R.checked?nextItem():((it.t!=="q"||R.ans!==null)&&checkAnswer());return}
   if(it.t==="q"&&!R.checked&&/^[1-9]$/.test(e.key)){const i=+e.key-1;if(i<it.a.length){R.ans=i;drawRunner()}}
 });
+document.addEventListener("input",e=>{
+  if(e.target&&e.target.id==="gloq"){GLQ=e.target.value;
+    const list=document.querySelector(".glolist");
+    if(list){const rows=glossarySearch(GLQ);const groups={};rows.forEach(r=>{(groups[r.cmd]=groups[r.cmd]||[]).push(r)});
+      list.innerHTML=Object.entries(groups).map(([cmd,items])=>`
+        <div class="glogrp"><div class="mono" style="color:var(--amber-2);font-weight:700;margin:12px 0 4px">${esc(cmd)}</div>
+        ${items.map(it=>`<div class="glorow"><span class="mono" style="color:${it.flag?"var(--violet)":"var(--ok)"};white-space:nowrap">${esc(it.tok)}</span><span>${esc(it.d)}</span></div>`).join("")}</div>`).join("")
+        ||`<p class="muted" style="margin-top:16px">Ничего не найдено. Попробуй другое слово — например часть команды или флага.</p>`;
+    }
+  }
+});
+const gloBtn=document.createElement("button");
+gloBtn.className="glofab";gloBtn.setAttribute("data-nav","gloopen");gloBtn.title="Глоссарий команд и флагов";
+gloBtn.innerHTML="📖";
+document.body.appendChild(gloBtn);
 checkDay();
 const _lr=(typeof lifeTick==="function")?lifeTick():null;
 render();
