@@ -102,7 +102,7 @@ function viewCareer(){
         </div>
         <div style="min-width:210px">
           <div class="lbl" style="margin-bottom:6px">требования</div>
-          ${reqs.map(x=>{const s=SKILLS.find(y=>y.id===x.k);
+          ${reqs.map(x=>{const s=skillMeta(x.k);
             return `<div class="row" style="justify-content:space-between;font-size:12.5px;margin-bottom:3px">
               <span>${s.n}</span><span class="mono" style="color:${x.cur>=x.v?"var(--ok)":x.cur>=x.v-12?"var(--warn)":"var(--bad)"}">${x.cur}/${x.v}</span></div>`}).join("")}
           ${job.lab?`<div class="lbl" style="margin-top:8px">тестовое: ${S.labs[job.lab]?`<span style="color:var(--ok)">${LABS[job.lab].t} ✓</span>`:LABS[job.lab].t}</div>`:""}
