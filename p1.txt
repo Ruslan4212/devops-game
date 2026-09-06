@@ -209,4 +209,5 @@ th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:u
 </header>
 <div class="wrap"><nav class="tabs" id="tabs"></nav><main id="view"></main></div>
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>

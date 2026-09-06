@@ -209,6 +209,7 @@ th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:u
 </header>
 <div class="wrap"><nav class="tabs" id="tabs"></nav><main id="view"></main></div>
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* =====================================================================
    ЯДРО СИМУЛЯТОРА ТЕРМИНАЛА
@@ -3984,7 +3985,7 @@ function renderStats(){
   document.getElementById("s-xptxt").textContent=`${S.xp} / ${nxt} xp`;
   document.getElementById("s-streak").textContent=S.streak+"🔥";
 }
-const TABS=[["map","Карта"],["drill","Тренажёр"],["career","Карьера"],["life","Жизнь"],["shop","Магазин"],["hero","Персонаж"],["repair","Повторы"],["sand","Песочница"],["road","План 0→Middle"],["prof","Профиль"]];
+const TABS=[["map","Карта"],["drill","Тренажёр"],["career","Карьера"],["life","Жизнь"],["shop","Магазин"],["hero","Персонаж"],["repair","Повторы"],["sand","Песочница"],["road","План 0→Middle"],["prof","Профиль"],["leaderboard","Рейтинг"]];
 function renderTabs(){
   document.getElementById("tabs").innerHTML=TABS.map(([k,n])=>{
     const lf=S.life&&S.life.created?S.life:null;
@@ -4007,6 +4008,7 @@ function render(){
   else if(S.tab==="career")v.innerHTML=viewCareer();
   else if(S.tab==="hero")v.innerHTML=viewHero();
   else if(S.tab==="sand"){v.innerHTML=viewSandbox();initSandbox();}
+  else if(S.tab==="leaderboard")v.innerHTML=(typeof viewLeaderboard==="function")?viewLeaderboard():`<section class="card pad"><div class="lbl">рейтинг</div><h1 style="font-size:24px;margin:6px 0">Загрузка…</h1></section>`;
   else v.innerHTML=viewProf();
 }
 function ring(pct,ic){
@@ -6257,5 +6259,224 @@ if(_lr)setTimeout(()=>lifeReport(_lr),600);
   const staleDays=last?(Date.now()-last)/864e5:Infinity;
   if(staleDays<3)return;
   setTimeout(()=>toast(last?"Прогресс давно не сохранён в облако — загляни в «Персонаж»":"Прогресс есть только в этом браузере — сохрани его в облако на вкладке «Персонаж»"),2500);
+})();
+</script>
+<script>
+/* =====================================================================
+   АККАУНТЫ, СИНХРОНИЗАЦИЯ, ЛИДЕРБОРД, ПУБЛИЧНЫЙ ПРОФИЛЬ (Supabase)
+   Отдельный скрипт-блок, подключается ПОСЛЕ основного движка (p9.txt).
+   Ничего не переписывает в игровой логике — только читает/пишет S
+   и добавляет свой слой поверх. Библиотека supabase-js подключена
+   тегом <script> в p1.txt перед основным скриптом.
+
+   НАСТРОЙКА (один раз):
+   1. Создать бесплатный проект на supabase.com
+   2. Выполнить supabase_schema.sql в SQL Editor проекта
+   3. Project Settings → API → скопировать Project URL и anon public key
+      и вставить их в константы ниже
+   4. (опционально) Authentication → Providers → Email → выключить
+      "Confirm email", чтобы вход был мгновенным без письма
+   ===================================================================== */
+const SUPABASE_URL="ВСТАВЬ_URL_ПРОЕКТА";
+const SUPABASE_ANON_KEY="ВСТАВЬ_ANON_KEY";
+const CLOUD_ENABLED=SUPABASE_URL.startsWith("http")&&typeof supabase!=="undefined";
+const sb=CLOUD_ENABLED?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+
+let ACCOUNT=null; // {id, email, username} после входа
+let AUTHOPEN=false, authMode="in", authBusy=false, authErr="";
+
+function esc37(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+
+/* ---------- модалка входа/регистрации ---------- */
+function viewAuth(){
+  const inputCss="width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:10px 12px;font-family:var(--mono);font-size:13.5px;margin-bottom:10px";
+  if(!CLOUD_ENABLED){
+    return `<div class="modal-back" data-authnav="close"><div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
+      <div class="row" style="margin-bottom:10px"><h2 style="font-size:18px">Облако пока не настроено</h2>
+        <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
+      <p class="muted" style="font-size:13.5px">Разработчик игры ещё не подключил Supabase (нужно вписать URL и ключ проекта в p37.txt). Прогресс продолжает сохраняться локально и через облачный Gist на вкладке «Персонаж».</p>
+    </div></div>`;
+  }
+  if(ACCOUNT){
+    return `<div class="modal-back" data-authnav="close"><div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
+      <div class="row" style="margin-bottom:14px"><h2 style="font-size:18px">👤 Аккаунт</h2>
+        <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
+      <p style="margin:0 0 4px"><b>${esc37(ACCOUNT.username||ACCOUNT.email)}</b></p>
+      <p class="muted" style="font-size:12.5px;margin:0 0 16px">${esc37(ACCOUNT.email)}</p>
+      <div class="row"><button class="btn" data-authnav="push">Сохранить в аккаунт</button>
+        <button class="btn ghost" data-authnav="pull">Загрузить из аккаунта</button></div>
+      <button class="btn ghost" data-authnav="signout" style="margin-top:10px;color:var(--bad);border-color:rgba(226,86,90,.4)">Выйти из аккаунта</button>
+      <p class="muted" style="font-size:11.5px;margin-top:14px">Публичный профиль: <a href="?u=${encodeURIComponent(ACCOUNT.username||"")}" target="_blank" style="color:var(--amber-2)">эта же ссылка, добавь домен сайта</a></p>
+    </div></div>`;
+  }
+  return `<div class="modal-back" data-authnav="close"><div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
+    <div class="row" style="margin-bottom:14px"><h2 style="font-size:18px">👤 ${authMode==="in"?"Вход":"Регистрация"}</h2>
+      <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
+    <input id="authEmail" class="gloinput" style="${inputCss}" placeholder="email" autocomplete="email">
+    <input id="authPass" type="password" class="gloinput" style="${inputCss}" placeholder="пароль (от 6 символов)" autocomplete="${authMode==="in"?"current-password":"new-password"}">
+    ${authErr?`<p style="color:var(--bad);font-size:12.5px;margin:-2px 0 10px">${esc37(authErr)}</p>`:""}
+    <button class="btn" data-authnav="submit" style="width:100%;justify-content:center" ${authBusy?"disabled":""}>${authBusy?"Подождите…":authMode==="in"?"Войти":"Создать аккаунт"}</button>
+    <p class="muted" style="font-size:12.5px;margin-top:14px;text-align:center">
+      ${authMode==="in"?`Ещё нет аккаунта? <a href="#" data-authnav="switch" style="color:var(--amber-2)">Зарегистрироваться</a>`
+                       :`Уже есть аккаунт? <a href="#" data-authnav="switch" style="color:var(--amber-2)">Войти</a>`}</p>
+    <p class="muted" style="font-size:11.5px;margin-top:10px">Аккаунт даёт: синхронизацию между устройствами, место в общем рейтинге и публичный профиль-визитку для резюме.</p>
+  </div></div>`;
+}
+function toggleAuth(open){
+  AUTHOPEN=open===undefined?!AUTHOPEN:open; authErr="";
+  let host=document.getElementById("authhost");
+  if(!host){host=document.createElement("div");host.id="authhost";document.body.appendChild(host);}
+  host.innerHTML=AUTHOPEN?viewAuth():"";
+  if(AUTHOPEN){const el=document.getElementById("authEmail");if(el)el.focus();}
+}
+function redrawAuth(){const host=document.getElementById("authhost");if(host&&AUTHOPEN)host.innerHTML=viewAuth();}
+
+async function authSubmit(){
+  const email=(document.getElementById("authEmail")||{}).value||"";
+  const pass=(document.getElementById("authPass")||{}).value||"";
+  if(!email||pass.length<6){authErr="Email и пароль от 6 символов";redrawAuth();return}
+  authBusy=true;authErr="";redrawAuth();
+  try{
+    if(authMode==="in"){
+      const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
+      if(error)throw error;
+      await onSignedIn(data.user);
+      toggleAuth(false);toast("Вход выполнен");
+    }else{
+      const{data,error}=await sb.auth.signUp({email,password:pass});
+      if(error)throw error;
+      if(!data.session){authBusy=false;authErr="Проверь почту — письмо с подтверждением отправлено";redrawAuth();return}
+      await onSignedIn(data.user);
+      toggleAuth(false);toast("Аккаунт создан");
+    }
+  }catch(e){authErr=e.message||"Не получилось";}
+  authBusy=false;redrawAuth();
+}
+async function onSignedIn(user){
+  ACCOUNT={id:user.id,email:user.email,username:null};
+  const{data}=await sb.from("profiles").select("username").eq("id",user.id).maybeSingle();
+  if(data&&data.username){ACCOUNT.username=data.username;}
+  else{
+    let uname=(user.email||"player").split("@")[0].replace(/[^a-zA-Z0-9_]/g,"").slice(0,20)||"player";
+    ACCOUNT.username=uname;
+    await pushProfile(true);
+  }
+}
+async function ensureUsername(){
+  if(ACCOUNT.username)return ACCOUNT.username;
+  const u=prompt("Придумай имя пользователя (латиница/цифры, для рейтинга и публичного профиля):","player");
+  ACCOUNT.username=(u||"player").replace(/[^a-zA-Z0-9_]/g,"").slice(0,20)||"player";
+  return ACCOUNT.username;
+}
+async function pushProfile(silent){
+  if(!CLOUD_ENABLED||!ACCOUNT)return;
+  await ensureUsername();
+  const r=rank(),T=totals();
+  try{
+    let{error:e1}=await sb.from("profiles").upsert({id:ACCOUNT.id,username:ACCOUNT.username,state:S,updated_at:new Date().toISOString()});
+    if(e1&&/duplicate key/i.test(e1.message)){authErr="";ACCOUNT.username=ACCOUNT.username+Math.floor(Math.random()*1000);
+      ({error:e1}=await sb.from("profiles").upsert({id:ACCOUNT.id,username:ACCOUNT.username,state:S,updated_at:new Date().toISOString()}));}
+    if(e1)throw e1;
+    const{error:e2}=await sb.from("public_stats").upsert({id:ACCOUNT.id,username:ACCOUNT.username,xp:S.xp,rank_name:r.n,streak:S.streak,
+      missions_done:Object.keys(S.mis).length,labs_done:Object.keys(S.labs).length,bosses_done:Object.keys(S.boss).length,
+      badges_count:S.badges.length,updated_at:new Date().toISOString()});
+    if(e2)throw e2;
+    lastPushedJSON=JSON.stringify(S);
+    if(!silent)toast("Сохранено в аккаунт ✓");
+  }catch(e){if(!silent)toast("Не вышло сохранить: "+e.message);}
+}
+async function pullProfile(){
+  if(!CLOUD_ENABLED||!ACCOUNT)return;
+  try{
+    const{data,error}=await sb.from("profiles").select("state,username").eq("id",ACCOUNT.id).maybeSingle();
+    if(error)throw error;
+    if(!data||!data.state||!Object.keys(data.state).length){toast("В аккаунте пока нет сохранения");return}
+    if(!confirm("Загрузка из аккаунта заменит текущий прогресс в этом браузере. Продолжить?"))return;
+    S=Object.assign(defState(),data.state);
+    ACCOUNT.username=data.username;
+    save();render();
+    lastPushedJSON=JSON.stringify(S);
+    toast("Прогресс загружен из аккаунта ✓");
+  }catch(e){toast("Не вышло загрузить: "+e.message);}
+}
+
+/* ---------- фоновая синхронизация раз в ~25с, если что-то изменилось ---------- */
+let lastPushedJSON=null;
+if(CLOUD_ENABLED)setInterval(()=>{
+  if(!ACCOUNT)return;
+  const cur=JSON.stringify(S);
+  if(cur!==lastPushedJSON)pushProfile(true);
+},25000);
+
+/* ---------- лидерборд ---------- */
+async function viewLeaderboardAsync(){
+  const host=document.getElementById("view");
+  if(!CLOUD_ENABLED){host.innerHTML=`<section class="card pad"><div class="lbl">рейтинг</div><h1 style="font-size:24px;margin:6px 0">Облако не настроено</h1><p class="muted">Разработчик ещё не подключил Supabase — глобальный рейтинг появится после настройки.</p></section>`;return}
+  host.innerHTML=`<section class="card pad"><div class="lbl">рейтинг</div><h1 style="font-size:24px;margin:6px 0">Загрузка…</h1></section>`;
+  const{data,error}=await sb.from("public_stats").select("*").order("xp",{ascending:false}).limit(50);
+  if(error){host.innerHTML=`<section class="card pad"><p class="muted">Не удалось загрузить рейтинг: ${esc37(error.message)}</p></section>`;return}
+  const rows=(data||[]).map((r,i)=>`<tr ${ACCOUNT&&r.username===ACCOUNT.username?'style="background:rgba(240,135,63,.08)"':""}>
+    <td class="mono">${i+1}</td><td>${esc37(r.username)}</td><td class="mono">${r.xp}</td><td>${esc37(r.rank_name)}</td>
+    <td class="mono">${r.streak}🔥</td><td class="mono">${r.missions_done}</td><td class="mono">${r.badges_count}</td></tr>`).join("");
+  host.innerHTML=`<section class="card pad">
+    <div class="lbl">рейтинг · топ ${(data||[]).length}</div>
+    <h1 style="font-size:24px;margin:6px 0 4px">Кто дальше всех продвинулся</h1>
+    <p class="muted" style="font-size:13px;margin:0 0 16px">${ACCOUNT?"Твоя строка подсвечена.":"Войди в аккаунт, чтобы попасть в этот список."}</p>
+    <div class="tw"><table><tr><th>#</th><th>игрок</th><th>xp</th><th>ранг</th><th>стрик</th><th>миссий</th><th>бейджей</th></tr>${rows||'<tr><td colspan="7" class="muted">Пока никого — стань первым.</td></tr>'}</table></div>
+  </section>`;
+}
+function viewLeaderboard(){setTimeout(viewLeaderboardAsync,0);return `<section class="card pad"><div class="lbl">рейтинг</div><h1 style="font-size:24px;margin:6px 0">Загрузка…</h1></section>`;}
+
+/* ---------- публичный профиль (?u=username) ---------- */
+async function renderPublicProfile(username){
+  document.body.innerHTML=`<div class="wrap" style="max-width:640px;margin:0 auto;padding:60px 18px"><div id="pp" class="card pad" style="text-align:center">Загрузка профиля «${esc37(username)}»…</div></div>`;
+  if(!CLOUD_ENABLED){document.getElementById("pp").innerHTML="Облако не настроено на этом сайте.";return}
+  const{data,error}=await sb.from("public_stats").select("*").eq("username",username).maybeSingle();
+  const el=document.getElementById("pp");
+  if(error||!data){el.innerHTML=`Профиль «${esc37(username)}» не найден.`;return}
+  el.innerHTML=`
+    <div class="lbl">публичный профиль pipeline: путь до middle devops</div>
+    <h1 style="font-size:30px;margin:8px 0 2px">${esc37(data.username)}</h1>
+    <p class="muted" style="margin:0 0 20px">${esc37(data.rank_name)} · ${data.xp} XP · стрик ${data.streak} дн.</p>
+    <div class="stat-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px">
+      <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.missions_done}</b><span class="lbl">миссий</span></div>
+      <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.labs_done}</b><span class="lbl">лабораторий</span></div>
+      <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.bosses_done}</b><span class="lbl">боссов</span></div>
+    </div>
+    <p class="muted" style="font-size:12.5px">Обновлено ${new Date(data.updated_at).toLocaleDateString("ru")} · <a href="${location.pathname}" style="color:var(--amber-2)">пройти курс самому →</a></p>`;
+}
+
+/* ---------- плавающая кнопка аккаунта + обработчики ---------- */
+const acctBtn=document.createElement("button");
+acctBtn.className="glofab";acctBtn.style.right="82px";acctBtn.title="Аккаунт";acctBtn.textContent="👤";
+acctBtn.addEventListener("click",()=>toggleAuth(true));
+document.body.appendChild(acctBtn);
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-authnav]");
+  if(!t)return;
+  e.preventDefault();
+  const n=t.dataset.authnav;
+  if(n==="close")toggleAuth(false);
+  else if(n==="submit")authSubmit();
+  else if(n==="switch"){authMode=authMode==="in"?"up":"in";authErr="";redrawAuth();}
+  else if(n==="push")pushProfile(false);
+  else if(n==="pull")pullProfile();
+  else if(n==="signout"){sb.auth.signOut();ACCOUNT=null;toggleAuth(false);toast("Вышли из аккаунта");}
+});
+
+/* ---------- инициализация ---------- */
+(function initCloud(){
+  const params=new URLSearchParams(location.search);
+  const pu=params.get("u");
+  if(pu){renderPublicProfile(pu);return}
+  // p37.txt подключается отдельным <script> ПОСЛЕ основного движка (p9.txt), который уже
+  // вызвал render() один раз до того, как этот файл определил viewLeaderboard/ACCOUNT —
+  // если сохранённая вкладка зависит от этого слоя, перерисовать сразу, когда всё готово
+  if(S.tab==="leaderboard")render();
+  if(!CLOUD_ENABLED)return;
+  sb.auth.getSession().then(({data})=>{
+    if(data&&data.session)onSignedIn(data.session.user).then(()=>{if(S.tab==="hero")render();});
+  });
 })();
 </script>
