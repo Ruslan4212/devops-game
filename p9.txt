@@ -634,6 +634,25 @@ document.addEventListener("click",e=>{
   if(a==="import"){const s=prompt("Вставь строку сохранения:");if(!s)return;
     try{S=Object.assign(defState(),JSON.parse(s));save();render();toast("Прогресс восстановлен")}catch(err){toast("Строка повреждена")}return}
   if(a==="reset"){if(confirm("Удалить весь прогресс без возможности вернуть?")){S=defState();save();render()}return}
+  if(a==="cloudsave"){
+    const tok=(document.getElementById("cloudtok")||{}).value||"";
+    const gid=(document.getElementById("cloudgid")||{}).value||"";
+    cloudSet({token:tok,gistId:gid||cloudCfg().gistId});
+    if(!tok){toast("Вставь токен GitHub с правом gist");return}
+    toast("Сохраняю в облако…");
+    cloudPush().then(()=>{toast("Сохранено в облако ✓");render()}).catch(e=>toast("Не вышло: "+e.message));
+    return;
+  }
+  if(a==="cloudload"){
+    const tok=(document.getElementById("cloudtok")||{}).value||"";
+    const gid=(document.getElementById("cloudgid")||{}).value||"";
+    cloudSet({token:tok});
+    if(!tok){toast("Вставь токен GitHub с правом gist");return}
+    if(!confirm("Загрузка из облака заменит текущий прогресс в этом браузере. Продолжить?"))return;
+    toast("Загружаю из облака…");
+    cloudPull(gid).then(()=>{toast("Прогресс восстановлен из облака ✓");render()}).catch(e=>toast("Не вышло: "+e.message));
+    return;
+  }
   if(t.dataset.world){S.openWorld=S.openWorld===t.dataset.world?null:t.dataset.world;save();render();return}
   const n=t.dataset.nav;
   if(n==="gloopen"){toggleGlossary(true);return}
@@ -723,4 +742,13 @@ checkDay();
 const _lr=(typeof lifeTick==="function")?lifeTick():null;
 render();
 if(_lr)setTimeout(()=>lifeReport(_lr),600);
+/* напоминание сохраниться: раз в сессию, только если есть что терять и давно не бэкапились */
+(function backupReminder(){
+  if(S.xp<50)return;
+  const c=cloudCfg();
+  const last=c.lastSync?new Date(c.lastSync):null;
+  const staleDays=last?(Date.now()-last)/864e5:Infinity;
+  if(staleDays<3)return;
+  setTimeout(()=>toast(last?"Прогресс давно не сохранён в облако — загляни в «Персонаж»":"Прогресс есть только в этом браузере — сохрани его в облако на вкладке «Персонаж»"),2500);
+})();
 </script>

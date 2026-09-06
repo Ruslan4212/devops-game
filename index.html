@@ -3897,6 +3897,42 @@ let saveT;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
   const el=document.getElementById("s-saved");el.classList.add("on");el.textContent="сохранено ✓";
   clearTimeout(saveT);saveT=setTimeout(()=>el.classList.remove("on"),1200);}
+/* ================= ОБЛАЧНОЕ СОХРАНЕНИЕ (приватный GitHub Gist, без своего бэкенда) =================
+   Токен и id gist хранятся ОТДЕЛЬНО от игрового сохранения S — чтобы не утекали
+   через «скопировать сохранение» и не пропадали при сбросе прогресса. */
+const CLOUD_KEY="pipeline_cloud_v1";
+function cloudCfg(){try{return JSON.parse(localStorage.getItem(CLOUD_KEY)||"{}")}catch(e){return {}}}
+function cloudSet(patch){const c=Object.assign(cloudCfg(),patch);localStorage.setItem(CLOUD_KEY,JSON.stringify(c));return c;}
+async function cloudPush(){
+  const c=cloudCfg();
+  if(!c.token)throw new Error("нет токена");
+  const body={description:"Pipeline: путь до Middle DevOps — сохранение",
+    public:false,files:{"pipeline-save.json":{content:JSON.stringify(S)}}};
+  const url=c.gistId?`https://api.github.com/gists/${c.gistId}`:"https://api.github.com/gists";
+  const resp=await fetch(url,{method:c.gistId?"PATCH":"POST",
+    headers:{Authorization:`token ${c.token}`,Accept:"application/vnd.github+json"},
+    body:JSON.stringify(body)});
+  if(!resp.ok)throw new Error(resp.status===401?"токен не подходит или отозван":resp.status===404?"gist не найден — проверь id":`ошибка ${resp.status}`);
+  const data=await resp.json();
+  cloudSet({gistId:data.id,lastSync:new Date().toISOString()});
+  return data.id;
+}
+async function cloudPull(gistIdOverride){
+  const c=cloudCfg();
+  if(!c.token)throw new Error("нет токена");
+  const gid=gistIdOverride||c.gistId;
+  if(!gid)throw new Error("укажи id gist — сначала «Сохранить в облако» с любого устройства, id появится тут же");
+  const resp=await fetch(`https://api.github.com/gists/${gid}`,{
+    headers:{Authorization:`token ${c.token}`,Accept:"application/vnd.github+json"}});
+  if(!resp.ok)throw new Error(resp.status===401?"токен не подходит или отозван":resp.status===404?"gist не найден — проверь id":`ошибка ${resp.status}`);
+  const data=await resp.json();
+  const file=data.files&&data.files["pipeline-save.json"];
+  if(!file)throw new Error("в этом gist нет файла сохранения Pipeline");
+  const parsed=JSON.parse(file.content);
+  S=Object.assign(defState(),parsed);
+  save();
+  cloudSet({gistId:gid,lastSync:new Date().toISOString()});
+}
 function checkDay(){
   const t=today(); if(S.last===t)return;
   if(S.last){const d=Math.round((new Date(t)-new Date(S.last))/864e5);S.streak=d===1?S.streak+1:1;}else S.streak=1;
@@ -4775,6 +4811,27 @@ BADGES.push(
 
 function bar(pct,col){return `<div class="xpbar" style="width:100%"><i style="width:${Math.min(100,pct)}%;background:${col||"linear-gradient(90deg,var(--amber),var(--amber-2))"}"></i></div>`}
 
+function cloudSection(){
+  const c=cloudCfg();
+  const inputCss="flex:1;min-width:220px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font-family:var(--mono);font-size:13px";
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">☁ облачное сохранение</div>
+    <p class="muted" style="font-size:13.5px;margin:8px 0 12px;max-width:64ch">Прогресс живёт только в этом браузере — при очистке кэша или смене устройства он пропадёт. Привяжи бесплатный <a href="https://github.com/settings/tokens/new?description=Pipeline%20save&scopes=gist" target="_blank" rel="noopener" style="color:var(--amber-2)">токен GitHub с правом <code>gist</code></a> (только gist, больше ничего не давай — токен хранится в этом браузере и уходит только на api.github.com) и сохраняйся в приватный gist одной кнопкой.</p>
+    <div class="row" style="margin-bottom:8px">
+      <input id="cloudtok" type="password" autocomplete="off" spellcheck="false" placeholder="ghp_… — токен GitHub с правом gist" value="${esc(c.token||"")}" style="${inputCss}">
+    </div>
+    <div class="row" style="margin-bottom:10px">
+      <input id="cloudgid" autocomplete="off" spellcheck="false" placeholder="id gist для восстановления на новом устройстве (необязательно, если уже сохранялся отсюда)" value="${esc(c.gistId||"")}" style="${inputCss}">
+    </div>
+    <div class="row">
+      <button class="btn ghost" data-act="cloudsave">Сохранить в облако</button>
+      <button class="btn ghost" data-act="cloudload">Загрузить из облака</button>
+      ${c.gistId?`<a href="https://gist.github.com/${c.gistId}" target="_blank" rel="noopener" class="lbl" style="margin-left:auto;align-self:center">открыть gist ↗</a>`:""}
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:10px">${c.lastSync?`Последняя синхронизация: ${new Date(c.lastSync).toLocaleString("ru")}`:"Ещё не синхронизировалось."}</p>
+  </section>`;
+}
+
 function viewHero(){
   const r=rank(),nx=rankNext(),o=overall(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
   const st=storyAvailable();
@@ -4838,6 +4895,7 @@ function viewHero(){
       <button class="btn ghost" data-act="import">Вставить сохранение</button>
       <button class="btn ghost" data-act="reset" style="color:var(--bad);border-color:rgba(226,86,90,.45)">Сбросить весь прогресс</button></div>
   </section>
+  ${cloudSection()}
   <div class="lbl" style="margin-bottom:10px">бейджи · ${S.badges.length}/${BADGES.length}</div>
   <div class="badges">${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"":"off"}"><div class="ic">${b.ic}</div><b>${b.n}</b><small>${b.d}</small></div>`).join("")}</div>`;
 }
@@ -6083,6 +6141,25 @@ document.addEventListener("click",e=>{
   if(a==="import"){const s=prompt("Вставь строку сохранения:");if(!s)return;
     try{S=Object.assign(defState(),JSON.parse(s));save();render();toast("Прогресс восстановлен")}catch(err){toast("Строка повреждена")}return}
   if(a==="reset"){if(confirm("Удалить весь прогресс без возможности вернуть?")){S=defState();save();render()}return}
+  if(a==="cloudsave"){
+    const tok=(document.getElementById("cloudtok")||{}).value||"";
+    const gid=(document.getElementById("cloudgid")||{}).value||"";
+    cloudSet({token:tok,gistId:gid||cloudCfg().gistId});
+    if(!tok){toast("Вставь токен GitHub с правом gist");return}
+    toast("Сохраняю в облако…");
+    cloudPush().then(()=>{toast("Сохранено в облако ✓");render()}).catch(e=>toast("Не вышло: "+e.message));
+    return;
+  }
+  if(a==="cloudload"){
+    const tok=(document.getElementById("cloudtok")||{}).value||"";
+    const gid=(document.getElementById("cloudgid")||{}).value||"";
+    cloudSet({token:tok});
+    if(!tok){toast("Вставь токен GitHub с правом gist");return}
+    if(!confirm("Загрузка из облака заменит текущий прогресс в этом браузере. Продолжить?"))return;
+    toast("Загружаю из облака…");
+    cloudPull(gid).then(()=>{toast("Прогресс восстановлен из облака ✓");render()}).catch(e=>toast("Не вышло: "+e.message));
+    return;
+  }
   if(t.dataset.world){S.openWorld=S.openWorld===t.dataset.world?null:t.dataset.world;save();render();return}
   const n=t.dataset.nav;
   if(n==="gloopen"){toggleGlossary(true);return}
@@ -6172,4 +6249,13 @@ checkDay();
 const _lr=(typeof lifeTick==="function")?lifeTick():null;
 render();
 if(_lr)setTimeout(()=>lifeReport(_lr),600);
+/* напоминание сохраниться: раз в сессию, только если есть что терять и давно не бэкапились */
+(function backupReminder(){
+  if(S.xp<50)return;
+  const c=cloudCfg();
+  const last=c.lastSync?new Date(c.lastSync):null;
+  const staleDays=last?(Date.now()-last)/864e5:Infinity;
+  if(staleDays<3)return;
+  setTimeout(()=>toast(last?"Прогресс давно не сохранён в облако — загляни в «Персонаж»":"Прогресс есть только в этом браузере — сохрани его в облако на вкладке «Персонаж»"),2500);
+})();
 </script>

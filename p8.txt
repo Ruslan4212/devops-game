@@ -18,6 +18,42 @@ let saveT;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
   const el=document.getElementById("s-saved");el.classList.add("on");el.textContent="сохранено ✓";
   clearTimeout(saveT);saveT=setTimeout(()=>el.classList.remove("on"),1200);}
+/* ================= ОБЛАЧНОЕ СОХРАНЕНИЕ (приватный GitHub Gist, без своего бэкенда) =================
+   Токен и id gist хранятся ОТДЕЛЬНО от игрового сохранения S — чтобы не утекали
+   через «скопировать сохранение» и не пропадали при сбросе прогресса. */
+const CLOUD_KEY="pipeline_cloud_v1";
+function cloudCfg(){try{return JSON.parse(localStorage.getItem(CLOUD_KEY)||"{}")}catch(e){return {}}}
+function cloudSet(patch){const c=Object.assign(cloudCfg(),patch);localStorage.setItem(CLOUD_KEY,JSON.stringify(c));return c;}
+async function cloudPush(){
+  const c=cloudCfg();
+  if(!c.token)throw new Error("нет токена");
+  const body={description:"Pipeline: путь до Middle DevOps — сохранение",
+    public:false,files:{"pipeline-save.json":{content:JSON.stringify(S)}}};
+  const url=c.gistId?`https://api.github.com/gists/${c.gistId}`:"https://api.github.com/gists";
+  const resp=await fetch(url,{method:c.gistId?"PATCH":"POST",
+    headers:{Authorization:`token ${c.token}`,Accept:"application/vnd.github+json"},
+    body:JSON.stringify(body)});
+  if(!resp.ok)throw new Error(resp.status===401?"токен не подходит или отозван":resp.status===404?"gist не найден — проверь id":`ошибка ${resp.status}`);
+  const data=await resp.json();
+  cloudSet({gistId:data.id,lastSync:new Date().toISOString()});
+  return data.id;
+}
+async function cloudPull(gistIdOverride){
+  const c=cloudCfg();
+  if(!c.token)throw new Error("нет токена");
+  const gid=gistIdOverride||c.gistId;
+  if(!gid)throw new Error("укажи id gist — сначала «Сохранить в облако» с любого устройства, id появится тут же");
+  const resp=await fetch(`https://api.github.com/gists/${gid}`,{
+    headers:{Authorization:`token ${c.token}`,Accept:"application/vnd.github+json"}});
+  if(!resp.ok)throw new Error(resp.status===401?"токен не подходит или отозван":resp.status===404?"gist не найден — проверь id":`ошибка ${resp.status}`);
+  const data=await resp.json();
+  const file=data.files&&data.files["pipeline-save.json"];
+  if(!file)throw new Error("в этом gist нет файла сохранения Pipeline");
+  const parsed=JSON.parse(file.content);
+  S=Object.assign(defState(),parsed);
+  save();
+  cloudSet({gistId:gid,lastSync:new Date().toISOString()});
+}
 function checkDay(){
   const t=today(); if(S.last===t)return;
   if(S.last){const d=Math.round((new Date(t)-new Date(S.last))/864e5);S.streak=d===1?S.streak+1:1;}else S.streak=1;

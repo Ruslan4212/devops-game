@@ -12,6 +12,27 @@ BADGES.push(
 
 function bar(pct,col){return `<div class="xpbar" style="width:100%"><i style="width:${Math.min(100,pct)}%;background:${col||"linear-gradient(90deg,var(--amber),var(--amber-2))"}"></i></div>`}
 
+function cloudSection(){
+  const c=cloudCfg();
+  const inputCss="flex:1;min-width:220px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font-family:var(--mono);font-size:13px";
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">☁ облачное сохранение</div>
+    <p class="muted" style="font-size:13.5px;margin:8px 0 12px;max-width:64ch">Прогресс живёт только в этом браузере — при очистке кэша или смене устройства он пропадёт. Привяжи бесплатный <a href="https://github.com/settings/tokens/new?description=Pipeline%20save&scopes=gist" target="_blank" rel="noopener" style="color:var(--amber-2)">токен GitHub с правом <code>gist</code></a> (только gist, больше ничего не давай — токен хранится в этом браузере и уходит только на api.github.com) и сохраняйся в приватный gist одной кнопкой.</p>
+    <div class="row" style="margin-bottom:8px">
+      <input id="cloudtok" type="password" autocomplete="off" spellcheck="false" placeholder="ghp_… — токен GitHub с правом gist" value="${esc(c.token||"")}" style="${inputCss}">
+    </div>
+    <div class="row" style="margin-bottom:10px">
+      <input id="cloudgid" autocomplete="off" spellcheck="false" placeholder="id gist для восстановления на новом устройстве (необязательно, если уже сохранялся отсюда)" value="${esc(c.gistId||"")}" style="${inputCss}">
+    </div>
+    <div class="row">
+      <button class="btn ghost" data-act="cloudsave">Сохранить в облако</button>
+      <button class="btn ghost" data-act="cloudload">Загрузить из облака</button>
+      ${c.gistId?`<a href="https://gist.github.com/${c.gistId}" target="_blank" rel="noopener" class="lbl" style="margin-left:auto;align-self:center">открыть gist ↗</a>`:""}
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:10px">${c.lastSync?`Последняя синхронизация: ${new Date(c.lastSync).toLocaleString("ru")}`:"Ещё не синхронизировалось."}</p>
+  </section>`;
+}
+
 function viewHero(){
   const r=rank(),nx=rankNext(),o=overall(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
   const st=storyAvailable();
@@ -75,6 +96,7 @@ function viewHero(){
       <button class="btn ghost" data-act="import">Вставить сохранение</button>
       <button class="btn ghost" data-act="reset" style="color:var(--bad);border-color:rgba(226,86,90,.45)">Сбросить весь прогресс</button></div>
   </section>
+  ${cloudSection()}
   <div class="lbl" style="margin-bottom:10px">бейджи · ${S.badges.length}/${BADGES.length}</div>
   <div class="badges">${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"":"off"}"><div class="ic">${b.ic}</div><b>${b.n}</b><small>${b.d}</small></div>`).join("")}</div>`;
 }
