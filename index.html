@@ -1,5 +1,12 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pipeline: путь до Middle DevOps</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0c0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
@@ -4907,6 +4914,23 @@ function cloudSection(){
   </section>`;
 }
 
+function reengageSection(){
+  const notifState=(typeof Notification!=="undefined")?Notification.permission:"unsupported";
+  const canInstall=!!window.deferredInstallPrompt;
+  const installed=window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches;
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">🔔 не потерять стрик</div>
+    <p class="muted" style="font-size:13.5px;margin:8px 0 14px;max-width:64ch">Напоминание вечером, если сегодня ещё не заходил, и установка игры на телефон/компьютер как отдельного приложения — без магазинов приложений.</p>
+    <div class="row">
+      ${notifState==="granted"?`<span class="pill" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:rgba(63,191,143,.12);color:var(--ok);font-size:13px">✓ напоминания включены</span>`
+        :notifState==="denied"?`<span class="muted" style="font-size:12.5px">Уведомления заблокированы в браузере — включи их в настройках сайта, если захочешь.</span>`
+        :notifState==="unsupported"?"":`<button class="btn ghost" data-act="notifon">Включить напоминание о стрике</button>`}
+      ${installed?`<span class="pill" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:rgba(63,191,143,.12);color:var(--ok);font-size:13px">✓ установлено как приложение</span>`
+        :canInstall?`<button class="btn ghost" data-act="installapp">📲 Установить как приложение</button>`:""}
+    </div>
+  </section>`;
+}
+
 function viewHero(){
   const r=rank(),nx=rankNext(),o=overall(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
   const st=storyAvailable();
@@ -4972,6 +4996,7 @@ function viewHero(){
       <button class="btn ghost" data-act="reset" style="color:var(--bad);border-color:rgba(226,86,90,.45)">Сбросить весь прогресс</button></div>
   </section>
   ${cloudSection()}
+  ${reengageSection()}
   <div class="lbl" style="margin-bottom:10px">бейджи · ${S.badges.length}/${BADGES.length}</div>
   <div class="badges">${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"":"off"}"><div class="ic">${b.ic}</div><b>${b.n}</b><small>${b.d}</small></div>`).join("")}</div>`;
 }
@@ -6214,6 +6239,23 @@ document.addEventListener("click",e=>{
   if(a==="lab"){startLab(t.dataset.l);return}
   if(a==="repair"){startRepair();return}
   if(a==="cert"){downloadCertificate();return}
+  if(a==="notifon"){
+    if(typeof Notification==="undefined"){toast("Браузер не поддерживает уведомления");return}
+    Notification.requestPermission().then(p=>{
+      if(p==="granted"){toast("Готово — напомним вечером, если забудешь зайти");render()}
+      else toast("Разрешение не выдано");
+    });
+    return;
+  }
+  if(a==="installapp"){
+    if(!window.deferredInstallPrompt){toast("Установка недоступна сейчас — попробуй из меню браузера");return}
+    window.deferredInstallPrompt.prompt();
+    window.deferredInstallPrompt.userChoice.then(choice=>{
+      if(choice.outcome==="accepted")toast("Устанавливается…");
+      window.deferredInstallPrompt=null;render();
+    });
+    return;
+  }
   if(a==="export"){navigator.clipboard.writeText(JSON.stringify(S)).then(()=>toast("Сохранение скопировано"),()=>toast("Не удалось скопировать"));return}
   if(a==="import"){const s=prompt("Вставь строку сохранения:");if(!s)return;
     try{S=Object.assign(defState(),JSON.parse(s));save();render();toast("Прогресс восстановлен")}catch(err){toast("Строка повреждена")}return}
@@ -6551,6 +6593,32 @@ document.addEventListener("click",e=>{
   else if(n==="pull")pullProfile();
   else if(n==="signout"){sb.auth.signOut();ACCOUNT=null;toggleAuth(false);toast("Вышли из аккаунта");}
 });
+
+/* ---------- PWA: установка как приложение + офлайн-оболочка ---------- */
+window.deferredInstallPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();window.deferredInstallPrompt=e;
+  if(S.tab==="hero")render();
+});
+window.addEventListener("appinstalled",()=>{window.deferredInstallPrompt=null;if(S.tab==="hero")render();});
+if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")){
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+
+/* ---------- напоминание вечером, если сегодня ещё не заходил ---------- */
+(function streakNotify(){
+  if(typeof Notification==="undefined"||Notification.permission!=="granted")return;
+  const hour=new Date().getHours();
+  if(hour<20)return;
+  if(S.last===today())return;
+  const key="pipeline_notif_"+today();
+  if(localStorage.getItem(key))return;
+  localStorage.setItem(key,"1");
+  try{new Notification("Стрик догорает 🔥",{
+    body:S.streak>0?`Сегодня ещё не заходил — ${S.streak} ${S.streak===1?"день":"дней"} подряд можно потерять`:"Загляни в Pipeline хотя бы на 10 минут",
+    icon:"icon.svg"
+  });}catch(e){}
+})();
 
 /* ---------- инициализация ---------- */
 (function initCloud(){

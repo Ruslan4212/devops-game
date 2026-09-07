@@ -631,6 +631,23 @@ document.addEventListener("click",e=>{
   if(a==="lab"){startLab(t.dataset.l);return}
   if(a==="repair"){startRepair();return}
   if(a==="cert"){downloadCertificate();return}
+  if(a==="notifon"){
+    if(typeof Notification==="undefined"){toast("Браузер не поддерживает уведомления");return}
+    Notification.requestPermission().then(p=>{
+      if(p==="granted"){toast("Готово — напомним вечером, если забудешь зайти");render()}
+      else toast("Разрешение не выдано");
+    });
+    return;
+  }
+  if(a==="installapp"){
+    if(!window.deferredInstallPrompt){toast("Установка недоступна сейчас — попробуй из меню браузера");return}
+    window.deferredInstallPrompt.prompt();
+    window.deferredInstallPrompt.userChoice.then(choice=>{
+      if(choice.outcome==="accepted")toast("Устанавливается…");
+      window.deferredInstallPrompt=null;render();
+    });
+    return;
+  }
   if(a==="export"){navigator.clipboard.writeText(JSON.stringify(S)).then(()=>toast("Сохранение скопировано"),()=>toast("Не удалось скопировать"));return}
   if(a==="import"){const s=prompt("Вставь строку сохранения:");if(!s)return;
     try{S=Object.assign(defState(),JSON.parse(s));save();render();toast("Прогресс восстановлен")}catch(err){toast("Строка повреждена")}return}

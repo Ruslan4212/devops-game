@@ -214,6 +214,32 @@ document.addEventListener("click",e=>{
   else if(n==="signout"){sb.auth.signOut();ACCOUNT=null;toggleAuth(false);toast("Вышли из аккаунта");}
 });
 
+/* ---------- PWA: установка как приложение + офлайн-оболочка ---------- */
+window.deferredInstallPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();window.deferredInstallPrompt=e;
+  if(S.tab==="hero")render();
+});
+window.addEventListener("appinstalled",()=>{window.deferredInstallPrompt=null;if(S.tab==="hero")render();});
+if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")){
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+
+/* ---------- напоминание вечером, если сегодня ещё не заходил ---------- */
+(function streakNotify(){
+  if(typeof Notification==="undefined"||Notification.permission!=="granted")return;
+  const hour=new Date().getHours();
+  if(hour<20)return;
+  if(S.last===today())return;
+  const key="pipeline_notif_"+today();
+  if(localStorage.getItem(key))return;
+  localStorage.setItem(key,"1");
+  try{new Notification("Стрик догорает 🔥",{
+    body:S.streak>0?`Сегодня ещё не заходил — ${S.streak} ${S.streak===1?"день":"дней"} подряд можно потерять`:"Загляни в Pipeline хотя бы на 10 минут",
+    icon:"icon.svg"
+  });}catch(e){}
+})();
+
 /* ---------- инициализация ---------- */
 (function initCloud(){
   const params=new URLSearchParams(location.search);
