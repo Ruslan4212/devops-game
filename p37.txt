@@ -28,14 +28,14 @@ function esc37(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").re
 function viewAuth(){
   const inputCss="width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:10px 12px;font-family:var(--mono);font-size:13.5px;margin-bottom:10px";
   if(!CLOUD_ENABLED){
-    return `<div class="modal-back" data-authnav="close"><div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
+    return `<div class="modal-back" data-authnav="close"><div class="modal" style="max-width:440px">
       <div class="row" style="margin-bottom:10px"><h2 style="font-size:18px">Облако пока не настроено</h2>
         <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
       <p class="muted" style="font-size:13.5px">Разработчик игры ещё не подключил Supabase (нужно вписать URL и ключ проекта в p37.txt). Прогресс продолжает сохраняться локально и через облачный Gist на вкладке «Персонаж».</p>
     </div></div>`;
   }
   if(ACCOUNT){
-    return `<div class="modal-back" data-authnav="close"><div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
+    return `<div class="modal-back" data-authnav="close"><div class="modal" style="max-width:420px">
       <div class="row" style="margin-bottom:14px"><h2 style="font-size:18px">👤 Аккаунт</h2>
         <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
       <p style="margin:0 0 4px"><b>${esc37(ACCOUNT.username||ACCOUNT.email)}</b></p>
@@ -46,7 +46,7 @@ function viewAuth(){
       <p class="muted" style="font-size:11.5px;margin-top:14px">Публичный профиль: <a href="?u=${encodeURIComponent(ACCOUNT.username||"")}" target="_blank" style="color:var(--amber-2)">эта же ссылка, добавь домен сайта</a></p>
     </div></div>`;
   }
-  return `<div class="modal-back" data-authnav="close"><div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
+  return `<div class="modal-back" data-authnav="close"><div class="modal" style="max-width:420px">
     <div class="row" style="margin-bottom:14px"><h2 style="font-size:18px">👤 ${authMode==="in"?"Вход":"Регистрация"}</h2>
       <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
     <input id="authEmail" class="gloinput" style="${inputCss}" placeholder="email" autocomplete="email">
@@ -206,7 +206,7 @@ document.addEventListener("click",e=>{
   if(!t)return;
   e.preventDefault();
   const n=t.dataset.authnav;
-  if(n==="close")toggleAuth(false);
+  if(n==="close"){if(e.target===t)toggleAuth(false);return}
   else if(n==="submit")authSubmit();
   else if(n==="switch"){authMode=authMode==="in"?"up":"in";authErr="";redrawAuth();}
   else if(n==="push")pushProfile(false);
