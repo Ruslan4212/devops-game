@@ -429,6 +429,12 @@ function uiQ(){
                   :`<button class="btn" data-nav="check" ${it.t==="q"&&R.ans===null?"disabled":""}>Проверить</button>`}
        <button class="btn ghost" data-nav="quit" style="margin-left:auto">Выйти</button></div></div></div>`;
 }
+const REAL_LABS={
+  docker:{u:"https://labs.play-with-docker.com/",t:"Play with Docker",d:"Настоящий Docker в браузере, бесплатно, без установки — 4 часа сессии. Повтори здесь docker run/build/compose на реальном движке."},
+  k8s:{u:"https://killercoda.com/playgrounds/scenario/kubernetes",t:"Killercoda: Kubernetes Playground",d:"Настоящий кластер Kubernetes в браузере, бесплатно. Примени deploy.yaml, посмотри kubectl get pods не в симуляторе, а на реальном kube-apiserver."},
+  terraform:{u:"https://killercoda.com/hashicorp/scenario/terraform-101",t:"Killercoda: Terraform 101",d:"Настоящий terraform init/plan/apply против реальной песочницы, бесплатно и без своего облачного аккаунта."},
+  linux:{u:"https://killercoda.com/playgrounds/scenario/ubuntu",t:"Killercoda: Ubuntu Playground",d:"Настоящий Linux-сервер в браузере — перенеси команды из симулятора на реальную ФС и реальные процессы."}
+};
 function uiRes(){
   const tot=R.items.length,right=tot-R.wrong,pct=Math.round(right/tot*100),win=R.mode!=="boss"||R.hp>0;
   let extra="";
@@ -436,7 +442,14 @@ function uiRes(){
     R.done=true;let xp=0;
     if(R.mode==="mis"){xp=right*12;if(!S.mis[R.m.id]){S.mis[R.m.id]=1;award("first");questTick("mission",1);lifeReward("mission")}if(R.wrong===0)award("flawless")}
     else if(R.mode==="boss"&&win){xp=120;S.boss[R.w.id]=1;award(R.w.id);lifeReward("boss");
-      if(R.w.id==="cloudsec"){award("hired");extra=`<p style="max-width:56ch;margin:12px auto 0" class="muted">Финальный раунд пройден. Собери пет-проект из блока 10 плана, отрепетируй ответы вслух — и иди на настоящие собеседования.</p>`}}
+      if(R.w.id==="cloudsec"){award("hired");extra=`<p style="max-width:56ch;margin:12px auto 0" class="muted">Финальный раунд пройден. Собери пет-проект из блока 10 плана, отрепетируй ответы вслух — и иди на настоящие собеседования.</p>`}
+      const rl=REAL_LABS[R.w.id];
+      if(rl)extra+=`<div class="card pad" style="margin-top:16px;text-align:left;max-width:520px;margin-left:auto;margin-right:auto;border-color:rgba(139,124,245,.4)">
+        <div class="lbl" style="color:#a99bff">мост к реальной инфраструктуре</div>
+        <h3 style="font-size:16px;margin:6px 0 6px">Симулятор пройден. Проверь себя на настоящем ${R.w.n}</h3>
+        <p class="muted" style="font-size:13px;margin:0 0 12px">${rl.d}</p>
+        <a class="btn ghost sm" href="${rl.u}" target="_blank" rel="noopener">${rl.t} ↗</a>
+      </div>`;}
     else if(R.mode==="rep"){xp=right*8;S.repairs+=right;if(S.repairs>=20)award("repair");questTick("repair",1)}
     const comboXp=(R.best||0)>=3?Math.min(40,R.best*2):0;
     xp+=comboXp; R.comboXp=comboXp;
