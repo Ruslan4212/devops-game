@@ -3947,7 +3947,7 @@ function addXP(n){
   const mult=(typeof xpMultiplier==="function"&&S.life&&S.life.created&&!S.life.dead)?xpMultiplier():1;
   S.xp+=Math.round(n*mult);save();renderStats();}
 function award(id){if(S.badges.includes(id))return;S.badges.push(id);save();toast("Бейдж: "+((BADGES.find(b=>b.id===id)||{}).n||id));}
-function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2800);}
+function toast(m){const t=document.getElementById("toast");if(!t)return;t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2800);}
 const BOX=[0,1,3,7,16,35];
 function srsUpdate(key,ok,item){
   const r=S.srs[key]||{b:1};
@@ -4813,6 +4813,79 @@ BADGES.push(
 
 function bar(pct,col){return `<div class="xpbar" style="width:100%"><i style="width:${Math.min(100,pct)}%;background:${col||"linear-gradient(90deg,var(--amber),var(--amber-2))"}"></i></div>`}
 
+/* ================= СЕРТИФИКАТ MIDDLE DEVOPS ================= */
+async function buildCertificateCanvas(stats){
+  try{await document.fonts.load('800 64px Archivo');await document.fonts.load('600 20px Manrope');
+    await document.fonts.load('500 22px "JetBrains Mono"');}catch(e){}
+  const W=1200,H=800,cv=document.createElement("canvas");cv.width=W;cv.height=H;
+  const x=cv.getContext("2d");
+  const bg=x.createLinearGradient(0,0,W,H);bg.addColorStop(0,"#0c0f14");bg.addColorStop(1,"#12161f");
+  x.fillStyle=bg;x.fillRect(0,0,W,H);
+  const glow=x.createRadialGradient(W*0.85,H*0.05,0,W*0.85,H*0.05,650);
+  glow.addColorStop(0,"rgba(139,124,245,.16)");glow.addColorStop(1,"rgba(139,124,245,0)");
+  x.fillStyle=glow;x.fillRect(0,0,W,H);
+  const glow2=x.createRadialGradient(W*0.05,H*0.95,0,W*0.05,H*0.95,600);
+  glow2.addColorStop(0,"rgba(240,135,63,.14)");glow2.addColorStop(1,"rgba(240,135,63,0)");
+  x.fillStyle=glow2;x.fillRect(0,0,W,H);
+  x.strokeStyle="rgba(240,135,63,.55)";x.lineWidth=2;x.strokeRect(28,28,W-56,H-56);
+  x.strokeStyle="rgba(255,255,255,.08)";x.lineWidth=1;x.strokeRect(40,40,W-80,H-80);
+  x.fillStyle="#f0873f";x.beginPath();x.arc(90,90,6,0,7);x.fill();
+  x.fillStyle="#93a0b5";x.font="600 15px 'JetBrains Mono'";x.textBaseline="alphabetic";
+  x.fillText("PIPELINE · OPS ACADEMY",112,96);
+  x.fillStyle="#5c6a80";x.textAlign="right";x.fillText("СЕРТИФИКАТ О ПРОХОЖДЕНИИ КУРСА",W-90,96);x.textAlign="left";
+  x.fillStyle="#ffb067";x.font="900 72px Archivo, sans-serif";x.fillText("MIDDLE DEVOPS",90,230);
+  x.fillStyle="#e8ecf4";x.font="500 22px Manrope, sans-serif";
+  x.fillText("Курс «Pipeline: путь до Middle DevOps» пройден полностью:",90,278);
+  x.fillText("14 миров, "+stats.missions+" миссий, "+stats.labs+" лабораторий, "+stats.bosses+" боевых собеседований.",90,308);
+  x.strokeStyle="rgba(255,255,255,.12)";x.beginPath();x.moveTo(90,344);x.lineTo(W-90,344);x.stroke();
+  x.fillStyle="#5c6a80";x.font="600 14px 'JetBrains Mono'";x.fillText("ВЫДАН",90,384);
+  x.fillStyle="#ffffff";x.font="800 46px Archivo, sans-serif";x.fillText(stats.username,90,432);
+  const cols=[["XP",stats.xp],["МИССИЙ",stats.missions+"/96"],["ЛАБОРАТОРИЙ",stats.labs+"/13"],["БОССОВ",stats.bosses+"/14"],["БЕЙДЖЕЙ",stats.badges+"/25"]];
+  const cw=(W-180)/cols.length;
+  cols.forEach((c,i)=>{
+    const cx=90+cw*i;
+    x.fillStyle="#5c6a80";x.font="600 12px 'JetBrains Mono'";x.fillText(c[0],cx,486);
+    x.fillStyle="#3fbf8f";x.font="700 32px 'JetBrains Mono'";x.fillText(String(c[1]),cx,522);
+  });
+  x.strokeStyle="rgba(255,255,255,.12)";x.beginPath();x.moveTo(90,566);x.lineTo(W-90,566);x.stroke();
+  x.fillStyle="#93a0b5";x.font="500 16px Manrope, sans-serif";
+  x.fillText("Путь: Терминал и Linux → Сети → Git → Docker → CI/CD → IaC → Kubernetes →",90,606);
+  x.fillText("Мониторинг → Облако и безопасность → Zabbix → Prometheus → Grafana → Terraform → Python",90,630);
+  x.fillStyle="#5c6a80";x.font="500 15px 'JetBrains Mono'";
+  x.fillText(stats.date,90,H-90);
+  x.textAlign="right";x.fillStyle="#5c6a80";x.fillText("ruslan4212.github.io/devops-game",W-90,H-90);x.textAlign="left";
+  return cv;
+}
+async function downloadCertificate(){
+  const r=rank();
+  if(r.g!=="middle"){toast("Сертификат откроется по достижении ранга Middle DevOps");return}
+  toast("Готовлю сертификат…");
+  const cv=await buildCertificateCanvas({
+    username:(typeof ACCOUNT!=="undefined"&&ACCOUNT&&ACCOUNT.username)?ACCOUNT.username:"Player",
+    xp:S.xp,missions:Object.keys(S.mis).length,labs:Object.keys(S.labs).length,
+    bosses:Object.keys(S.boss).length,badges:S.badges.length,
+    date:new Date().toLocaleDateString("ru-RU",{year:"numeric",month:"long",day:"numeric"})
+  });
+  cv.toBlob(b=>{
+    const url=URL.createObjectURL(b);
+    const a=document.createElement("a");a.href=url;a.download="pipeline-middle-devops-certificate.png";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast("Сертификат скачан ✓");
+  },"image/png");
+}
+async function downloadCertificateFor(stats){
+  toast("Готовлю сертификат…");
+  const cv=await buildCertificateCanvas(stats);
+  cv.toBlob(b=>{
+    const url=URL.createObjectURL(b);
+    const a=document.createElement("a");a.href=url;a.download="pipeline-middle-devops-certificate.png";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast("Сертификат скачан ✓");
+  },"image/png");
+}
+
 function cloudSection(){
   const c=cloudCfg();
   const inputCss="flex:1;min-width:220px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font-family:var(--mono);font-size:13px";
@@ -4847,6 +4920,7 @@ function viewHero(){
            :`<p class="muted" style="margin:0 0 12px">Работы пока нет. Загляни в «Карьеру» — там есть вакансии по твоему уровню.</p>`}
         <div style="max-width:340px">${bar(nx?((o-r.min)/(nx.min-r.min)*100):100)}
         <div class="lbl" style="margin-top:6px">общий уровень ${o} ${nx?`· до «${nx.n}» ещё ${nx.min-o}`:"· максимум достигнут"}</div></div>
+        ${r.g==="middle"?`<button class="btn" data-act="cert" style="margin-top:14px">🏆 Скачать сертификат Middle DevOps</button>`:""}
       </div>
       <div style="min-width:190px">
         <div class="lbl">кратко</div>
@@ -6139,6 +6213,7 @@ document.addEventListener("click",e=>{
   if(a==="boss"){startBoss(t.dataset.w);return}
   if(a==="lab"){startLab(t.dataset.l);return}
   if(a==="repair"){startRepair();return}
+  if(a==="cert"){downloadCertificate();return}
   if(a==="export"){navigator.clipboard.writeText(JSON.stringify(S)).then(()=>toast("Сохранение скопировано"),()=>toast("Не удалось скопировать"));return}
   if(a==="import"){const s=prompt("Вставь строку сохранения:");if(!s)return;
     try{S=Object.assign(defState(),JSON.parse(s));save();render();toast("Прогресс восстановлен")}catch(err){toast("Строка повреждена")}return}
@@ -6434,16 +6509,28 @@ async function renderPublicProfile(username){
   const{data,error}=await sb.from("public_stats").select("*").eq("username",username).maybeSingle();
   const el=document.getElementById("pp");
   if(error||!data){el.innerHTML=`Профиль «${esc37(username)}» не найден.`;return}
+  const isMiddle=data.rank_name==="Middle DevOps";
   el.innerHTML=`
     <div class="lbl">публичный профиль pipeline: путь до middle devops</div>
     <h1 style="font-size:30px;margin:8px 0 2px">${esc37(data.username)}</h1>
     <p class="muted" style="margin:0 0 20px">${esc37(data.rank_name)} · ${data.xp} XP · стрик ${data.streak} дн.</p>
+    ${isMiddle?`<div style="margin-bottom:18px;padding:10px 14px;border:1px solid rgba(240,135,63,.4);border-radius:8px;background:rgba(240,135,63,.08);display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">🏆</span><span style="flex:1;font-size:13.5px">Курс пройден полностью — доступен сертификат</span>
+      <button class="btn ghost sm" id="ppCertBtn">Скачать</button></div>`:""}
     <div class="stat-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px">
       <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.missions_done}</b><span class="lbl">миссий</span></div>
       <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.labs_done}</b><span class="lbl">лабораторий</span></div>
       <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.bosses_done}</b><span class="lbl">боссов</span></div>
     </div>
     <p class="muted" style="font-size:12.5px">Обновлено ${new Date(data.updated_at).toLocaleDateString("ru")} · <a href="${location.pathname}" style="color:var(--amber-2)">пройти курс самому →</a></p>`;
+  if(isMiddle){
+    const btn=document.getElementById("ppCertBtn");
+    if(btn)btn.addEventListener("click",()=>downloadCertificateFor({
+      username:data.username,xp:data.xp,missions:data.missions_done,labs:data.labs_done,
+      bosses:data.bosses_done,badges:data.badges_count,
+      date:new Date(data.updated_at).toLocaleDateString("ru-RU",{year:"numeric",month:"long",day:"numeric"})
+    }));
+  }
 }
 
 /* ---------- плавающая кнопка аккаунта + обработчики ---------- */

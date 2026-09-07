@@ -67,7 +67,7 @@ function addXP(n){
   const mult=(typeof xpMultiplier==="function"&&S.life&&S.life.created&&!S.life.dead)?xpMultiplier():1;
   S.xp+=Math.round(n*mult);save();renderStats();}
 function award(id){if(S.badges.includes(id))return;S.badges.push(id);save();toast("Бейдж: "+((BADGES.find(b=>b.id===id)||{}).n||id));}
-function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2800);}
+function toast(m){const t=document.getElementById("toast");if(!t)return;t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2800);}
 const BOX=[0,1,3,7,16,35];
 function srsUpdate(key,ok,item){
   const r=S.srs[key]||{b:1};

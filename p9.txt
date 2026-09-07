@@ -630,6 +630,7 @@ document.addEventListener("click",e=>{
   if(a==="boss"){startBoss(t.dataset.w);return}
   if(a==="lab"){startLab(t.dataset.l);return}
   if(a==="repair"){startRepair();return}
+  if(a==="cert"){downloadCertificate();return}
   if(a==="export"){navigator.clipboard.writeText(JSON.stringify(S)).then(()=>toast("Сохранение скопировано"),()=>toast("Не удалось скопировать"));return}
   if(a==="import"){const s=prompt("Вставь строку сохранения:");if(!s)return;
     try{S=Object.assign(defState(),JSON.parse(s));save();render();toast("Прогресс восстановлен")}catch(err){toast("Строка повреждена")}return}
