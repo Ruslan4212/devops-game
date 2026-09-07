@@ -219,6 +219,7 @@ th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:u
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 <script>
 /* =====================================================================
    ЯДРО СИМУЛЯТОРА ТЕРМИНАЛА
@@ -6654,16 +6655,21 @@ function viewRealSandbox(){
   <div class="lab"><div class="cli"><div class="bar"><i></i><i></i><i></i><span style="margin-left:8px" id="rs-status">подключение…</span></div>
     <div id="rsterm" style="height:420px;padding:8px 0"></div></div></div>`;
 }
-function rsPrint(text){if(RS&&RS.term)RS.term.write(text);}
+function rsPrint(text){if(RS&&RS.term){RS.term.write(text);RS.term.scrollToBottom();}}
 async function connectRealSandbox(){
   if(RS&&RS.ws&&RS.ws.readyState<=1)return;
   const host=document.getElementById("rsterm");if(!host)return;
   const term=new Terminal({
-    convertEol:true,cursorBlink:true,fontFamily:"var(--mono)",fontSize:13,
+    convertEol:true,cursorBlink:true,fontFamily:"var(--mono)",fontSize:13,scrollback:5000,
     theme:{background:"#00000000",foreground:"#E6EAF2",cursor:"#F6A821"}
   });
+  const fitAddon=new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
   term.open(host);
-  RS={ws:null,term};
+  fitAddon.fit();
+  const onWinResize=()=>{fitAddon.fit();if(RS&&RS.ws&&RS.ws.readyState===1)RS.ws.send(JSON.stringify({type:"resize",cols:term.cols,rows:term.rows}));};
+  window.addEventListener("resize",onWinResize);
+  RS={ws:null,term,fitAddon,onWinResize};
   const{data}=await sb.auth.getSession();
   const token=data&&data.session&&data.session.access_token;
   if(!token){toast("Сессия истекла, войди заново");term.write("Сессия истекла — войди заново через 👤 и открой вкладку снова.\r\n");return}
@@ -6681,6 +6687,7 @@ async function connectRealSandbox(){
     }else if(m.type==="out"){rsPrint(m.data);}
   };
   ws.onclose=(ev)=>{
+    window.removeEventListener("resize",onWinResize);
     const st=document.getElementById("rs-status");if(st)st.textContent="отключено";
     term.write("\r\n[сессия завершена: "+(ev.reason||"соединение закрыто")+"]\r\n");
   };
