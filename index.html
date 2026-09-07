@@ -6639,7 +6639,7 @@ if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostn
 /* ---------- настоящий сервер: реальный изолированный Linux по WebSocket ----------
    SANDBOX_URL пуст, пока sandbox-server/ не задеплоен на своей машине —
    см. sandbox-server/README.md. Формат: wss://ваш-туннель/sandbox */
-const SANDBOX_URL="wss://pediatric-enhancement-corners-destiny.trycloudflare.com/sandbox";
+const SANDBOX_URL="wss://72.56.16.8.nip.io/sandbox";
 let RS=null;
 function viewRealSandbox(){
   if(!SANDBOX_URL)return `<section class="card pad"><div class="lbl">настоящий сервер</div><h1 style="font-size:22px;margin:6px 0">Ещё не подключено</h1><p class="muted" style="max-width:60ch">Разработчик пока не задеплоил sandbox-server. А пока — ссылки на бесплатные внешние песочницы с настоящим Docker/Kubernetes доступны на экране победы над боссом миров Linux, Docker, Kubernetes и Terraform.</p></section>`;
