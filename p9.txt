@@ -466,7 +466,9 @@ function uiRes(){
       <button class="btn" data-nav="map">К карте</button>
       ${R.mode==="boss"&&!win?`<button class="btn ghost" data-nav="retry">Повторить бой</button>`:""}
       ${R.mode==="mis"?`<button class="btn ghost" data-nav="again">Задания снова</button>`:""}
-    </div></div></div>`;
+    </div></div>
+    ${R.mode==="mis"&&typeof viewComments==="function"?viewComments(R.m.id):""}
+    </div>`;
 }
 function checkTry(){
   const t=R.cards[R.ci].t;

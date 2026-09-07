@@ -6074,7 +6074,9 @@ function uiRes(){
       <button class="btn" data-nav="map">К карте</button>
       ${R.mode==="boss"&&!win?`<button class="btn ghost" data-nav="retry">Повторить бой</button>`:""}
       ${R.mode==="mis"?`<button class="btn ghost" data-nav="again">Задания снова</button>`:""}
-    </div></div></div>`;
+    </div></div>
+    ${R.mode==="mis"&&typeof viewComments==="function"?viewComments(R.m.id):""}
+    </div>`;
 }
 function checkTry(){
   const t=R.cards[R.ci].t;
@@ -6632,6 +6634,55 @@ if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostn
     icon:"icon.svg"
   });}catch(e){}
 })();
+
+/* ---------- комментарии к миссиям ---------- */
+async function loadCommentsAsync(missionId){
+  const host=document.getElementById("cmts-"+missionId);
+  if(!host)return;
+  if(!CLOUD_ENABLED){host.innerHTML='<p class="muted" style="font-size:12.5px">Облако не настроено.</p>';return}
+  const{data,error}=await sb.from("comments").select("*").eq("mission_id",missionId).order("created_at",{ascending:false}).limit(50);
+  if(error){
+    const missing=/relation .*comments.* does not exist|could not find the table/i.test(error.message);
+    host.innerHTML=`<p class="muted" style="font-size:12.5px">${missing?"Таблица комментариев ещё не создана в базе.":"Не удалось загрузить: "+esc37(error.message)}</p>`;
+    return;
+  }
+  host.innerHTML=(data&&data.length)?data.map(c=>`<div style="padding:9px 0;border-top:1px solid var(--line)">
+    <div class="row" style="margin-bottom:2px"><b style="font-size:13px">${esc37(c.username)}</b>
+    <span class="muted" style="font-size:11px;margin-left:auto">${new Date(c.created_at).toLocaleDateString("ru")}</span></div>
+    <p style="margin:0;font-size:13.5px;white-space:pre-wrap">${esc37(c.body)}</p></div>`).join("")
+    :'<p class="muted" style="font-size:12.5px">Пока никто не написал — начни обсуждение.</p>';
+}
+function viewComments(missionId){
+  setTimeout(()=>loadCommentsAsync(missionId),0);
+  const canPost=CLOUD_ENABLED&&ACCOUNT;
+  return `<section class="card pad" style="margin-top:16px;text-align:left">
+    <div class="lbl">💬 обсуждение миссии</div>
+    ${canPost?`<div class="row" style="margin:10px 0">
+        <input id="cmtinput-${missionId}" placeholder="вопрос или заметка по миссии…" maxlength="1000" style="flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font-size:13.5px">
+        <button class="btn ghost sm" data-cmtpost="${missionId}">Отправить</button></div>`
+      :`<p class="muted" style="font-size:12.5px;margin:10px 0">${CLOUD_ENABLED?"Войди в аккаунт (кнопка 👤 в углу), чтобы написать комментарий.":"Комментарии появятся после настройки облака."}</p>`}
+    <div id="cmts-${missionId}"><p class="muted" style="font-size:12.5px">Загрузка…</p></div>
+  </section>`;
+}
+async function postComment(missionId){
+  const el=document.getElementById("cmtinput-"+missionId);
+  const body=(el?el.value:"").trim();
+  if(!body)return;
+  await ensureUsername();
+  const{error}=await sb.from("comments").insert({mission_id:missionId,user_id:ACCOUNT.id,username:ACCOUNT.username,body});
+  if(error){toast("Не отправилось: "+error.message);return}
+  if(el)el.value="";
+  loadCommentsAsync(missionId);
+}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-cmtpost]");
+  if(t)postComment(t.dataset.cmtpost);
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&e.target&&e.target.id&&e.target.id.startsWith("cmtinput-")){
+    e.preventDefault();postComment(e.target.id.slice("cmtinput-".length));
+  }
+});
 
 /* ---------- инициализация ---------- */
 (function initCloud(){

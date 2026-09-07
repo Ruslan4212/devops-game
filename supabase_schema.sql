@@ -45,3 +45,27 @@ create policy "public_stats: update own" on public.public_stats
 
 -- Индекс для быстрой сортировки лидерборда по XP
 create index if not exists public_stats_xp_idx on public.public_stats (xp desc);
+
+-- =====================================================================
+-- ДОБАВЛЕНО ПОЗЖЕ: комментарии/вопросы к миссиям (комьюнити внутри игры)
+-- Если основная схема выше уже выполнена — можно выполнить только этот
+-- блок отдельно, он не пересекается с уже созданными таблицами.
+-- =====================================================================
+create table if not exists public.comments (
+  id bigint generated always as identity primary key,
+  mission_id text not null,
+  user_id uuid references auth.users(id) on delete set null,
+  username text not null,
+  body text not null check (char_length(body) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+alter table public.comments enable row level security;
+
+create policy "comments: select all" on public.comments
+  for select using (true);
+create policy "comments: insert own" on public.comments
+  for insert with check (auth.uid() = user_id);
+create policy "comments: delete own" on public.comments
+  for delete using (auth.uid() = user_id);
+
+create index if not exists comments_mission_idx on public.comments (mission_id, created_at desc);
