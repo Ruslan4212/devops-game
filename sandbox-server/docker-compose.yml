@@ -1,0 +1,17 @@
+services:
+  sandbox:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:8088"   # наружу отдаём только через Cloudflare Tunnel, не напрямую
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SANDBOX_IMAGE=alpine:3.20
+      - SANDBOX_MAX_MINUTES=15
+      - SANDBOX_MAX_CONCURRENT=5
+      - SANDBOX_MEM=128m
+      - SANDBOX_CPUS=0.3
+      - SANDBOX_PIDS=64
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

@@ -1,0 +1,17 @@
+{
+  "name": "pipeline-sandbox-server",
+  "version": "1.0.0",
+  "description": "Реальный изолированный Linux-терминал по WebSocket для Pipeline: путь до Middle DevOps. Проверяет вход через Supabase, поднимает контейнер на пользователя, лимитирует время и ресурсы.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.17.0",
+    "node-pty": "^1.0.0",
+    "node-fetch": "^2.7.0",
+    "dotenv": "^16.4.5"
+  }
+}
