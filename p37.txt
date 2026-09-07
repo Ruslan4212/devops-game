@@ -254,47 +254,42 @@ function viewRealSandbox(){
     <p class="muted" style="font-size:13px;margin:6px 0 0">Ограничение по времени на сессию, без доступа в интернет из песочницы — но настоящие процессы, файлы и права, не симуляция.</p>
   </section>
   <div class="lab"><div class="cli"><div class="bar"><i></i><i></i><i></i><span style="margin-left:8px" id="rs-status">подключение…</span></div>
-    <div class="out" id="rsout"></div>
-    <div class="line"><span>$</span><input id="rsin" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="жди подключения…" disabled></div></div></div>`;
+    <div id="rsterm" style="height:420px;padding:8px 0"></div></div></div>`;
 }
-function rsPrint(text){
-  const o=document.getElementById("rsout");if(!o)return;
-  o.innerHTML+=esc37(text).replace(/\n/g,"<br>");
-  o.scrollTop=o.scrollHeight;
-}
+function rsPrint(text){if(RS&&RS.term)RS.term.write(text);}
 async function connectRealSandbox(){
   if(RS&&RS.ws&&RS.ws.readyState<=1)return;
+  const host=document.getElementById("rsterm");if(!host)return;
+  const term=new Terminal({
+    convertEol:true,cursorBlink:true,fontFamily:"var(--mono)",fontSize:13,
+    theme:{background:"#00000000",foreground:"#E6EAF2",cursor:"#F6A821"}
+  });
+  term.open(host);
+  RS={ws:null,term};
   const{data}=await sb.auth.getSession();
   const token=data&&data.session&&data.session.access_token;
-  if(!token){toast("Сессия истекла, войди заново");return}
+  if(!token){toast("Сессия истекла, войди заново");term.write("Сессия истекла — войди заново через 👤 и открой вкладку снова.\r\n");return}
   let ws;
   try{ws=new WebSocket(SANDBOX_URL);}catch(e){toast("Не удалось открыть соединение");return}
-  RS={ws};
+  RS.ws=ws;
   ws.onopen=()=>ws.send(JSON.stringify({token}));
   ws.onmessage=(ev)=>{
     let m;try{m=JSON.parse(ev.data);}catch(e){return}
     if(m.type==="ready"){
       const st=document.getElementById("rs-status");if(st)st.textContent=`подключено · лимит ${m.minutes} мин`;
-      const inp=document.getElementById("rsin");if(inp){inp.disabled=false;inp.placeholder="команда и Enter…";inp.focus();}
-      rsPrint("Подключено к реальному серверу.\n");
+      term.write("Подключено к реальному серверу.\r\n");
+      term.focus();
+      ws.send(JSON.stringify({type:"resize",cols:term.cols,rows:term.rows}));
     }else if(m.type==="out"){rsPrint(m.data);}
   };
   ws.onclose=(ev)=>{
     const st=document.getElementById("rs-status");if(st)st.textContent="отключено";
-    const inp=document.getElementById("rsin");if(inp)inp.disabled=true;
-    rsPrint("\n[сессия завершена: "+(ev.reason||"соединение закрыто")+"]\n");
+    term.write("\r\n[сессия завершена: "+(ev.reason||"соединение закрыто")+"]\r\n");
   };
   ws.onerror=()=>toast("Не удалось подключиться к реальному серверу");
+  term.onData(d=>{if(RS&&RS.ws&&RS.ws.readyState===1)RS.ws.send(JSON.stringify({type:"in",data:d}));});
+  term.onResize(({cols,rows})=>{if(RS&&RS.ws&&RS.ws.readyState===1)RS.ws.send(JSON.stringify({type:"resize",cols,rows}));});
 }
-document.addEventListener("keydown",e=>{
-  const el=document.getElementById("rsin");
-  if(!el||document.activeElement!==el||el.disabled)return;
-  if(e.key==="Enter"){
-    e.preventDefault();
-    const v=el.value;el.value="";
-    if(RS&&RS.ws&&RS.ws.readyState===1)RS.ws.send(JSON.stringify({type:"in",data:v+"\n"}));
-  }
-});
 
 /* ---------- комментарии к миссиям ---------- */
 async function loadCommentsAsync(missionId){

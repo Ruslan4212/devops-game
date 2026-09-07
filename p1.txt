@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
 <style>
 :root{
   --ink:#0C0F14;--panel:#141922;--panel-2:#1B2230;--line:#2A3342;--txt:#E6EAF2;--dim:#94A0B4;--faint:#5E6B80;
@@ -217,4 +218,5 @@ th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:u
 <div class="wrap"><nav class="tabs" id="tabs"></nav><main id="view"></main></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script>
