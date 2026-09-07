@@ -6277,8 +6277,8 @@ if(_lr)setTimeout(()=>lifeReport(_lr),600);
    4. (опционально) Authentication → Providers → Email → выключить
       "Confirm email", чтобы вход был мгновенным без письма
    ===================================================================== */
-const SUPABASE_URL="ВСТАВЬ_URL_ПРОЕКТА";
-const SUPABASE_ANON_KEY="ВСТАВЬ_ANON_KEY";
+const SUPABASE_URL="https://eotzgzaeuzvreidwkltf.supabase.co";
+const SUPABASE_ANON_KEY="sb_publishable_mRzT0lXHpvXgfQiO8o--Jw_9ii-wJ39";
 const CLOUD_ENABLED=SUPABASE_URL.startsWith("http")&&typeof supabase!=="undefined";
 const sb=CLOUD_ENABLED?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
 
