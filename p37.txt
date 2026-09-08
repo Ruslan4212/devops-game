@@ -89,13 +89,29 @@ async function authSubmit(){
   }catch(e){authErr=e.message||"Не получилось";}
   authBusy=false;redrawAuth();
 }
+function hasRealProgress(state){return!!(state&&((state.xp||0)>0||Object.keys(state.mis||{}).length>0));}
 async function onSignedIn(user){
   ACCOUNT={id:user.id,email:user.email,username:null};
-  const{data}=await sb.from("profiles").select("username").eq("id",user.id).maybeSingle();
-  if(data&&data.username){ACCOUNT.username=data.username;}
+  const{data}=await sb.from("profiles").select("username,state").eq("id",user.id).maybeSingle();
+  const cloudState=data&&data.state;
+  const cloudHas=hasRealProgress(cloudState);
+  const localHas=hasRealProgress(S);
+  if(data&&data.username)ACCOUNT.username=data.username;
   else{
     let uname=(user.email||"player").split("@")[0].replace(/[^a-zA-Z0-9_]/g,"").slice(0,20)||"player";
     ACCOUNT.username=uname;
+  }
+  if(cloudHas&&!localHas){
+    // новое устройство/чистый браузер — молча подхватываем прогресс из аккаунта
+    S=Object.assign(defState(),cloudState);save();lastPushedJSON=JSON.stringify(S);
+    toast("Прогресс синхронизирован с аккаунтом ✓");render();
+  }else if(cloudHas&&localHas&&JSON.stringify(cloudState)!==JSON.stringify(S)){
+    // и там, и там что-то накопилось — не решаем сами, спрашиваем
+    const useCloud=confirm("В аккаунте уже есть сохранённый прогресс, и в этом браузере тоже что-то пройдено.\n\nOK — продолжить с прогрессом из аккаунта (прогресс этого браузера будет заменён).\nОтмена — оставить прогресс этого браузера (он перезапишет аккаунт).");
+    if(useCloud){S=Object.assign(defState(),cloudState);save();render();}
+    lastPushedJSON=JSON.stringify(S);
+    await pushProfile(true);
+  }else{
     await pushProfile(true);
   }
 }
