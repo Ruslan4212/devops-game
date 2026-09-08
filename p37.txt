@@ -265,12 +265,19 @@ function viewRealSandbox(){
   if(!SANDBOX_URL)return `<section class="card pad"><div class="lbl">настоящий сервер</div><h1 style="font-size:22px;margin:6px 0">Ещё не подключено</h1><p class="muted" style="max-width:60ch">Разработчик пока не задеплоил sandbox-server. А пока — ссылки на бесплатные внешние песочницы с настоящим Docker/Kubernetes доступны на экране победы над боссом миров Linux, Docker, Kubernetes и Terraform.</p></section>`;
   if(!CLOUD_ENABLED||!ACCOUNT)return `<section class="card pad"><div class="lbl">настоящий сервер</div><h1 style="font-size:22px;margin:6px 0">Нужен аккаунт</h1><p class="muted">Войди через кнопку 👤 в углу экрана, чтобы получить доступ к реальному изолированному серверу.</p></section>`;
   setTimeout(connectRealSandbox,0);
+  const bridges=(typeof REAL_LABS!=="undefined")?Object.values(REAL_LABS):[];
   return `<section class="card pad" style="margin-bottom:10px">
     <div class="lbl">настоящий сервер · реальный изолированный linux</div>
-    <p class="muted" style="font-size:13px;margin:6px 0 0">Ограничение по времени на сессию, без доступа в интернет из песочницы — но настоящие процессы, файлы и права, не симуляция.</p>
+    <p class="muted" style="font-size:13px;margin:6px 0 0">Ограничение по времени на сессию, без доступа в интернет из песочницы — но настоящие процессы, файлы и права, не симуляция. Это голый Linux: если нужен именно Docker, Kubernetes или Terraform по-настоящему — здесь их нет, но есть бесплатные проверенные площадки ниже.</p>
   </section>
   <div class="lab"><div class="cli"><div class="bar"><i></i><i></i><i></i><span style="margin-left:8px" id="rs-status">подключение…</span></div>
-    <div id="rsterm" style="height:420px;padding:8px 0"></div></div></div>`;
+    <div id="rsterm" style="height:420px;padding:8px 0"></div></div></div>
+  ${bridges.length?`<section class="card pad" style="margin-top:10px;border-color:rgba(139,124,245,.4)">
+    <div class="lbl" style="color:#a99bff">если нужен именно docker/kubernetes/terraform по-настоящему</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+      ${bridges.map(rl=>`<a class="btn ghost sm" href="${rl.u}" target="_blank" rel="noopener" title="${esc37(rl.d)}">${rl.t} ↗</a>`).join("")}
+    </div>
+  </section>`:""}`;
 }
 function rsPrint(text){if(RS&&RS.term){RS.term.write(text);RS.term.scrollToBottom();}}
 async function connectRealSandbox(){
