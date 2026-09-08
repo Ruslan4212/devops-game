@@ -196,7 +196,14 @@ function viewMap(){
       worlds+=`<button class="mrow ${bl?"locked":""}" data-act="boss" data-w="${w.id}" style="border-color:rgba(124,107,242,.4)">
         <span class="dot ${S.boss[w.id]?"done":""}" style="color:var(--violet)">${S.boss[w.id]?"✓":"⚔"}</span>
         <span><strong>Босс · ${w.boss.t}</strong><small>${bl?"Пройди все миссии мира, чтобы открыть":"3 жизни. Ошибёшься трижды — заново."}</small></span>
-        <span class="mono muted" style="font-size:12px">+120xp</span></button></div></div>`;
+        <span class="mono muted" style="font-size:12px">+120xp</span></button></div>`;
+      if(typeof REAL_LABS!=="undefined"&&REAL_LABS[w.id]){const rl=REAL_LABS[w.id];
+        worlds+=`<div class="card pad" style="margin-top:10px;border-color:rgba(139,124,245,.4)">
+          <div class="lbl" style="color:#a99bff">мост к реальной инфраструктуре</div>
+          <p class="muted" style="font-size:12.5px;margin:6px 0 10px">Тренажёр и «Реальный сервер» этой игры не заменяют настоящий ${w.n.toLowerCase()} — ${rl.d}</p>
+          <a class="btn ghost sm" href="${rl.u}" target="_blank" rel="noopener">${rl.t} ↗</a>
+        </div>`;}
+      worlds+=`</div>`;
     }
   });
   return hero+`<div class="lbl" style="margin:6px 0 12px">миры</div>`+worlds;
