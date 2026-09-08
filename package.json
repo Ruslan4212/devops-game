@@ -1,0 +1,17 @@
+{
+  "name": "devops-game",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Инструменты сборки и тестов для Pipeline: путь до Middle DevOps. Сама игра — статический index.html, собираемый из p*.txt (см. build.sh).",
+  "scripts": {
+    "build": "bash build.sh",
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "http-server": "^14.1.1",
+    "jsdom": "^25.0.0"
+  }
+}
