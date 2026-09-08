@@ -63,7 +63,7 @@ const GLOSSARY={
   ping:{d:"проверка доступности хоста по ICMP — работает даже без открытых TCP-портов."},
   dig:{d:"DNS-запрос к резолверу.",f:{"+short":"только итоговое значение, без служебной информации.","@адрес":"спросить конкретный DNS-сервер, а не системный по умолчанию."}},
   nc:{d:"netcat — универсальный сетевой инструмент, здесь чаще всего для проверки, открыт ли TCP-порт.",f:{"-z":"режим сканирования — просто проверить, открыт ли порт, не отправляя данные.","-v":"подробный вывод (verbose)."}},
-  curl:{d:"HTTP-запросы из терминала.",f:{"-I":"только заголовки ответа (HEAD-запрос), без тела.","-i":"заголовки вместе с телом ответа.","-v":"подробный вывод — видно весь процесс, включая TLS-рукопожатие.","-L":"следовать за редиректами (3xx).","-X":"метод запроса (POST, PUT, DELETE...).","-d":"тело запроса (данные).","-H":"добавить заголовок запроса.","-o":"записать ответ в файл вместо вывода в терминал.","-s":"тихий режим — без индикатора прогресса.","-w":"вывести дополнительную информацию по шаблону, например код ответа."}},
+  curl:{d:"HTTP-запросы из терминала.",f:{"-I":"только заголовки ответа (HEAD-запрос), без тела.","-i":"заголовки вместе с телом ответа.","-v":"подробный вывод — видно весь процесс, включая TLS-рукопожатие.","-L":"следовать за редиректами (3xx).","-X":"метод запроса (POST, PUT, DELETE...).","-d":"тело запроса (данные).","-H":"добавить заголовок запроса.","-o":"записать ответ в файл вместо вывода в терминал.","-s":"тихий режим — без индикатора прогресса (silent).","-S":"даже в тихом режиме (-s) всё равно показать текст ошибки, если запрос провалился.","-f":"fail — вернуть ненулевой код возврата при HTTP-ошибке (4xx/5xx). Без этого флага curl считает такой ответ УСПЕХОМ, ведь само соединение прошло нормально.","-fsS":"частая связка всех трёх сразу: тихо (-s), но с ошибкой на экране, если что-то не так (-S), и с ненулевым кодом возврата при HTTP-ошибке (-f) — стандарт для healthcheck-скриптов.","-w":"вывести дополнительную информацию по шаблону, например код ответа."}},
   ssh:{d:"защищённое подключение к удалённому серверу.",f:{"-p":"нестандартный порт SSH.","-L":"проброс локального порта на удалённый хост через туннель.","-i":"путь к приватному ключу для авторизации."}},
   scp:{d:"копирование файлов между хостами через SSH-протокол."},
   tar:{d:"архивирование файлов.",f:{"c":"создать новый архив.","x":"извлечь (распаковать) архив.","t":"показать список файлов в архиве, не распаковывая.","z":"сжать/распаковать через gzip (.tar.gz).","f":"указать имя файла архива."}},
@@ -148,13 +148,35 @@ function glossaryLookup(raw){
   const word=m?m[0]:s.split(/\s+/)[0]||s;
   GLQ=word;toggleGlossary(true);
 }
+function clickedLineInPre(pre,clientX,clientY){
+  // <pre> обычно содержит НЕСКОЛЬКО строк примера — нужна именно та строка,
+  // по которой реально кликнули, а не всегда первая (баг: клик по третьей
+  // строке "curl -fsS ..." искал первую строку блока, "mkdir ...").
+  let container=null,offsetInContainer=0;
+  if(document.caretRangeFromPoint){
+    const range=document.caretRangeFromPoint(clientX,clientY);
+    if(range){container=range.startContainer;offsetInContainer=range.startOffset;}
+  }else if(document.caretPositionFromPoint){
+    const pos=document.caretPositionFromPoint(clientX,clientY);
+    if(pos){container=pos.offsetNode;offsetInContainer=pos.offset;}
+  }
+  if(!container||!pre.contains(container))return pre.textContent.split("\n")[0];
+  const walker=document.createTreeWalker(pre,NodeFilter.SHOW_TEXT);
+  let offset=0,node;
+  while(node=walker.nextNode()){
+    if(node===container){offset+=offsetInContainer;break;}
+    offset+=node.textContent.length;
+  }
+  const full=pre.textContent;
+  const lineStart=full.lastIndexOf("\n",Math.max(0,offset-1))+1;
+  const lineEndIdx=full.indexOf("\n",offset);
+  return full.slice(lineStart,lineEndIdx===-1?full.length:lineEndIdx);
+}
 document.addEventListener("click",e=>{
   const el=e.target.closest(".teach code, .teach pre");
   if(!el)return;
   e.preventDefault();
-  // <pre> может содержать несколько строк — берём именно ту, по которой кликнули,
-  // а не весь блок разом (иначе всегда искало бы первую команду примера).
-  const text=el.tagName==="PRE"?(window.getSelection&&window.getSelection().toString())||el.textContent.split("\n")[0]:el.textContent;
+  const text=el.tagName==="PRE"?clickedLineInPre(el,e.clientX,e.clientY):el.textContent;
   glossaryLookup(text);
 });
 
