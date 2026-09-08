@@ -74,3 +74,18 @@ test("hasRealProgress: ненулевой XP или пройденные мис�
   assert.equal(evalInGame(dom, `hasRealProgress({xp:50,mis:{}})`), true);
   assert.equal(evalInGame(dom, `hasRealProgress({xp:0,mis:{"linux:1":true}})`), true);
 });
+
+test("glossaryLookup: клик по 'ls -la /etc' ищет именно ls, а не весь текст", () => {
+  const q = evalInGame(dom, `glossaryLookup("ls -la /etc"); GLQ`);
+  assert.equal(q, "ls");
+});
+
+test("glossaryLookup: sudo и $ в начале команды не мешают найти нужное слово", () => {
+  assert.equal(evalInGame(dom, `glossaryLookup("sudo systemctl restart nginx"); GLQ`), "systemctl");
+  assert.equal(evalInGame(dom, `glossaryLookup("$ mkdir -p /opt/app"); GLQ`), "mkdir");
+});
+
+test("mkdir есть в глоссарии (регрессия на жалобу пользователя)", () => {
+  const found = evalInGame(dom, `JSON.stringify(glossarySearch("mkdir").some(r=>r.cmd==="mkdir"))`);
+  assert.equal(JSON.parse(found), true);
+});

@@ -95,6 +95,10 @@ nav.tabs button:hover{color:var(--txt)}
 .teach p{margin:0 0 12px}
 .teach ul,.teach ol{margin:0 0 12px;padding-left:20px}
 .teach li{margin:5px 0}
+.teach code,.teach pre{cursor:pointer}
+.teach code{border-bottom:1px dashed var(--faint);transition:color .15s,border-color .15s}
+.teach code:hover{color:var(--amber-2);border-color:var(--amber-2)}
+.teach pre:hover{outline:1px dashed var(--faint)}
 pre{background:#0A0D12;border:1px solid var(--line);border-radius:8px;padding:13px 15px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.6;margin:0 0 12px}
 pre .c{color:var(--faint)}
 pre .k{color:var(--amber-2)}

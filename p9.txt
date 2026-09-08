@@ -139,6 +139,24 @@ function toggleGlossary(open){
   host.innerHTML=GLOPEN?viewGlossary():"";
   if(GLOPEN){const el=document.getElementById("gloq");if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}}
 }
+function glossaryLookup(raw){
+  // Достаёт из клика по <code> в теории/примерах первое разумное "слово команды":
+  // отбрасывает пути (/var/log), переменные ($VAR), кавычки и берёт первый токен
+  // до пробела/скобки — так клик по "ls -la /etc" ищет именно "ls".
+  let s=(raw||"").trim().replace(/^\$\s*/,"").replace(/^sudo\s+/,"");
+  const m=s.match(/^[a-zA-Z][a-zA-Z0-9_.-]*/);
+  const word=m?m[0]:s.split(/\s+/)[0]||s;
+  GLQ=word;toggleGlossary(true);
+}
+document.addEventListener("click",e=>{
+  const el=e.target.closest(".teach code, .teach pre");
+  if(!el)return;
+  e.preventDefault();
+  // <pre> может содержать несколько строк — берём именно ту, по которой кликнули,
+  // а не весь блок разом (иначе всегда искало бы первую команду примера).
+  const text=el.tagName==="PRE"?(window.getSelection&&window.getSelection().toString())||el.textContent.split("\n")[0]:el.textContent;
+  glossaryLookup(text);
+});
 
 /* ================= TAB-АВТОДОПОЛНЕНИЕ ================= */
 /* Общий движок: работает и для настоящего терминала (лаборатории/песочница —
@@ -354,6 +372,7 @@ function uiCard(){
    <div class="row" style="margin-bottom:14px"><span class="lbl">${R.w.n} · ${R.m.t}</span>
      <span class="lbl" style="margin-left:auto">теория ${R.ci+1}/${R.cards.length} · ~${Math.max(1,Math.round(R.cards.reduce((a,c)=>a+c.b.length,0)/1400))} мин чтения</span></div>
    <div class="teach"><h2>${c.h}</h2>${c.b}</div>
+   <p class="muted" style="font-size:12px;margin:8px 2px 0">💡 непонятна команда или флаг в примере — кликни прямо по ней в тексте, откроется объяснение</p>
    <div class="row" style="margin-top:18px">
      ${R.ci>0?`<button class="btn ghost" data-nav="back">← Назад</button>`:""}
      ${c.t?`<button class="btn" data-nav="try">Отработать →</button>`
