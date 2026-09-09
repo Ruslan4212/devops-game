@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminal Ops Academy</title>
+<meta name="description" content="Тренажёр DevOps: от первой команды в Linux до дежурства по проду">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+</head>
+<body>
+<div class="top">
+  <div class="logo"><i></i>TERMINAL OPS ACADEMY</div>
+  <div class="xpwrap">
+    <div class="r"><span id="rankTxt">Стажёр</span><span id="xpTxt">0 XP</span></div>
+    <div class="xpbar"><i id="xpFill"></i></div>
+  </div>
+  <div class="rankchip" id="progChip">0 / 23 заданий</div>
+  <div class="sp">
+    <button class="tbtn" id="howBtn">как играть</button>
+    <button class="tbtn" id="resetBtn">сброс</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="col rail-col"><div class="card scroll rail" id="rail"></div></div>
+  <div class="col term-col">
+    <div class="term">
+      <div class="termbar"><span class="dots"><s></s><s></s><s></s></span><span>bash</span></div>
+      <div class="out" id="out"></div>
+      <form class="inline" id="cmdForm" autocomplete="off">
+        <span class="p" id="prompt">$</span>
+        <input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="набери команду и нажми Enter (help — список команд)">
+      </form>
+    </div>
+  </div>
+  <div class="col brief-col"><div class="card scroll brief" id="brief"></div></div>
+</div>
+
+<div class="ov hide" id="edOv">
+  <div class="sheet">
+    <header><span>редактор</span><span class="fn" id="edName">file</span></header>
+    <div class="body"><textarea id="edText" spellcheck="false"></textarea></div>
+    <footer>
+      <span class="tip">Ctrl+S — сохранить</span>
+      <button class="sec" id="edCancel">отмена</button>
+      <button class="prim" id="edSave">Сохранить</button>
+    </footer>
+  </div>
+</div>
+
+<div class="ov hide" id="modOv"><div class="modal" id="modBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
