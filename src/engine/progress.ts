@@ -1,4 +1,11 @@
-export interface Progress { xp: number; done: Record<string, boolean>; cur: string | null; hints: Record<string, number> }
+export interface Progress {
+  xp: number;
+  done: Record<string, boolean>;
+  cur: string | null;
+  hints: Record<string, number>;
+  /** момент последнего изменения, мс эпохи — нужен для конфликт-безопасного слияния устройств */
+  updatedAt?: number;
+}
 
 const KEY = "devops_terminal_rpg_v1";
 
@@ -20,6 +27,7 @@ export function loadProgress(): Progress {
   catch { return empty; }
 }
 export function saveProgress(p: Progress): void {
+  p.updatedAt = Date.now();
   try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* приватный режим — просто не сохраняем */ }
 }
 export function clearProgress(): void {
