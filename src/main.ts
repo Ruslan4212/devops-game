@@ -327,6 +327,9 @@ $("#careerBtn").onclick = () => {
     });
   });
 };
+$("#ratingBtn").onclick = () => {
+  void import("./ui/leaderboard").then(({ openLeaderboard }) => void openLeaderboard());
+};
 $("#certBtn").onclick = () => {
   if (!allLessonsDone(P)) {
     toast("Сертификат откроется, когда пройдены все уроки и экзамены");

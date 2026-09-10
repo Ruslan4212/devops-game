@@ -792,6 +792,55 @@ button {
   margin-bottom: 14px;
 }
 
+.lb-list {
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+  max-height: 58vh;
+  overflow-y: auto;
+}
+.lb-row {
+  display: grid;
+  grid-template-columns: 38px 1fr 110px 62px 66px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 11px;
+  font-size: 12.5px;
+  border-top: 1px solid var(--line);
+}
+.lb-row:first-child {
+  border-top: 0;
+}
+.lb-head {
+  background: var(--panel2);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.lb-row span:first-child,
+.lb-row span:nth-child(4),
+.lb-row span:last-child {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.lb-row span:nth-child(3) {
+  color: var(--amber);
+}
+.lb-row span:last-child {
+  text-align: right;
+  color: var(--ok);
+}
+.lb-me {
+  background: rgba(240, 135, 63, 0.1);
+}
+.lb-me span:nth-child(2) {
+  color: var(--amber2);
+  font-weight: 700;
+}
+
 .ch-wrap {
   display: flex;
   gap: 18px;

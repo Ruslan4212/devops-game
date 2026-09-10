@@ -6,11 +6,15 @@ import type { PublicStats } from "./merge";
  * Тонкая типизированная обёртка над Supabase.
  *
  * Принципы:
- *  - никаких секретов в коде: URL и anon-ключ приходят из env (VITE_*).
- *    anon-ключ публичен по дизайну Supabase, вся защита — на RLS-политиках
- *    в supabase_schema.sql (каждый видит только свой profiles.state);
- *  - graceful degradation: без настроенного env весь слой сообщает
- *    isConfigured === false, и приложение работает как раньше на localStorage;
+ *  - никаких настоящих секретов: используется только publishable (anon) ключ.
+ *    Он по дизайну Supabase ездит в браузер вместе со страницей, а защита
+ *    держится на RLS-политиках из supabase_schema.sql (каждый видит только
+ *    свой profiles.state; public_stats открыт на чтение и содержит лишь
+ *    имя, ранг и XP). Служебного service_role ключа здесь нет;
+ *  - конфигурация ищется по порядку: env при сборке (VITE_*) → настройки,
+ *    сохранённые игроком → значения по умолчанию;
+ *  - graceful degradation: если конфигурации нет вообще, слой сообщает
+ *    isConfigured === false, и приложение работает на одном localStorage;
  *  - ленивая загрузка: сам клиент подтягивается динамическим import()
  *    только когда действительно нужен — не утяжеляет основной бандл;
  *  - ошибки не бросаются наружу, а возвращаются как Result со строкой,
@@ -172,6 +176,37 @@ export async function pullProfile(): Promise<Result<RemoteProfile | null>> {
     if (error) return { ok: false, error: error.message };
     if (!data) return { ok: true, value: null };
     return { ok: true, value: { username: data.username, state: data.state as Progress } };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+export interface LeaderRow {
+  id: string;
+  username: string;
+  xp: number;
+  rank_name: string;
+  missions_done: number;
+}
+
+/**
+ * Таблица лидеров. Читает публичную витрину public_stats — по RLS она
+ * доступна на чтение всем, и в ней нет ничего личного: имя, XP и ранг.
+ * Возвращает строки и идентификатор текущего игрока, чтобы подсветить его.
+ */
+export async function fetchLeaderboard(
+  limit = 50,
+): Promise<Result<{ rows: LeaderRow[]; meId: string | null }>> {
+  try {
+    const sb = await client();
+    const { data, error } = await sb
+      .from("public_stats")
+      .select("id, username, xp, rank_name, missions_done")
+      .order("xp", { ascending: false })
+      .limit(Math.max(1, Math.min(200, limit)));
+    if (error) return { ok: false, error: error.message };
+    const { data: u } = await sb.auth.getUser();
+    return { ok: true, value: { rows: (data ?? []) as LeaderRow[], meId: u.user?.id ?? null } };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
