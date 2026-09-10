@@ -42,6 +42,28 @@ export function metricsText(kind: string): string {
   );
 }
 
+/**
+ * Короткое значение выражения PromQL — то, что показала бы панель дашборда.
+ * Используется симулятором Grafana, чтобы не дублировать данные.
+ */
+export function promShortValue(expr: string, p: PromState): string {
+  const e = expr.trim();
+  if (/^up$/.test(e)) {
+    const upN = p.targets.filter((t) => t.up).length;
+    return `${upN}/${p.targets.length}`;
+  }
+  if (/histogram_quantile\s*\(\s*0\.99/.test(e)) return "0.41";
+  if (/histogram_quantile\s*\(\s*0\.95/.test(e)) return "0.213";
+  if (/rate\s*\(\s*http_requests_total/.test(e)) {
+    return /status\s*=\s*"5\d\d"/.test(e) ? "0.02" : "41.3";
+  }
+  if (/^http_requests_total/.test(e)) return "128400";
+  if (/node_load1/.test(e)) return "2.14";
+  if (/node_filesystem_avail_bytes/.test(e)) return "8589934592";
+  if (/node_memory_MemAvailable_bytes/.test(e)) return "1981284864";
+  return "—";
+}
+
 def("promtool", (a, w) => {
   const p = promInit(w);
   const [sub, what, file] = a.filter((x) => !x.startsWith("-"));

@@ -120,6 +120,21 @@ export interface PromTarget {
   up: boolean;
 }
 
+/** Панель дашборда Grafana: заголовок, запрос PromQL и единица измерения. */
+export interface GrafanaPanel {
+  title: string;
+  expr: string;
+  unit: string;
+}
+
+/** Состояние симулятора Grafana. */
+export interface GrafanaState {
+  /** имена подключённых источников данных */
+  datasources: string[];
+  /** загруженные дашборды */
+  dashboards: { title: string; panels: GrafanaPanel[] }[];
+}
+
 /** Состояние симулятора Prometheus. */
 export interface PromState {
   /** запущенные экспортёры: порт -> имя (node, app, blackbox) */
@@ -155,6 +170,8 @@ export interface World {
   k8s: K8sState | null;
   /** состояние симулятора Prometheus (акт «Мониторинг») */
   prom?: PromState;
+  /** состояние симулятора Grafana (акт «Дашборды») */
+  grafana?: GrafanaState;
   alerts: Alert[];
   code: number;
   log: LogEntry[];

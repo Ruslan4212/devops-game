@@ -12,5 +12,6 @@ import "./terraform";
 import "./k8s";
 import "./monitoring";
 import "./prom";
+import "./grafana";
 
 export { CMDS } from "./registry";
