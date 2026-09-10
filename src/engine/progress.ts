@@ -1,3 +1,5 @@
+import type { Life } from "./life";
+
 export interface Progress {
   xp: number;
   done: Record<string, boolean>;
@@ -9,6 +11,8 @@ export interface Progress {
   capstone?: boolean;
   /** полученные офферы карьерного слоя: id вакансии -> true */
   jobs?: Record<string, boolean>;
+  /** состояние экономического слоя («жизнь»): кошелёк, потребности, покупки */
+  life?: Life;
 }
 
 const KEY = "devops_terminal_rpg_v1";

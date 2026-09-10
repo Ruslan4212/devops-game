@@ -7,6 +7,7 @@ import type { Progress } from "./engine/progress";
 import { $, lockInput, toast } from "./ui/dom";
 import { clearTerminal, InputHistory, print, printCommand, setPrompt } from "./ui/terminal";
 import { allLessonsDone, isUnlocked, renderRail } from "./ui/rail";
+import { defaultLife, onLessonComplete, xpEarnBonusPct } from "./engine/life";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
@@ -144,14 +145,26 @@ function afterStep(): void {
 function completeLesson(): void {
   if (!run) return;
   const lesson = run.lesson;
+  let gainedXp = lesson.xp;
+  let credited = 0;
   if (!P.done[lesson.id]) {
     P.done[lesson.id] = true;
-    P.xp += lesson.xp;
+    if (!P.life) P.life = defaultLife();
+    // «жизнь»: бонус к XP от техники/настроения + подработка за урок
+    const bonus = Math.max(0, Math.round((lesson.xp * xpEarnBonusPct(P.life)) / 100));
+    gainedXp = lesson.xp + bonus;
+    P.xp += gainedXp;
+    credited = onLessonComplete(P.life, lesson.xp, Object.keys(P.jobs ?? {}).length > 0).credited;
     persist();
   }
   print("");
-  print(`✔ Урок пройден: ${lesson.title}  (+${lesson.xp} XP)`, "ok");
-  toast(`+${lesson.xp} XP`);
+  print(
+    `✔ Урок пройден: ${lesson.title}  (+${gainedXp} XP` +
+      (credited ? `, +${credited.toLocaleString("ru-RU")} ₽` : "") +
+      `)`,
+    "ok",
+  );
+  toast(`+${gainedXp} XP${credited ? ` · +${credited.toLocaleString("ru-RU")} ₽` : ""}`);
   lockInput(true);
 
   const next = LESSONS[LESSONS.indexOf(lesson) + 1];
@@ -287,6 +300,12 @@ function showHow(): void {
 
 $("#howBtn").onclick = showHow;
 $("#glosBtn").onclick = () => void import("./ui/glossary").then((m) => m.openGlossary());
+$("#lifeBtn").onclick = () => {
+  void import("./ui/life").then(({ openLife }) => {
+    if (!P.life) P.life = defaultLife();
+    openLife({ life: P.life, persist });
+  });
+};
 $("#careerBtn").onclick = () => {
   void import("./ui/career").then(({ openCareer }) => {
     if (!P.jobs) P.jobs = {};

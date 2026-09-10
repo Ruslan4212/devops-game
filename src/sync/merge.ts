@@ -1,3 +1,4 @@
+import { mergeLife } from "../engine/life";
 import type { Progress } from "../engine/progress";
 
 /**
@@ -51,6 +52,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     updatedAt: Math.max(a.updatedAt ?? 0, b.updatedAt ?? 0) || Date.now(),
     capstone: Boolean(a.capstone || b.capstone),
     jobs,
+    life: mergeLife(a.life, b.life),
   };
 }
 
