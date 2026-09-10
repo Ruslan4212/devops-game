@@ -77,7 +77,7 @@ function startLesson(id: string): void {
 
   P.cur = id;
   persist();
-  run = new LessonRun(lesson);
+  run = new LessonRun(lesson, { strict: !!P.strict });
 
   clearTerminal();
   print(`— Урок ${lesson.id}: ${lesson.title} —`, "ok");
@@ -287,10 +287,18 @@ function showHow(): void {
     `<li>🎯 <b>Задача</b> — сделай похожее сам. Ошибёшься — появится подсказка, потом готовый ответ. Провалить нельзя.</li>` +
     `<li>🤔 <b>Вопрос</b> — просто выбери вариант.</li>` +
     `</ul>` +
+    `<label class="how-strict"><input type="checkbox" id="strictChk"${P.strict ? " checked" : ""}> ` +
+    `<b>Строгий режим</b> — задача не подсказывает ответ, пока сам не попросишь, и только после нескольких попыток. ` +
+    `Так курс реально готовит к собеседованию. Можно включать и выключать в любой момент.</label>` +
     `<div class="kb">Слева — карта уроков. Прогресс сохраняется сам.</div>` +
     `<button class="prim" id="modClose">Начать</button>`;
   $("#modOv").classList.remove("hide");
   lockInput(true);
+  $<HTMLInputElement>("#strictChk").onchange = (e) => {
+    P.strict = (e.target as HTMLInputElement).checked;
+    persist();
+    if (run && !run.finished) startLesson(run.lesson.id);
+  };
   $("#modClose").onclick = () => {
     $("#modOv").classList.add("hide");
     if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) {

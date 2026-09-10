@@ -54,6 +54,8 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     jobs,
     life: mergeLife(a.life, b.life),
     legacyImported: Boolean(a.legacyImported || b.legacyImported),
+    // strict — переключаемая настройка, а не прогресс: берём у той версии, что сохранена позже
+    strict: (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a.strict : b.strict,
   };
 }
 

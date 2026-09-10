@@ -58,8 +58,10 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<div class="lp-answer"><b>Ответ:</b> набери в терминале:</div>` +
         `<div class="lp-cmd">${esc(step.answer)}</div>` +
         `<button class="lp-fill" id="lpFill">Вставить в строку ввода</button>`;
-    } else {
+    } else if (run.canReveal) {
       body += `<button class="lp-reveal" id="lpReveal">Не получается — показать ответ</button>`;
+    } else {
+      body += `<div class="lp-tip">Строгий режим: разбирайся сам. Подсказка появится после нескольких попыток.</div>`;
     }
   }
 

@@ -24,15 +24,33 @@ function typoHint(got: string, want: string): string {
 export class LessonRun {
   readonly world: World;
   readonly lesson: Lesson;
+  /** строгий режим: подсказка позже, готовый ответ — только по явному запросу и после 4 промахов */
+  readonly strict: boolean;
   stepIx = 0;
   /** сколько раз игрок промахнулся на текущем шаге */
   attempts = 0;
   finished = false;
 
-  constructor(lesson: Lesson) {
+  constructor(lesson: Lesson, opts: { strict?: boolean } = {}) {
     this.lesson = lesson;
+    this.strict = !!opts.strict;
     this.world = newWorld();
     lesson.setup?.(this.world);
+  }
+
+  /** После скольких промахов показывать подсказку. */
+  private get hintAt(): number {
+    return this.strict ? 2 : 1;
+  }
+
+  /** После скольких промахов «сделай»-шаг раскрывает готовый ответ. */
+  get revealAt(): number {
+    return this.strict ? 4 : 2;
+  }
+
+  /** Можно ли уже предложить кнопку «показать ответ». */
+  get canReveal(): boolean {
+    return !this.strict || this.attempts >= 2;
   }
 
   get step(): Step {
@@ -43,9 +61,9 @@ export class LessonRun {
     return { i: this.stepIx + 1, n: this.lesson.steps.length };
   }
 
-  /** Ответ уже раскрыт? (после двух промахов «сделай» превращается в «повтори») */
+  /** Ответ уже раскрыт? («сделай» превращается в «повтори» после revealAt промахов) */
   get answerRevealed(): boolean {
-    return this.step.kind === "do" && this.attempts >= 2;
+    return this.step.kind === "do" && this.attempts >= this.revealAt;
   }
 
   private goNext(): void {
@@ -86,8 +104,8 @@ export class LessonRun {
     }
     this.attempts++;
     let feedback = r.err ? r.out : "Это выполнилось, но задача шага ещё не закрыта.";
-    if (this.attempts === 1) feedback += `\n\n💡 Подсказка: ${step.hint}`;
-    const reveal = this.attempts >= 2 ? step.answer : undefined;
+    if (this.attempts === this.hintAt) feedback += `\n\n💡 Подсказка: ${step.hint}`;
+    const reveal = this.attempts >= this.revealAt ? step.answer : undefined;
     if (reveal) feedback += `\n\nНе получается — просто набери это:\n${step.answer}`;
     return { status: "retry", feedback, reveal };
   }
@@ -112,18 +130,18 @@ export class LessonRun {
     this.attempts++;
     const step = this.step as DoStep;
     let feedback = "Файл сохранён, но задача шага ещё не закрыта.";
-    if (step.kind === "do" && this.attempts === 1) feedback += `\n\n💡 ${step.hint}`;
+    if (step.kind === "do" && this.attempts === this.hintAt) feedback += `\n\n💡 ${step.hint}`;
     return {
       status: "retry",
       feedback,
-      reveal: this.attempts >= 2 && step.kind === "do" ? step.answer : undefined,
+      reveal: this.attempts >= this.revealAt && step.kind === "do" ? step.answer : undefined,
     };
   }
 
   /** Игрок нажал «показать ответ» на «сделай» шаге. */
   forceReveal(): string | null {
     if (this.step.kind !== "do") return null;
-    this.attempts = Math.max(this.attempts, 2);
+    this.attempts = Math.max(this.attempts, this.revealAt);
     return (this.step as DoStep).answer;
   }
 

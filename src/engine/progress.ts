@@ -15,6 +15,8 @@ export interface Progress {
   life?: Life;
   /** прогресс прежней версии игры уже перенесён (или предложение было отклонено) */
   legacyImported?: boolean;
+  /** строгий режим: задачи не подсказывают ответ, пока сам не попросишь */
+  strict?: boolean;
 }
 
 const KEY = "devops_terminal_rpg_v1";
