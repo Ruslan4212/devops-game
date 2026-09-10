@@ -6,9 +6,11 @@ name: Deploy
 #   index.html      — пересобирается из p*.txt скриптом build.sh (старая версия, корень сайта);
 #   next/index.html — одностраничный билд переписанной версии из ветки vite-rewrite (адрес /next/).
 
+# Запускается и на пуш в vite-rewrite: тогда обновится только next/index.html,
+# чтобы переписанная версия на сайте не отставала от ветки.
 on:
   push:
-    branches: [main]
+    branches: [main, vite-rewrite]
   workflow_dispatch:
 
 jobs:
@@ -18,9 +20,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # всегда работаем с main, даже если запуск пришёл с ветки vite-rewrite
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
       - name: bash build.sh
         run: bash build.sh
