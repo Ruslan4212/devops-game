@@ -113,6 +113,25 @@ export interface Alert {
   desc: string;
 }
 
+/** Цель, которую Prometheus опрашивает (job + адрес + жива ли она). */
+export interface PromTarget {
+  job: string;
+  instance: string;
+  up: boolean;
+}
+
+/** Состояние симулятора Prometheus. */
+export interface PromState {
+  /** запущенные экспортёры: порт -> имя (node, app, blackbox) */
+  exporters: Record<number, string>;
+  /** цели, которые Prometheus опрашивает по конфигу */
+  targets: PromTarget[];
+  /** конфиг применён (prometheus.yml прошёл проверку и загружен) */
+  configLoaded: boolean;
+  /** правила алертов загружены */
+  rulesLoaded: boolean;
+}
+
 export interface LogEntry {
   cmd: string;
   code: number;
@@ -134,6 +153,8 @@ export interface World {
   ci: CiState;
   tf: TfState;
   k8s: K8sState | null;
+  /** состояние симулятора Prometheus (акт «Мониторинг») */
+  prom?: PromState;
   alerts: Alert[];
   code: number;
   log: LogEntry[];

@@ -8,6 +8,7 @@ import { act07 } from "./act07";
 import { act08 } from "./act08";
 import { act09 } from "./act09";
 import { act10 } from "./act10";
+import { act11 } from "./act11";
 import { examOfAct } from "./exams";
 import type { Act, Lesson } from "../engine/types";
 
@@ -22,6 +23,7 @@ export const ACTS: Act[] = [
   { id: 8, name: "Terraform / IaC" },
   { id: 9, name: "Kubernetes" },
   { id: 10, name: "On-call: инциденты" },
+  { id: 11, name: "Мониторинг: Prometheus" },
 ];
 
 const ACT_LESSONS: readonly (readonly Lesson[])[] = [
@@ -35,6 +37,7 @@ const ACT_LESSONS: readonly (readonly Lesson[])[] = [
   act08,
   act09,
   act10,
+  act11,
 ];
 
 /**

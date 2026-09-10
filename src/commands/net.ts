@@ -1,4 +1,5 @@
 import { def, E, O } from "./registry";
+import { metricsText } from "./prom";
 
 def("ss", (_a, w) =>
   O(
@@ -48,6 +49,15 @@ def("curl", (a, w) => {
   const m = url.match(/localhost:(\d+)|127\.0\.0\.1:(\d+)/);
   if (m) {
     const port = Number(m[1] || m[2]);
+    // экспортёр Prometheus отдаёт метрики текстом на /metrics
+    if (/\/metrics\b/.test(url)) {
+      const kind = w.prom?.exporters[port];
+      if (kind) return O(head ? "HTTP/1.1 200 OK\nContent-Type: text/plain" : metricsText(kind));
+      return {
+        out: "curl: (7) Failed to connect to localhost port " + port + ": Connection refused",
+        code: 7,
+      };
+    }
     const cont = w.docker.containers.find((c) => c.hostPort === port && c.state === "running");
     if (cont)
       return O(

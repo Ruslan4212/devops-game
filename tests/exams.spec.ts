@@ -4,9 +4,9 @@ import { LESSONS } from "../src/lessons";
 import { LessonRun } from "../src/engine/lesson-run";
 
 describe("экзамены актов", () => {
-  it("есть ровно один экзамен на каждый акт 1..10", () => {
+  it("есть ровно один экзамен на каждый акт курса", () => {
     const acts = EXAMS.map((e) => e.act).sort((a, b) => a - b);
-    expect(acts).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(acts).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
   it("экзамен стоит сразу после последнего урока своего акта", () => {
