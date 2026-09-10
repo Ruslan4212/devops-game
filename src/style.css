@@ -797,3 +797,88 @@ button {
   color: var(--red);
   min-height: 16px;
 }
+
+/* ---- капстоун: реальный сервер ---- */
+.cap-ov {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(6, 8, 12, 0.92);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+.cap-box {
+  width: min(1100px, 96vw);
+  height: min(720px, 92vh);
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+.cap-brief {
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.cap-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-family: var(--mono);
+}
+.cap-x {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.cap-x:hover {
+  border-color: var(--amber);
+}
+.cap-tasks {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+.cap-tasks li {
+  margin: 6px 0;
+}
+.cap-status {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #0d1220;
+  border: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+}
+.cap-status a {
+  color: var(--blue);
+}
+.cap-term {
+  min-width: 0;
+  background: #080b11;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  overflow: hidden;
+}
+.cap-term .xterm {
+  height: 100%;
+}
+@media (max-width: 820px) {
+  .cap-box {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: 94vh;
+  }
+}

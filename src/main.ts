@@ -12,6 +12,7 @@ import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
 import { initAccount } from "./sync/account";
 import type { AccountApi } from "./sync/account";
+import { accessToken } from "./sync/cloud";
 
 let P: Progress = loadProgress();
 let run: LessonRun | null = null;
@@ -284,5 +285,17 @@ sync = initAccount({
   rankOf,
   toast,
 });
+const capBtn = document.createElement("button");
+capBtn.className = "tbtn";
+capBtn.id = "capBtn";
+capBtn.textContent = "🎓 капстоун";
+capBtn.title = "Финальное задание на настоящем изолированном Linux-сервере";
+capBtn.onclick = async () => {
+  // xterm.js весит немало — грузим только при открытии капстоуна
+  const { openCapstone } = await import("./sandbox/capstone");
+  openCapstone({ getToken: accessToken, toast });
+};
+document.querySelector(".sp")?.appendChild(capBtn);
+
 startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
 if (!Object.keys(P.done).length) showHow();
