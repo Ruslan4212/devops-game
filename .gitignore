@@ -4,3 +4,5 @@ dist-single/
 .vite/
 *.local
 .claude/settings.local.json
+.env
+.env.local

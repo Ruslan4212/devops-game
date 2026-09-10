@@ -10,10 +10,19 @@ import { isUnlocked, renderRail } from "./ui/rail";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
+import { initAccount } from "./sync/account";
+import type { AccountApi } from "./sync/account";
 
 let P: Progress = loadProgress();
 let run: LessonRun | null = null;
+let sync: AccountApi | null = null;
 const history = new InputHistory();
+
+/** Сохранить прогресс локально и отложенно отправить в облако (если выполнен вход). */
+function persist(): void {
+  saveProgress(P);
+  sync?.schedulePush();
+}
 
 /* ------------------------------- HUD / карта ------------------------------- */
 function renderHud(): void {
@@ -40,7 +49,7 @@ function startLesson(id: string): void {
   if (!isUnlocked(lesson, P)) { toast("Сначала пройди предыдущий урок"); return; }
 
   P.cur = id;
-  saveProgress(P);
+  persist();
   run = new LessonRun(lesson);
 
   clearTerminal();
@@ -108,7 +117,7 @@ function completeLesson(): void {
   if (!P.done[lesson.id]) {
     P.done[lesson.id] = true;
     P.xp += lesson.xp;
-    saveProgress(P);
+    persist();
   }
   print("");
   print(`✔ Урок пройден: ${lesson.title}  (+${lesson.xp} XP)`, "ok");
@@ -229,5 +238,15 @@ $("#resetBtn").onclick = () => {
 
 /* --------------------------------- старт --------------------------------- */
 initEditor();
+sync = initAccount({
+  getProgress: () => P,
+  applyMerged: (merged) => {
+    P = merged;
+    saveProgress(P);
+    startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
+  },
+  rankOf,
+  toast,
+});
 startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
 if (!Object.keys(P.done).length) showHow();
