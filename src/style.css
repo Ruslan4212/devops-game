@@ -1,17 +1,27 @@
+/* Палитра и типографика перенесены из прежней версии игры — имена переменных
+   оставлены прежними, поэтому все существующие правила продолжают работать. */
 :root {
-  --bg: #0b0e14;
-  --panel: #121724;
-  --panel2: #1a2130;
-  --line: #27303f;
-  --ink: #e7edf5;
-  --dim: #8a94a6;
-  --amber: #f3b13f;
-  --green: #54d38d;
-  --red: #ff6b6b;
-  --blue: #61a9ff;
-  --violet: #a98bff;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
-  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --bg: #0c0f14;
+  --panel: #141922;
+  --panel2: #1b2230;
+  --line: #2a3342;
+  --ink: #e6eaf2;
+  --dim: #94a0b4;
+  --faint: #5e6b80;
+  --amber: #f0873f;
+  --amber2: #ffb067;
+  --green: #3fbf8f;
+  --ok: #3fbf8f;
+  --warn: #e4c25b;
+  --red: #e2565a;
+  --bad: #e2565a;
+  --blue: #6ba6f5;
+  --violet: #7c6bf2;
+  --r: 10px;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --disp: "Archivo", "Manrope", system-ui, sans-serif;
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -25,13 +35,22 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
-  line-height: 1.5;
+  line-height: 1.55;
+  /* фирменное свечение из прежней версии: фиолетовое справа сверху, янтарное слева */
+  background-image:
+    radial-gradient(900px 500px at 80% -10%, rgba(124, 107, 242, 0.12), transparent 60%),
+    radial-gradient(700px 400px at 5% 0%, rgba(240, 135, 63, 0.1), transparent 60%);
+  background-attachment: fixed;
 }
 h1,
 h2,
 h3 {
   margin: 0;
   line-height: 1.2;
+  font-family: var(--disp);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 button {
   font-family: var(--mono);
@@ -60,19 +79,20 @@ button {
   border-bottom: 1px solid var(--line);
 }
 .logo {
-  font-family: var(--mono);
-  font-weight: 700;
-  font-size: 14px;
+  font-family: var(--disp);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.02em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 }
 .logo i {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 8px var(--green);
+  background: var(--amber);
+  box-shadow: 0 0 12px var(--amber);
   font-style: normal;
 }
 .xpwrap {
@@ -97,7 +117,7 @@ button {
   display: block;
   height: 100%;
   width: 0;
-  background: linear-gradient(90deg, var(--amber), var(--green));
+  background: linear-gradient(90deg, var(--amber), var(--amber2));
   transition: width 0.5s;
 }
 .rankchip {
@@ -120,6 +140,7 @@ button {
 }
 .tbtn:hover {
   border-color: var(--amber);
+  background: rgba(240, 135, 63, 0.07);
 }
 .top .sp {
   margin-left: auto;
@@ -523,12 +544,19 @@ button {
 }
 .prim {
   background: var(--amber);
-  color: #12140f;
+  color: #12161d;
   border: 0;
   border-radius: 8px;
   padding: 9px 17px;
   font-size: 13px;
   font-weight: 700;
+  transition:
+    transform 0.12s,
+    filter 0.12s;
+}
+.prim:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 .sec {
   background: var(--panel2);
@@ -537,6 +565,13 @@ button {
   border-radius: 8px;
   padding: 9px 15px;
   font-size: 12.5px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.sec:hover {
+  border-color: var(--amber);
+  background: rgba(240, 135, 63, 0.07);
 }
 
 .modal {
