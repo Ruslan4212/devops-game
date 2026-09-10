@@ -13,5 +13,6 @@ import "./k8s";
 import "./monitoring";
 import "./prom";
 import "./grafana";
+import "./zabbix";
 
 export { CMDS } from "./registry";

@@ -113,6 +113,27 @@ export interface Alert {
   desc: string;
 }
 
+/** Триггер Zabbix: имя, выражение и важность. */
+export interface ZabbixTrigger {
+  name: string;
+  expr: string;
+  severity: string;
+}
+
+/** Состояние симулятора Zabbix. */
+export interface ZabbixState {
+  /** конфиг агента прочитан и валиден (есть Server= и Hostname=) */
+  agentConfigured: boolean;
+  /** адрес Zabbix-сервера из конфига агента */
+  serverAddr: string | null;
+  /** свои метрики из UserParameter: ключ -> команда */
+  userParams: Record<string, string>;
+  /** заведённые триггеры */
+  triggers: ZabbixTrigger[];
+  /** сервер действительно достаёт метрики с хоста (агент настроен и сеть открыта) */
+  serverReaches: boolean;
+}
+
 /** Цель, которую Prometheus опрашивает (job + адрес + жива ли она). */
 export interface PromTarget {
   job: string;
@@ -172,6 +193,8 @@ export interface World {
   prom?: PromState;
   /** состояние симулятора Grafana (акт «Дашборды») */
   grafana?: GrafanaState;
+  /** состояние симулятора Zabbix (акт «Zabbix») */
+  zabbix?: ZabbixState;
   alerts: Alert[];
   code: number;
   log: LogEntry[];
