@@ -14,6 +14,20 @@ import { initAccount } from "./sync/account";
 import type { AccountApi } from "./sync/account";
 import { accessToken } from "./sync/cloud";
 
+// Старая версия игры была PWA и регистрировала service worker. У вернувшихся
+// игроков он мог остаться и кэшировать устаревшую оболочку — снимаем его.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .getRegistrations()
+    .then((rs) => rs.forEach((r) => void r.unregister()))
+    .catch(() => {});
+  if (window.caches)
+    caches
+      .keys()
+      .then((ks) => ks.forEach((k) => void caches.delete(k)))
+      .catch(() => {});
+}
+
 let P: Progress = loadProgress();
 let run: LessonRun | null = null;
 let sync: AccountApi | null = null;

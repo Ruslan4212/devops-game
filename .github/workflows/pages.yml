@@ -28,7 +28,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:single
+      # enablement переключает источник Pages на «GitHub Actions», даже если репозиторий
+      # был на «Deploy from a branch» — иначе Pages продолжит отдавать корневой index.html.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - run: touch dist-single/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist-single
