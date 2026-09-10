@@ -34,7 +34,7 @@ jobs:
         with:
           enablement: true
       - run: touch dist-single/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist-single
       - id: deploy
