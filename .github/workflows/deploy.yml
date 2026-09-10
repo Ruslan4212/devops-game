@@ -1,33 +1,40 @@
 name: Deploy
 
+# Собирает index.html из p*.txt скриптом build.sh и публикует его на GitHub Pages
+# через GitHub Actions (Settings → Pages → Source: GitHub Actions).
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
-# GitHub Pages для этого репозитория настроен на деплой напрямую из ветки main (root) —
-# см. Settings → Pages. Реальный деплой делает сам GitHub при пуше в main, эта задача
-# только гарантирует, что commit в main содержит АКТУАЛЬНЫЙ index.html, собранный из
-# p*.txt — на случай, если кто-то запушил изменения в исходники, забыв прогнать build.sh.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
-  ensure-build-fresh:
-    name: Пересобрать index.html, если исходники разошлись со сборкой
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: bash build.sh
         run: bash build.sh
-      - name: Закоммитить index.html, если сборка изменилась
+      - name: Собрать статику для публикации
         run: |
-          if git diff --quiet -- index.html; then
-            echo "index.html уже актуален, коммитить нечего"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add index.html
-            git commit -m "chore: пересобрать index.html из p*.txt [skip ci]"
-            git push
-          fi
+          mkdir -p _site
+          cp index.html manifest.json sw.js icon.svg _site/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
