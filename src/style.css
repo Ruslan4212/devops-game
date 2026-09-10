@@ -638,6 +638,125 @@ button {
   font-size: 13px;
 }
 
+.cr-h2 {
+  font-family: var(--mono);
+  font-size: 16px;
+  margin: 18px 0 8px;
+}
+.cr-jobs {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.cr-job {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-size: 12.5px;
+}
+.cr-job-done {
+  border-color: var(--ok, #6bd08a);
+}
+.cr-job-h {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+.cr-job-h span {
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.cr-job-tag {
+  color: var(--dim);
+  margin: 3px 0;
+}
+.cr-job-desc {
+  color: var(--ink);
+  margin: 6px 0;
+}
+.cr-job-req {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  margin-bottom: 8px;
+}
+.cr-go {
+  background: var(--amber);
+  color: #12140f;
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cr-lock,
+.cr-got {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+}
+.cr-got {
+  color: var(--ok, #6bd08a);
+}
+.cr-story {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin: 6px 0;
+  font-size: 12.5px;
+}
+.cr-story summary {
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.cr-story p {
+  color: var(--dim);
+  white-space: pre-wrap;
+  margin-top: 8px;
+}
+.cr-story[data-locked] summary {
+  cursor: default;
+  color: var(--dim);
+}
+.cr-intro {
+  color: var(--dim);
+  font-style: italic;
+}
+.cr-progress {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--dim);
+  margin: 10px 0 4px;
+}
+.cr-q {
+  font-size: 14px;
+  margin: 6px 0 10px;
+}
+.cr-opts {
+  display: grid;
+  gap: 7px;
+}
+.cr-verdict {
+  font-family: var(--mono);
+  font-weight: 700;
+  margin: 10px 0;
+}
+.cr-verdict.cr-ok {
+  color: var(--ok, #6bd08a);
+}
+.cr-verdict.cr-no {
+  color: var(--amber);
+}
+.cr-why {
+  color: var(--dim);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
 .toast {
   position: fixed;
   left: 50%;

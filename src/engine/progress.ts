@@ -7,6 +7,8 @@ export interface Progress {
   updatedAt?: number;
   /** капстоун (финальное задание на реальном сервере) отмечен пройденным */
   capstone?: boolean;
+  /** полученные офферы карьерного слоя: id вакансии -> true */
+  jobs?: Record<string, boolean>;
 }
 
 const KEY = "devops_terminal_rpg_v1";

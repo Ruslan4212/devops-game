@@ -287,6 +287,19 @@ function showHow(): void {
 
 $("#howBtn").onclick = showHow;
 $("#glosBtn").onclick = () => void import("./ui/glossary").then((m) => m.openGlossary());
+$("#careerBtn").onclick = () => {
+  void import("./ui/career").then(({ openCareer }) => {
+    if (!P.jobs) P.jobs = {};
+    openCareer({
+      actDone: (act) => LESSONS.filter((l) => l.act === act).every((l) => !!P.done[l.id]),
+      capstone: !!P.capstone,
+      lessonsDone: Object.keys(P.done).length,
+      rankName: rankOf(P.xp),
+      jobsGot: P.jobs,
+      onHire: () => persist(),
+    });
+  });
+};
 $("#certBtn").onclick = () => {
   if (!allLessonsDone(P)) {
     toast("Сертификат откроется, когда пройдены все уроки и экзамены");

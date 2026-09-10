@@ -32,6 +32,11 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     hints[id] = Math.max(a.hints?.[id] ?? 0, b.hints?.[id] ?? 0);
   }
 
+  const jobs: Record<string, boolean> = {};
+  for (const id of new Set([...Object.keys(a.jobs ?? {}), ...Object.keys(b.jobs ?? {})])) {
+    if (a.jobs?.[id] || b.jobs?.[id]) jobs[id] = true;
+  }
+
   const aDone = Object.keys(a.done ?? {}).length;
   const bDone = Object.keys(b.done ?? {}).length;
   let cur: string | null;
@@ -45,6 +50,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     cur: cur ?? a.cur ?? b.cur ?? null,
     updatedAt: Math.max(a.updatedAt ?? 0, b.updatedAt ?? 0) || Date.now(),
     capstone: Boolean(a.capstone || b.capstone),
+    jobs,
   };
 }
 
