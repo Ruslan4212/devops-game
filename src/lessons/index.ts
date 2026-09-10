@@ -6,9 +6,9 @@ import { act05 } from "./act05";
 import { act06 } from "./act06";
 import { act07 } from "./act07";
 import { act08 } from "./act08";
+import { act09 } from "./act09";
 import { missionsToLessons } from "./legacy-adapter";
 
-import { act09 } from "../missions/act09";
 import { act10 } from "../missions/act10";
 import type { Act, Lesson } from "../engine/types";
 
@@ -39,7 +39,8 @@ export const LESSONS: Lesson[] = [
   ...act06,
   ...act07,
   ...act08,
-  ...missionsToLessons([...act09, ...act10]),
+  ...act09,
+  ...missionsToLessons([...act10]),
 ];
 
 export const lessonById = (id: string): Lesson | undefined => LESSONS.find((l) => l.id === id);
