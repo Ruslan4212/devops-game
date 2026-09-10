@@ -7,9 +7,7 @@ import { act06 } from "./act06";
 import { act07 } from "./act07";
 import { act08 } from "./act08";
 import { act09 } from "./act09";
-import { missionsToLessons } from "./legacy-adapter";
-
-import { act10 } from "../missions/act10";
+import { act10 } from "./act10";
 import type { Act, Lesson } from "../engine/types";
 
 export const ACTS: Act[] = [
@@ -26,9 +24,9 @@ export const ACTS: Act[] = [
 ];
 
 /**
- * Акт 1 переписан вручную в пошаговую модель «смотри → повтори → сделай → вопрос».
- * Акты 2–10 пока прогоняются через адаптер из старых заданий (тоже по шагам,
- * но без демонстраций) — их перепишем так же вручную по очереди.
+ * Все 10 актов переписаны вручную в пошаговую модель
+ * «смотри → повтори → сделай → вопрос»: демонстрация команды, повтор за ней,
+ * самостоятельная задача с авто-подсказкой и авто-ответом, проверочный вопрос.
  */
 export const LESSONS: Lesson[] = [
   ...act01,
@@ -40,7 +38,7 @@ export const LESSONS: Lesson[] = [
   ...act07,
   ...act08,
   ...act09,
-  ...missionsToLessons([...act10]),
+  ...act10,
 ];
 
 export const lessonById = (id: string): Lesson | undefined => LESSONS.find((l) => l.id === id);
