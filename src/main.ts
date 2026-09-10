@@ -302,6 +302,12 @@ function showHow(): void {
 
 $("#howBtn").onclick = showHow;
 $("#glosBtn").onclick = () => void import("./ui/glossary").then((m) => m.openGlossary());
+$("#charBtn").onclick = () => {
+  void import("./ui/character").then(({ openCharacter }) => {
+    if (!P.life) P.life = defaultLife();
+    openCharacter({ life: P.life, persist });
+  });
+};
 $("#lifeBtn").onclick = () => {
   void import("./ui/life").then(({ openLife }) => {
     if (!P.life) P.life = defaultLife();

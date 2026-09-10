@@ -792,6 +792,81 @@ button {
   margin-bottom: 14px;
 }
 
+.ch-wrap {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.ch-portrait {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  line-height: 0;
+}
+.ch-controls {
+  flex: 1 1 260px;
+  min-width: 240px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.ch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.ch-row > span {
+  flex: 0 0 92px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ch-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ch-chip {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ch-chip.on {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.ch-sw {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  cursor: pointer;
+  padding: 0;
+}
+.ch-sw.on {
+  border-color: var(--amber);
+  transform: scale(1.12);
+}
+.ch-name {
+  flex: 1;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  padding: 6px 10px;
+  font-family: var(--sans);
+  font-size: 13px;
+}
+
 .lf-wallet {
   font-family: var(--mono);
   font-size: 22px;

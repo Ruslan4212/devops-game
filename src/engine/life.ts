@@ -5,6 +5,8 @@
  * так поведение детерминировано и не зависит от того, когда игрок заходил.
  */
 import { CARS, CLOTHES, FOOD, HOMES, NO_JOB_FACTOR, REWARD_PER_XP, TECH, TRIPS } from "../data/shop";
+import { defaultAppearance } from "../data/avatar";
+import type { Appearance } from "../data/avatar";
 
 export interface Life {
   money: number;
@@ -20,6 +22,8 @@ export interface Life {
   trips: string[];
   totalEarned: number;
   totalSpent: number;
+  /** внешность персонажа (портрет) */
+  look?: Appearance;
 }
 
 export type LifeResult = { ok: true } | { ok: false; error: string };
@@ -40,6 +44,7 @@ export function defaultLife(): Life {
     trips: [],
     totalEarned: 0,
     totalSpent: 0,
+    look: defaultAppearance(),
   };
 }
 
