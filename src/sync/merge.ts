@@ -53,6 +53,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     capstone: Boolean(a.capstone || b.capstone),
     jobs,
     life: mergeLife(a.life, b.life),
+    legacyImported: Boolean(a.legacyImported || b.legacyImported),
   };
 }
 

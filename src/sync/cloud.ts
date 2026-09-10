@@ -19,21 +19,72 @@ import type { PublicStats } from "./merge";
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
-const URL_ENV = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const KEY_ENV = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
 const isPlaceholder = (v: string | undefined): boolean =>
   !v || v.length < 12 || /вставь|placeholder|your[-_ ]/i.test(v);
 
-export const isConfigured = !isPlaceholder(URL_ENV) && !isPlaceholder(KEY_ENV);
+/**
+ * Публичный проект Supabase, который уже отдаёт прежняя версия игры.
+ * Это publishable (anon) ключ — он по дизайну ездит в браузер вместе со
+ * страницей, и защита строится не на его секретности, а на RLS-политиках
+ * из supabase_schema.sql. Служебного service_role ключа здесь нет и быть не должно.
+ * Нужен другой проект — задай VITE_* при сборке или сохрани настройки в интерфейсе.
+ */
+const DEFAULT_URL = "https://eotzgzaeuzvreidwkltf.supabase.co";
+const DEFAULT_KEY = "sb_publishable_mRzT0lXHpvXgfQiO8o--Jw_9ii-wJ39";
+
+const CFG_KEY = "devops_cloud_cfg";
+
+export interface CloudConfig {
+  url: string;
+  key: string;
+}
+
+/** Настройки, сохранённые игроком в интерфейсе (перекрывают значения по умолчанию). */
+function savedConfig(): CloudConfig | null {
+  try {
+    const raw = localStorage.getItem(CFG_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw) as Partial<CloudConfig>;
+    if (isPlaceholder(o.url) || isPlaceholder(o.key)) return null;
+    return { url: o.url!, key: o.key! };
+  } catch {
+    return null;
+  }
+}
+
+/** Итоговая конфигурация: env при сборке → настройки игрока → значения по умолчанию. */
+export function cloudConfig(): CloudConfig | null {
+  const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  if (!isPlaceholder(envUrl) && !isPlaceholder(envKey)) return { url: envUrl!, key: envKey! };
+  const saved = savedConfig();
+  if (saved) return saved;
+  if (!isPlaceholder(DEFAULT_URL) && !isPlaceholder(DEFAULT_KEY))
+    return { url: DEFAULT_URL, key: DEFAULT_KEY };
+  return null;
+}
+
+export const isConfigured = cloudConfig() !== null;
 
 let clientPromise: Promise<SupabaseClient> | null = null;
 
+/** Сохранить свои URL и anon-ключ. Пустые значения сбрасывают настройку. */
+export function saveConfig(cfg: CloudConfig | null): void {
+  try {
+    if (!cfg || isPlaceholder(cfg.url) || isPlaceholder(cfg.key)) localStorage.removeItem(CFG_KEY);
+    else localStorage.setItem(CFG_KEY, JSON.stringify({ url: cfg.url.trim(), key: cfg.key.trim() }));
+  } catch {
+    /* приватный режим — просто не сохраняем */
+  }
+  clientPromise = null;
+}
+
 async function client(): Promise<SupabaseClient> {
-  if (!isConfigured) throw new Error("Облако не настроено");
+  const cfg = cloudConfig();
+  if (!cfg) throw new Error("Облако не настроено");
   if (!clientPromise) {
     clientPromise = import("@supabase/supabase-js").then(({ createClient }) =>
-      createClient(URL_ENV!, KEY_ENV!, {
+      createClient(cfg.url, cfg.key, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
       }),
     );

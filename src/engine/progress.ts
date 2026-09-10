@@ -13,6 +13,8 @@ export interface Progress {
   jobs?: Record<string, boolean>;
   /** состояние экономического слоя («жизнь»): кошелёк, потребности, покупки */
   life?: Life;
+  /** прогресс прежней версии игры уже перенесён (или предложение было отклонено) */
+  legacyImported?: boolean;
 }
 
 const KEY = "devops_terminal_rpg_v1";

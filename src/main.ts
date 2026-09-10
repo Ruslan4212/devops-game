@@ -4,7 +4,9 @@ import { LessonRun } from "./engine/lesson-run";
 import type { StepResult } from "./engine/lesson-run";
 import { clearProgress, loadProgress, nextRank, rankOf, RANKS, saveProgress } from "./engine/progress";
 import type { Progress } from "./engine/progress";
-import { $, lockInput, toast } from "./ui/dom";
+import { $, esc, lockInput, toast } from "./ui/dom";
+import { applyLegacy, readLegacySave, summarize, worthImporting } from "./sync/legacy-import";
+import type { LegacySave } from "./sync/legacy-import";
 import { clearTerminal, InputHistory, print, printCommand, setPrompt } from "./ui/terminal";
 import { allLessonsDone, isUnlocked, renderRail } from "./ui/rail";
 import { defaultLife, onLessonComplete, xpEarnBonusPct } from "./engine/life";
@@ -356,5 +358,49 @@ sync = initAccount({
   toast,
 });
 
+/** Предложение перенести прогресс прежней версии игры (обе живут на одном домене). */
+function showLegacyImport(save: LegacySave): void {
+  const s = summarize(save);
+  const rows: string[] = [];
+  if (s.xp) rows.push(`<li><b>${s.xp}</b> XP</li>`);
+  if (s.money !== null) rows.push(`<li>кошелёк: <b>${s.money.toLocaleString("ru-RU")} ₽</b> и покупки</li>`);
+  if (s.job) rows.push(`<li>полученный оффер: <b>${esc(s.job)}</b></li>`);
+
+  $("#modBody").innerHTML =
+    `<h1>Нашёлся прогресс прежней версии</h1>` +
+    `<p>В этом браузере сохранено прохождение старой версии игры` +
+    (s.missions ? ` — миссий пройдено: <b>${s.missions}</b>` : "") +
+    `. Перенести то, что переносится честно?</p>` +
+    (rows.length ? `<ul>${rows.join("")}</ul>` : "") +
+    `<div class="kb">Пройденные миссии <b>не</b> засчитываются уроками: материал здесь другой, ` +
+    `и отмечать его пройденным было бы обманом. Старое сохранение останется на месте.</div>` +
+    `<button class="prim" id="lgYes">Перенести</button> ` +
+    `<button class="sec" id="lgNo">Не переносить</button>`;
+  $("#modOv").classList.remove("hide");
+  lockInput(true);
+
+  const close = (): void => {
+    $("#modOv").classList.add("hide");
+    if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) lockInput(false);
+  };
+  $("#lgYes").onclick = () => {
+    P = applyLegacy(P, save);
+    persist();
+    renderAll();
+    close();
+    toast("Прогресс перенесён");
+  };
+  $("#lgNo").onclick = () => {
+    P.legacyImported = true;
+    persist();
+    close();
+  };
+}
+
 startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
 if (!Object.keys(P.done).length) showHow();
+
+if (!P.legacyImported) {
+  const legacy = readLegacySave();
+  if (legacy && worthImporting(legacy)) showLegacyImport(legacy);
+}
