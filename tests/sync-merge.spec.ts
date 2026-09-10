@@ -80,6 +80,15 @@ describe("mergeProgress — слияние прогресса устройств
     expect(self.done).toEqual(ab.done);
   });
 
+  it("капстоун: пройден хоть на одном устройстве — остаётся пройденным", () => {
+    expect(mergeProgress(P({ capstone: true }), P()).capstone).toBe(true);
+    expect(mergeProgress(P(), P({ capstone: true })).capstone).toBe(true);
+    expect(mergeProgress(P(), P()).capstone).toBe(false);
+    // монотонность: повторное слияние не «сбрасывает» флаг
+    const once = mergeProgress(P({ capstone: true }), P());
+    expect(mergeProgress(once, P()).capstone).toBe(true);
+  });
+
   it("сценарий: играл офлайн на телефоне и на ноутбуке, потом синхронизация", () => {
     const start = P({ xp: 100, done: { "1.1": true, "1.2": true }, cur: "1.3", updatedAt: 1000 });
     const phone = mergeProgress(start, P());

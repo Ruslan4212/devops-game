@@ -6,7 +6,7 @@ import { clearProgress, loadProgress, nextRank, rankOf, RANKS, saveProgress } fr
 import type { Progress } from "./engine/progress";
 import { $, lockInput, toast } from "./ui/dom";
 import { clearTerminal, InputHistory, print, printCommand, setPrompt } from "./ui/terminal";
-import { isUnlocked, renderRail } from "./ui/rail";
+import { allLessonsDone, isUnlocked, renderRail } from "./ui/rail";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
@@ -28,7 +28,7 @@ function persist(): void {
 /* ------------------------------- HUD / карта ------------------------------- */
 function renderHud(): void {
   const done = Object.keys(P.done).length;
-  $("#progChip").textContent = `${done} / ${LESSONS.length} уроков`;
+  $("#progChip").textContent = `${done} / ${LESSONS.length} уроков` + (P.capstone ? " · 🎓 капстоун" : "");
   $("#rankTxt").textContent = rankOf(P.xp);
   $("#xpTxt").textContent = `${P.xp} XP`;
   const nr = nextRank(P.xp);
@@ -38,9 +38,29 @@ function renderHud(): void {
 }
 
 function renderAll(): void {
-  renderRail(P, run?.lesson.id ?? null, startLesson);
+  renderRail(P, run?.lesson.id ?? null, startLesson, openCapstoneFlow);
   renderHud();
   if (run && !run.finished) renderPanel();
+}
+
+/** Финал курса: капстоун на реальном сервере. Открыт только после всех уроков и экзаменов. */
+function openCapstoneFlow(): void {
+  if (!allLessonsDone(P)) {
+    toast("Сначала пройди все уроки и экзамены курса");
+    return;
+  }
+  void import("./sandbox/capstone").then(({ openCapstone }) => {
+    openCapstone({
+      getToken: accessToken,
+      toast,
+      onDone: () => {
+        if (P.capstone) return;
+        P.capstone = true;
+        persist();
+        renderAll();
+      },
+    });
+  });
 }
 
 /* --------------------------------- урок --------------------------------- */
@@ -147,7 +167,7 @@ function completeLesson(): void {
       `<div class="lp-done">🏆</div>` +
       `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>`;
   }
-  renderRail(P, lesson.id, startLesson);
+  renderRail(P, lesson.id, startLesson, openCapstoneFlow);
   renderHud();
 }
 
@@ -285,17 +305,6 @@ sync = initAccount({
   rankOf,
   toast,
 });
-const capBtn = document.createElement("button");
-capBtn.className = "tbtn";
-capBtn.id = "capBtn";
-capBtn.textContent = "🎓 капстоун";
-capBtn.title = "Финальное задание на настоящем изолированном Linux-сервере";
-capBtn.onclick = async () => {
-  // xterm.js весит немало — грузим только при открытии капстоуна
-  const { openCapstone } = await import("./sandbox/capstone");
-  openCapstone({ getToken: accessToken, toast });
-};
-document.querySelector(".sp")?.appendChild(capBtn);
 
 startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
 if (!Object.keys(P.done).length) showHow();

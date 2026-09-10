@@ -5,6 +5,8 @@ export interface Progress {
   hints: Record<string, number>;
   /** момент последнего изменения, мс эпохи — нужен для конфликт-безопасного слияния устройств */
   updatedAt?: number;
+  /** капстоун (финальное задание на реальном сервере) отмечен пройденным */
+  capstone?: boolean;
 }
 
 const KEY = "devops_terminal_rpg_v1";

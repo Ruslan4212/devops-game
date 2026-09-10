@@ -864,6 +864,24 @@ button {
 .cap-status a {
   color: var(--blue);
 }
+.cap-done {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.cap-done:hover:not(:disabled) {
+  border-color: var(--amber);
+}
+.cap-done:disabled {
+  color: var(--ok, #6bd08a);
+  cursor: default;
+}
 .cap-term {
   min-width: 0;
   background: #080b11;

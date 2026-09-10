@@ -9,7 +9,17 @@ export function isUnlocked(lesson: Lesson, p: Progress): boolean {
   return ix === 0 || !!p.done[LESSONS[ix - 1].id];
 }
 
-export function renderRail(p: Progress, curId: string | null, onPick: (id: string) => void): void {
+/** Все уроки и экзамены курса пройдены — открывается капстоун. */
+export function allLessonsDone(p: Progress): boolean {
+  return LESSONS.every((l) => !!p.done[l.id]);
+}
+
+export function renderRail(
+  p: Progress,
+  curId: string | null,
+  onPick: (id: string) => void,
+  onCapstone: () => void,
+): void {
   const el = $("#rail");
   el.innerHTML = "";
 
@@ -37,4 +47,30 @@ export function renderRail(p: Progress, curId: string | null, onPick: (id: strin
     }
     el.appendChild(box);
   }
+
+  el.appendChild(renderCapstoneCard(p, curId, onCapstone));
+}
+
+/** Финальная карточка рельса: капстоун на реальном сервере. */
+function renderCapstoneCard(p: Progress, curId: string | null, onCapstone: () => void): HTMLElement {
+  const ready = allLessonsDone(p);
+  const passed = !!p.capstone;
+
+  const box = document.createElement("div");
+  box.className = "act";
+  const h = document.createElement("h3");
+  h.innerHTML = `<span>Финал · Капстоун</span><b>${passed ? "1/1" : "0/1"}</b>`;
+  box.appendChild(h);
+
+  const b = document.createElement("button");
+  b.className =
+    "ms" + (passed ? " done" : "") + (curId === "capstone" ? " cur" : "") + (ready ? "" : " lock");
+  b.innerHTML =
+    `<span class="b">${passed ? "✓" : ready ? "🎓" : "🔒"}</span>` +
+    `<span>${ready ? "Капстоун на реальном сервере" : "Пройди все уроки и экзамены"}</span>`;
+  b.disabled = !ready;
+  b.onclick = onCapstone;
+  box.appendChild(b);
+
+  return box;
 }
