@@ -1,50 +1,44 @@
 name: Deploy
 
-# Собирает index.html из p*.txt скриптом build.sh и публикует его на GitHub Pages
-# через GitHub Actions (Settings → Pages → Source: GitHub Actions).
+# GitHub Pages настроен на публикацию напрямую из ветки main (Settings → Pages →
+# Deploy from a branch → main /root). Сам деплой делает GitHub при пуше в main,
+# эта задача только следит, чтобы закоммиченные файлы были актуальны:
+#   index.html      — пересобирается из p*.txt скриптом build.sh (старая версия, корень сайта);
+#   next/index.html — одностраничный билд переписанной версии из ветки vite-rewrite (адрес /next/).
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
-  deploy:
+  refresh:
+    name: Обновить index.html и next/index.html, если они разошлись с исходниками
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: bash build.sh
         run: bash build.sh
-      # Переписанная версия (ветка vite-rewrite) публикуется рядом, по адресу /next/.
-      # Берём уже собранный одностраничный билд play/index.html — пересобирать не нужно.
-      - uses: actions/checkout@v4
-        with:
-          ref: vite-rewrite
-          path: .rewrite
-          sparse-checkout: play
-          sparse-checkout-cone-mode: false
 
-      - name: Собрать статику для публикации
+      - name: Забрать билд переписанной версии из ветки vite-rewrite
         run: |
-          mkdir -p _site/next
-          cp index.html manifest.json sw.js icon.svg _site/
-          cp .rewrite/play/index.html _site/next/index.html
-          touch _site/.nojekyll
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-      - id: deploy
-        uses: actions/deploy-pages@v4
+          mkdir -p next
+          git fetch origin vite-rewrite --depth=1
+          git show origin/vite-rewrite:play/index.html > next/index.html
+
+      - name: Закоммитить, если сборка изменилась
+        run: |
+          if git diff --quiet -- index.html next/index.html; then
+            echo "index.html и next/index.html уже актуальны"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add index.html next/index.html
+            git commit -m "chore: обновить сборки (index.html из p*.txt, next/ из vite-rewrite) [skip ci]"
+            git push
+          fi
