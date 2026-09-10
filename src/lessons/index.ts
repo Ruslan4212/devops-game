@@ -8,6 +8,7 @@ import { act07 } from "./act07";
 import { act08 } from "./act08";
 import { act09 } from "./act09";
 import { act10 } from "./act10";
+import { examOfAct } from "./exams";
 import type { Act, Lesson } from "../engine/types";
 
 export const ACTS: Act[] = [
@@ -23,23 +24,30 @@ export const ACTS: Act[] = [
   { id: 10, name: "On-call: инциденты" },
 ];
 
+const ACT_LESSONS: readonly (readonly Lesson[])[] = [
+  act01,
+  act02,
+  act03,
+  act04,
+  act05,
+  act06,
+  act07,
+  act08,
+  act09,
+  act10,
+];
+
 /**
  * Все 10 актов переписаны вручную в пошаговую модель
  * «смотри → повтори → сделай → вопрос»: демонстрация команды, повтор за ней,
  * самостоятельная задача с авто-подсказкой и авто-ответом, проверочный вопрос.
+ * После уроков каждого акта идёт экзамен — вопросы по возрастанию сложности (d1→d7).
  */
-export const LESSONS: Lesson[] = [
-  ...act01,
-  ...act02,
-  ...act03,
-  ...act04,
-  ...act05,
-  ...act06,
-  ...act07,
-  ...act08,
-  ...act09,
-  ...act10,
-];
+export const LESSONS: Lesson[] = ACT_LESSONS.flatMap((lessons) => {
+  const act = lessons[0]?.act;
+  const exam = typeof act === "number" ? examOfAct(act) : undefined;
+  return exam ? [...lessons, exam] : [...lessons];
+});
 
 export const lessonById = (id: string): Lesson | undefined => LESSONS.find((l) => l.id === id);
 export const TOTAL_XP = LESSONS.reduce((s, l) => s + l.xp, 0);

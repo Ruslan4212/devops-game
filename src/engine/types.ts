@@ -234,6 +234,12 @@ export interface QuizStep {
   options: string[];
   answer: number;
   explain: string;
+  /**
+   * Уровень сложности 1–7 (только у экзаменационных уроков из `lessons/exams.ts`).
+   * Экзамен выстраивает вопросы по возрастанию `d`: от «вспомни» до «разбери инцидент».
+   * У обычных внутриурочных вопросов не задаётся.
+   */
+  d?: number;
 }
 
 export type Step = SayStep | WatchStep | TypeStep | DoStep | QuizStep;

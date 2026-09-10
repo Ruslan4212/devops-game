@@ -64,8 +64,16 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   }
 
   if (step.kind === "quiz") {
+    const grade =
+      typeof step.d === "number"
+        ? `<div class="lp-dgrade" style="font-size:12px;letter-spacing:3px;opacity:.6;margin-bottom:6px">` +
+          "●".repeat(Math.max(1, Math.min(7, step.d))) +
+          "○".repeat(7 - Math.max(1, Math.min(7, step.d))) +
+          `<span style="letter-spacing:0"> · сложность ${step.d}/7</span></div>`
+        : "";
     body =
       `<div class="lp-badge">🤔 вопрос — выбери ответ</div>` +
+      grade +
       `<div class="lp-say">${esc(step.text)}</div>` +
       `<div class="lp-opts">` +
       step.options.map((o, k) => `<button class="lp-opt" data-k="${k}">${esc(o)}</button>`).join("") +
