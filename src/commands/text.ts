@@ -44,7 +44,10 @@ def("grep", (a, w, stdin) => {
   if (!pat) return E("grep: нужен шаблон поиска");
   const rx = new RegExp(escapeRegex(pat), flags.includes("i") ? "i" : "");
   const scan = (text: string, label: string): string[] =>
-    text.split("\n").map((l, i) => ({ l, i })).filter((x) => rx.test(x.l))
+    text
+      .split("\n")
+      .map((l, i) => ({ l, i }))
+      .filter((x) => rx.test(x.l))
       .map((x) => (label ? label + ":" : "") + (flags.includes("n") ? x.i + 1 + ":" : "") + x.l);
 
   let res: string[] = [];

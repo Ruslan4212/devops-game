@@ -7,10 +7,14 @@ export function runPipeline(w: World): string {
   const y = w.ci.workflow || "";
   const hasTrigger = /on:\s*push/.test(y) || /on:\s*\n?\s*(push|\[)/.test(y);
   const hasTest = /npm test|pytest|go test|make test/.test(y);
-  const hardcoded = /(token|password|secret)\s*[:=]\s*["']?[A-Za-z0-9_\-]{8,}/i.test(y) && !/secrets\./.test(y);
+  const hardcoded =
+    /(token|password|secret)\s*[:=]\s*["']?[A-Za-z0-9_-]{8,}/i.test(y) && !/secrets\./.test(y);
   const codeBroken = /return a - b/.test(readFile(w, resolvePath(w, "src/sum.js")) || "");
 
-  const stages: [string, string][] = [["checkout", "ok"], ["install", "ok"]];
+  const stages: [string, string][] = [
+    ["checkout", "ok"],
+    ["install", "ok"],
+  ];
   if (hasTest) stages.push(["test", codeBroken ? "FAILED" : "ok"]);
   const failed = stages.some((s) => s[1] === "FAILED") || !hasTrigger;
   stages.push(["deploy", failed ? "skipped" : "ok"]);
@@ -26,9 +30,14 @@ export function runPipeline(w: World): string {
   };
   w.ci.runs.push(run);
 
-  return "\n\n[CI] Пайплайн #" + run.n + " запущен → " + (run.ok ? "ЗЕЛЁНЫЙ" : "КРАСНЫЙ") +
+  return (
+    "\n\n[CI] Пайплайн #" +
+    run.n +
+    " запущен → " +
+    (run.ok ? "ЗЕЛЁНЫЙ" : "КРАСНЫЙ") +
     (hardcoded ? "\n[CI] ⚠ security: в workflow найден секрет открытым текстом" : "") +
-    "\n[CI] подробности: ci status";
+    "\n[CI] подробности: ci status"
+  );
 }
 
 def("ci", (a, w) => {
@@ -37,9 +46,23 @@ def("ci", (a, w) => {
   if (sub === "status") {
     if (!w.ci.runs.length) return O("Запусков ещё не было. Сделай git push с готовым workflow.");
     const r = w.ci.runs[w.ci.runs.length - 1];
-    return O("Пайплайн #" + r.n + " — " + (r.ok ? "ЗЕЛЁНЫЙ ✓" : "КРАСНЫЙ ✗") + "\n\n" +
-      r.stages.map((s) => "  " + s[0].padEnd(10) + " " + (s[1] === "ok" ? "✓ ok" : s[1] === "FAILED" ? "✗ FAILED" : "— пропущен")).join("\n") +
-      "\n\nЛоги: ci logs");
+    return O(
+      "Пайплайн #" +
+        r.n +
+        " — " +
+        (r.ok ? "ЗЕЛЁНЫЙ ✓" : "КРАСНЫЙ ✗") +
+        "\n\n" +
+        r.stages
+          .map(
+            (s) =>
+              "  " +
+              s[0].padEnd(10) +
+              " " +
+              (s[1] === "ok" ? "✓ ok" : s[1] === "FAILED" ? "✗ FAILED" : "— пропущен"),
+          )
+          .join("\n") +
+        "\n\nЛоги: ci logs",
+    );
   }
   if (sub === "logs") {
     if (!w.ci.runs.length) return E("нет запусков");

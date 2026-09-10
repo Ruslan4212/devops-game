@@ -24,8 +24,16 @@ export const ACTS: Act[] = [
 ];
 
 export const MISSIONS: Mission[] = [
-  ...act01, ...act02, ...act03, ...act04, ...act05,
-  ...act06, ...act07, ...act08, ...act09, ...act10,
+  ...act01,
+  ...act02,
+  ...act03,
+  ...act04,
+  ...act05,
+  ...act06,
+  ...act07,
+  ...act08,
+  ...act09,
+  ...act10,
 ];
 
 export const missionById = (id: string): Mission | undefined => MISSIONS.find((m) => m.id === id);

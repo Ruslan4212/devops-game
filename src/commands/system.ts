@@ -3,10 +3,14 @@ import { readFile } from "../engine/vfs";
 import type { Service, World } from "../engine/types";
 
 def("whoami", (_a, w) => O(w.user));
-def("id", (_a, w) => O("uid=1000(" + w.user + ") gid=1000(" + w.user + ") groups=1000(" + w.user + "),27(sudo)"));
+def("id", (_a, w) =>
+  O("uid=1000(" + w.user + ") gid=1000(" + w.user + ") groups=1000(" + w.user + "),27(sudo)"),
+);
 def("uname", (a) => O(a.includes("-a") ? "Linux ops-01 5.15.0 #1 SMP x86_64 GNU/Linux" : "Linux"));
 def("date", () => O(new Date().toString()));
-def("free", () => O("               всего       занято     свободно\nПамять:         3.8Gi        1.9Gi        1.9Gi"));
+def("free", () =>
+  O("               всего       занято     свободно\nПамять:         3.8Gi        1.9Gi        1.9Gi"),
+);
 
 def("df", (_a, w) => {
   const pct = w.disk ?? 55;
@@ -15,11 +19,24 @@ def("df", (_a, w) => {
   const warn = pct >= 95 ? "\n\n⚠ Диск почти заполнен — сервер скоро встанет целиком." : "";
   return O(
     "Ф.система     Размер Использовано Дост Использовано%\n" +
-    "/dev/sda1        40G          " + used + "G  " + avail + "G           " + pct + "%" + warn,
+      "/dev/sda1        40G          " +
+      used +
+      "G  " +
+      avail +
+      "G           " +
+      pct +
+      "%" +
+      warn,
   );
 });
 
-def("env", (_a, w) => O(Object.entries(w.env).map(([k, v]) => k + "=" + v).join("\n")));
+def("env", (_a, w) =>
+  O(
+    Object.entries(w.env)
+      .map(([k, v]) => k + "=" + v)
+      .join("\n"),
+  ),
+);
 def("export", (a, w) => {
   for (const t of a) {
     const i = t.indexOf("=");
@@ -30,7 +47,12 @@ def("export", (a, w) => {
 
 const psTable = (procs: { pid: number; user: string; cpu: number; cmd: string }[]): string =>
   "  PID USER      %CPU COMMAND\n" +
-  procs.map((p) => String(p.pid).padStart(5) + " " + p.user.padEnd(9) + " " + String(p.cpu).padStart(4) + " " + p.cmd).join("\n");
+  procs
+    .map(
+      (p) =>
+        String(p.pid).padStart(5) + " " + p.user.padEnd(9) + " " + String(p.cpu).padStart(4) + " " + p.cmd,
+    )
+    .join("\n");
 
 def("ps", (_a, w) => O(psTable(w.procs)));
 
@@ -73,7 +95,9 @@ function unitText(w: World, name: string, s: Service): string {
   lines.push("", "[Install]", "WantedBy=multi-user.target");
 
   const override = readFile(w, overridePath(name));
-  return override ? lines.join("\n") + "\n\n# --- override.conf (твоё переопределение) ---\n" + override : lines.join("\n");
+  return override
+    ? lines.join("\n") + "\n\n# --- override.conf (твоё переопределение) ---\n" + override
+    : lines.join("\n");
 }
 
 /** Перечитывает drop-in override.conf в поля сервиса (systemctl daemon-reload). */
@@ -101,7 +125,11 @@ function startService(w: World, name: string, s: Service): { out: string; code: 
   if (s.needsPort && w.ports[s.needsPort] && w.ports[s.needsPort] !== name) {
     s.state = "failed";
     s.err = "bind() to 0.0.0.0:" + s.needsPort + " failed (98: Address already in use)";
-    return { out: "Job for " + name + ".service failed. Смотри: systemctl status " + name + " и journalctl -u " + name, code: 1 };
+    return {
+      out:
+        "Job for " + name + ".service failed. Смотри: systemctl status " + name + " и journalctl -u " + name,
+      code: 1,
+    };
   }
 
   // 2) сломанный конфиг — сервис падает сразу при старте
@@ -117,7 +145,9 @@ function startService(w: World, name: string, s: Service): { out: string; code: 
       return {
         out:
           "nginx запускается и тут же падает. Restart=always поднимает его снова и снова —\n" +
-          "уже " + s.restartCount + "+ перезапусков, журнал распух, диск заполняется. Это шторм.",
+          "уже " +
+          s.restartCount +
+          "+ перезапусков, журнал распух, диск заполняется. Это шторм.",
         code: 1,
       };
     }
@@ -129,7 +159,10 @@ function startService(w: World, name: string, s: Service): { out: string; code: 
     s.err = "nginx: [emerg] invalid parameter in /etc/nginx/nginx.conf:12";
     return {
       out:
-        tries + " неудачных запуска за " + (s.startLimitInterval ?? 60) + " секунд — " +
+        tries +
+        " неудачных запуска за " +
+        (s.startLimitInterval ?? 60) +
+        " секунд — " +
         "systemd прекратил попытки. Сервис в состоянии failed, диск и журнал в порядке.\n" +
         "Теперь можно спокойно чинить конфиг.",
       code: 1,
@@ -159,28 +192,46 @@ def("systemctl", (a, w) => {
 
   if (act === "status") {
     const active =
-      s.state === "active" ? "active (running)"
-      : s.state === "auto-restart" ? "activating (auto-restart) (Result: exit-code)"
-      : s.state === "inactive" ? "inactive (dead)"
-      : "failed (Result: exit-code)";
+      s.state === "active"
+        ? "active (running)"
+        : s.state === "auto-restart"
+          ? "activating (auto-restart) (Result: exit-code)"
+          : s.state === "inactive"
+            ? "inactive (dead)"
+            : "failed (Result: exit-code)";
     const extra =
       s.state === "auto-restart" && s.restartCount
         ? "\n  Перезапусков: " + s.restartCount + " и растёт"
         : s.restartCount && s.state === "failed"
-        ? "\n  Перезапусков: " + s.restartCount + " (лимит исчерпан, дальше не пытается)"
-        : "";
+          ? "\n  Перезапусков: " + s.restartCount + " (лимит исчерпан, дальше не пытается)"
+          : "";
     return {
       out:
-        "● " + name + ".service - " + s.desc +
-        "\n   Loaded: loaded (/lib/systemd/system/" + name + ".service; " + (s.enabled ? "enabled" : "disabled") + ")" +
-        "\n   Active: " + active + extra +
+        "● " +
+        name +
+        ".service - " +
+        s.desc +
+        "\n   Loaded: loaded (/lib/systemd/system/" +
+        name +
+        ".service; " +
+        (s.enabled ? "enabled" : "disabled") +
+        ")" +
+        "\n   Active: " +
+        active +
+        extra +
         (s.state !== "active" && s.err ? "\n\n" + s.err : ""),
       code: s.state === "active" ? 0 : 3,
     };
   }
 
-  if (act === "enable") { s.enabled = true; return O("Created symlink for " + name + ".service"); }
-  if (act === "disable") { s.enabled = false; return O("Removed symlink for " + name + ".service"); }
+  if (act === "enable") {
+    s.enabled = true;
+    return O("Created symlink for " + name + ".service");
+  }
+  if (act === "disable") {
+    s.enabled = false;
+    return O("Removed symlink for " + name + ".service");
+  }
   if (act === "stop") {
     s.state = "inactive";
     if (s.needsPort && w.ports[s.needsPort] === name) delete w.ports[s.needsPort];
@@ -204,7 +255,11 @@ def("journalctl", (a, w) => {
   if (s.journalLines && s.journalLines > base.length) {
     const bloat = s.journalLines - base.length;
     base.push(
-      "systemd[1]: " + name + ".service: Scheduled restart job, restart counter is at " + (s.restartCount ?? bloat) + ".",
+      "systemd[1]: " +
+        name +
+        ".service: Scheduled restart job, restart counter is at " +
+        (s.restartCount ?? bloat) +
+        ".",
       "... (" + bloat + " почти одинаковых строк перезапуска) ...",
       "systemd[1]: " + name + ".service: Start request repeated too quickly.",
     );

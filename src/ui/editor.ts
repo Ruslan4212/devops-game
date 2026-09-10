@@ -30,7 +30,10 @@ export function initEditor(): void {
   $("#edSave").onclick = save;
   $("#edCancel").onclick = close;
   $<HTMLTextAreaElement>("#edText").addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      save();
+    }
     if (e.key === "Tab") {
       e.preventDefault();
       const t = e.target as HTMLTextAreaElement;

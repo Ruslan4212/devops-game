@@ -1,6 +1,6 @@
 import { def, E, O } from "./registry";
-import { copyNode, dir, getNode, mkdirp, parentOf, readFile, resolvePath, splitPath, writeFile } from "../engine/vfs";
-import type { DirNode, FSNode } from "../engine/types";
+import { dir, getNode, mkdirp, parentOf, readFile, resolvePath, writeFile } from "../engine/vfs";
+import type { DirNode } from "../engine/types";
 
 def("pwd", (_a, w) => O(w.cwd));
 
@@ -29,7 +29,16 @@ def("ls", (a, w) => {
       const mode = (c.type === "dir" ? "d" : "-") + (c.type === "dir" ? "rwxr-xr-x" : c.mode);
       const size = c.type === "dir" ? 4096 : c.content.length;
       const own = (c.type === "file" && c.owner) || w.user;
-      return mode + "  " + own.padEnd(7) + " " + String(size).padStart(6) + "  " + nm + (c.type === "dir" ? "/" : "");
+      return (
+        mode +
+        "  " +
+        own.padEnd(7) +
+        " " +
+        String(size).padStart(6) +
+        "  " +
+        nm +
+        (c.type === "dir" ? "/" : "")
+      );
     });
     return O("итого " + names.length + "\n" + rows.join("\n"));
   }
@@ -41,7 +50,10 @@ def("mkdir", (a, w) => {
   if (!ps.length) return E("mkdir: не указан каталог");
   for (const p of ps) {
     const abs = resolvePath(w, p);
-    if (a.includes("-p")) { mkdirp(w, abs); continue; }
+    if (a.includes("-p")) {
+      mkdirp(w, abs);
+      continue;
+    }
     const [pp, name] = parentOf(abs);
     const par = getNode(w, pp);
     if (!par || par.type !== "dir") return E("mkdir: " + p + ": нет родительского каталога (попробуй -p)");

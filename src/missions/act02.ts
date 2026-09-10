@@ -4,7 +4,10 @@ import type { Mission } from "../engine/types";
 
 export const act02: Mission[] = [
   {
-    id: "2.1", act: 2, title: "Права доступа", xp: 45,
+    id: "2.1",
+    act: 2,
+    title: "Права доступа",
+    xp: 45,
     why: "В Linux у каждого файла есть права для <b>владельца</b>, <b>группы</b> и <b>остальных</b>: чтение (r=4), запись (w=2), выполнение (x=1). Их складывают: 7=rwx, 6=rw-, 4=r--. Поэтому <b>chmod 600 файл</b> значит «владельцу читать и писать, остальным ничего» — так закрывают секреты.",
     cheat: [
       ["ls -l", "увидеть текущие права"],
@@ -19,22 +22,35 @@ export const act02: Mission[] = [
       "secrets.txt открыт всем на чтение. Нужно chmod 600 secrets.txt",
       "Смена владельца требует прав root: sudo chown root secrets.txt",
     ],
-    setup: (w) => { writeFile(w, "/home/devops/secrets.txt", "DB_PASSWORD=hunter2\nAPI_TOKEN=abc123\n"); },
+    setup: (w) => {
+      writeFile(w, "/home/devops/secrets.txt", "DB_PASSWORD=hunter2\nAPI_TOKEN=abc123\n");
+    },
     objs: [
       { t: "Посмотри права на файлы в домашнем каталоге", d: "ls -l", ok: ran(/^ls\s+-l/) },
       {
-        t: "Закрой secrets.txt от всех, кроме владельца", d: "chmod 600 secrets.txt",
-        ok: (w) => { const n = getNode(w, "/home/devops/secrets.txt"); return !!n && n.type === "file" && n.mode === "rw-------"; },
+        t: "Закрой secrets.txt от всех, кроме владельца",
+        d: "chmod 600 secrets.txt",
+        ok: (w) => {
+          const n = getNode(w, "/home/devops/secrets.txt");
+          return !!n && n.type === "file" && n.mode === "rw-------";
+        },
       },
       {
-        t: "Передай файл во владение root (нужен sudo)", d: "sudo chown root secrets.txt",
-        ok: (w) => { const n = getNode(w, "/home/devops/secrets.txt"); return !!n && n.type === "file" && n.owner === "root"; },
+        t: "Передай файл во владение root (нужен sudo)",
+        d: "sudo chown root secrets.txt",
+        ok: (w) => {
+          const n = getNode(w, "/home/devops/secrets.txt");
+          return !!n && n.type === "file" && n.owner === "root";
+        },
       },
     ],
     solution: ["ls -l", "chmod 600 secrets.txt", "sudo chown root secrets.txt"],
   },
   {
-    id: "2.2", act: 2, title: "Кто съел процессор", xp: 45,
+    id: "2.2",
+    act: 2,
+    title: "Кто съел процессор",
+    xp: 45,
     why: "Сервер тормозит — надо найти виновника. <b>ps</b> показывает список процессов, <b>top</b> сортирует по нагрузке, <b>kill</b> завершает по PID. Чужой процесс убить нельзя без <b>sudo</b> — это защита системы, а не досадная помеха.",
     cheat: [
       ["ps", "список процессов"],
@@ -48,16 +64,26 @@ export const act02: Mission[] = [
       "Запомни его PID (число в первой колонке)",
       "Процесс запущен от root, поэтому нужен sudo: sudo kill -9 PID",
     ],
-    setup: (w) => { w.procs.push({ pid: 3312, user: "root", cpu: 98.4, cmd: "/opt/stress --cpu 4" }); },
+    setup: (w) => {
+      w.procs.push({ pid: 3312, user: "root", cpu: 98.4, cmd: "/opt/stress --cpu 4" });
+    },
     objs: [
       { t: "Посмотри список процессов", d: "ps", ok: ran(/^ps\b/) },
       { t: "Найди процесс, съедающий CPU", d: "top", ok: ran(/^top\b/) },
-      { t: "Заверши процесс-виновник (PID 3312, нужен sudo)", d: "sudo kill -9 3312", ok: (w) => !w.procs.find((p) => p.pid === 3312) },
+      {
+        t: "Заверши процесс-виновник (PID 3312, нужен sudo)",
+        d: "sudo kill -9 3312",
+        ok: (w) => !w.procs.find((p) => p.pid === 3312),
+      },
     ],
     solution: ["ps", "top", "sudo kill -9 3312"],
   },
   {
-    id: "2.3", act: 2, title: "Инцидент: nginx не стартует", xp: 60, incident: true,
+    id: "2.3",
+    act: 2,
+    title: "Инцидент: nginx не стартует",
+    xp: 60,
+    incident: true,
     why: "Первый настоящий инцидент. Алгоритм разбора всегда один: <b>1)</b> посмотреть статус службы, <b>2)</b> прочитать её логи, <b>3)</b> понять причину, <b>4)</b> устранить, <b>5)</b> проверить, что поднялось. Здесь порт 80 занят чужим процессом — классика.",
     cheat: [
       ["systemctl status nginx", "состояние службы"],
@@ -76,7 +102,10 @@ export const act02: Mission[] = [
     ],
     setup: (w) => {
       w.services.nginx = {
-        desc: "A high performance web server", state: "failed", enabled: false, needsPort: 80,
+        desc: "A high performance web server",
+        state: "failed",
+        enabled: false,
+        needsPort: 80,
         err: "bind() to 0.0.0.0:80 failed (98: Address already in use)",
         journal: [
           "nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)",
@@ -87,16 +116,40 @@ export const act02: Mission[] = [
       w.ports[80] = "python3";
     },
     objs: [
-      { t: "Проверь состояние службы nginx", d: "systemctl status nginx", ok: ranAny(/^systemctl\s+status\s+nginx/) },
-      { t: "Прочитай журнал службы, чтобы понять причину", d: "journalctl -u nginx", ok: ranAny(/^journalctl\b.*nginx/) },
+      {
+        t: "Проверь состояние службы nginx",
+        d: "systemctl status nginx",
+        ok: ranAny(/^systemctl\s+status\s+nginx/),
+      },
+      {
+        t: "Прочитай журнал службы, чтобы понять причину",
+        d: "journalctl -u nginx",
+        ok: ranAny(/^journalctl\b.*nginx/),
+      },
       { t: "Выясни, кто занял 80-й порт", d: "ss -ltn", ok: ran(/^ss\b/) },
-      { t: "Освободи порт — заверши процесс-захватчик", d: "sudo kill -9 2201", ok: (w) => !w.procs.find((p) => p.pid === 2201) },
-      { t: "Запусти nginx", d: "sudo systemctl start nginx", ok: (w) => w.services.nginx?.state === "active" },
-      { t: "Включи автозапуск, чтобы после ребута поднялся сам", d: "sudo systemctl enable nginx", ok: (w) => !!w.services.nginx?.enabled },
+      {
+        t: "Освободи порт — заверши процесс-захватчик",
+        d: "sudo kill -9 2201",
+        ok: (w) => !w.procs.find((p) => p.pid === 2201),
+      },
+      {
+        t: "Запусти nginx",
+        d: "sudo systemctl start nginx",
+        ok: (w) => w.services.nginx?.state === "active",
+      },
+      {
+        t: "Включи автозапуск, чтобы после ребута поднялся сам",
+        d: "sudo systemctl enable nginx",
+        ok: (w) => !!w.services.nginx?.enabled,
+      },
     ],
     solution: [
-      "systemctl status nginx", "journalctl -u nginx", "ss -ltn",
-      "sudo kill -9 2201", "sudo systemctl start nginx", "sudo systemctl enable nginx",
+      "systemctl status nginx",
+      "journalctl -u nginx",
+      "ss -ltn",
+      "sudo kill -9 2201",
+      "sudo systemctl start nginx",
+      "sudo systemctl enable nginx",
     ],
   },
 ];

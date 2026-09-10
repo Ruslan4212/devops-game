@@ -46,7 +46,10 @@ function renderAll(): void {
 function startLesson(id: string): void {
   const lesson = lessonById(id);
   if (!lesson) return;
-  if (!isUnlocked(lesson, P)) { toast("Сначала пройди предыдущий урок"); return; }
+  if (!isUnlocked(lesson, P)) {
+    toast("Сначала пройди предыдущий урок");
+    return;
+  }
 
   P.cur = id;
   persist();
@@ -83,9 +86,15 @@ function enterStep(): void {
 function renderPanel(): void {
   if (!run) return;
   renderLessonPanel(run, {
-    onAdvance: () => { run!.ackAndAdvance(); afterStep(); },
+    onAdvance: () => {
+      run!.ackAndAdvance();
+      afterStep();
+    },
     onQuiz: (k) => applyResult(run!.submitQuiz(k)),
-    onReveal: () => { run!.forceReveal(); renderPanel(); },
+    onReveal: () => {
+      run!.forceReveal();
+      renderPanel();
+    },
     onFill: (cmd) => {
       const i = $<HTMLInputElement>("#cmd");
       i.value = cmd;
@@ -159,17 +168,23 @@ function handleInput(line: string): void {
   if (trimmed === "help") {
     print(
       "Тебе не нужно помнить команды — карточка справа всегда пишет, что набрать сейчас.\n\n" +
-      "Служебное:\n" +
-      "  next   — следующий урок (когда текущий пройден)\n" +
-      "  clear  — очистить экран\n" +
-      "  ↑ / ↓  — прошлые команды",
+        "Служебное:\n" +
+        "  next   — следующий урок (когда текущий пройден)\n" +
+        "  clear  — очистить экран\n" +
+        "  ↑ / ↓  — прошлые команды",
       "info",
     );
     return;
   }
-  if (trimmed === "clear") { clearTerminal(); return; }
+  if (trimmed === "clear") {
+    clearTerminal();
+    return;
+  }
 
-  if (run.finished) { print("Урок пройден. Набери  next  или выбери урок слева.", "dim"); return; }
+  if (run.finished) {
+    print("Урок пройден. Набери  next  или выбери урок слева.", "dim");
+    return;
+  }
 
   const step = run.step;
   if (step.kind !== "type" && step.kind !== "do") {
@@ -195,14 +210,35 @@ function handleInput(line: string): void {
 }
 
 const input = $<HTMLInputElement>("#cmd");
-const submit = (): void => { const v = input.value; input.value = ""; handleInput(v); };
-$<HTMLFormElement>("#cmdForm").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
-input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") { e.preventDefault(); submit(); return; }
-  if (e.key === "ArrowUp") { e.preventDefault(); const v = history.prev(); if (v !== null) input.value = v; }
-  if (e.key === "ArrowDown") { e.preventDefault(); const v = history.next(); if (v !== null) input.value = v; }
+const submit = (): void => {
+  const v = input.value;
+  input.value = "";
+  handleInput(v);
+};
+$<HTMLFormElement>("#cmdForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  submit();
 });
-$("#out").addEventListener("click", () => { if (!input.disabled) input.focus(); });
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    submit();
+    return;
+  }
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    const v = history.prev();
+    if (v !== null) input.value = v;
+  }
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    const v = history.next();
+    if (v !== null) input.value = v;
+  }
+});
+$("#out").addEventListener("click", () => {
+  if (!input.disabled) input.focus();
+});
 
 /* -------------------------------- окна -------------------------------- */
 function showHow(): void {
@@ -210,10 +246,10 @@ function showHow(): void {
     `<h1>Как проходить</h1>` +
     `<p>Это не курс с лекциями. Ты идёшь маленькими шагами. Карточка справа всегда говорит ровно одно действие.</p>` +
     `<ul>` +
-      `<li>👀 <b>Смотри</b> — команда выполняется сама, ты читаешь, что вышло, и объяснение.</li>` +
-      `<li>✍️ <b>Повтори</b> — набери ту же команду в чёрном окне внизу. Кнопка «Вставить» напечатает её за тебя.</li>` +
-      `<li>🎯 <b>Задача</b> — сделай похожее сам. Ошибёшься — появится подсказка, потом готовый ответ. Провалить нельзя.</li>` +
-      `<li>🤔 <b>Вопрос</b> — просто выбери вариант.</li>` +
+    `<li>👀 <b>Смотри</b> — команда выполняется сама, ты читаешь, что вышло, и объяснение.</li>` +
+    `<li>✍️ <b>Повтори</b> — набери ту же команду в чёрном окне внизу. Кнопка «Вставить» напечатает её за тебя.</li>` +
+    `<li>🎯 <b>Задача</b> — сделай похожее сам. Ошибёшься — появится подсказка, потом готовый ответ. Провалить нельзя.</li>` +
+    `<li>🤔 <b>Вопрос</b> — просто выбери вариант.</li>` +
     `</ul>` +
     `<div class="kb">Слева — карта уроков. Прогресс сохраняется сам.</div>` +
     `<button class="prim" id="modClose">Начать</button>`;

@@ -23,17 +23,30 @@ def("git", (a, w) => {
     const files = cur ? Object.keys(cur.children).filter((k) => k !== ".git") : [];
     const tracked = g.commits.flatMap((c) => c.files);
     const untracked = files.filter((f) => !g.staged.includes(f) && !tracked.includes(f));
-    return O("На ветке " + g.branch + "\n" +
-      (g.staged.length ? "\nИзменения, которые будут закоммичены:\n" + g.staged.map((f) => "        новый файл:   " + f).join("\n") + "\n" : "") +
-      (untracked.length
-        ? "\nНеотслеживаемые файлы:\n" + untracked.map((f) => "        " + f).join("\n") + '\n\nничего не добавлено, но есть неотслеживаемые файлы (используйте "git add")'
-        : g.staged.length ? "" : "нечего коммитить, рабочий каталог чист"));
+    return O(
+      "На ветке " +
+        g.branch +
+        "\n" +
+        (g.staged.length
+          ? "\nИзменения, которые будут закоммичены:\n" +
+            g.staged.map((f) => "        новый файл:   " + f).join("\n") +
+            "\n"
+          : "") +
+        (untracked.length
+          ? "\nНеотслеживаемые файлы:\n" +
+            untracked.map((f) => "        " + f).join("\n") +
+            '\n\nничего не добавлено, но есть неотслеживаемые файлы (используйте "git add")'
+          : g.staged.length
+            ? ""
+            : "нечего коммитить, рабочий каталог чист"),
+    );
   }
 
   if (sub === "add") {
     const cur = getNode(w, w.cwd) as DirNode | null;
     let files = rest.filter((x) => !x.startsWith("-"));
-    if (files.includes(".") || rest.includes("-A")) files = cur ? Object.keys(cur.children).filter((k) => k !== ".git") : [];
+    if (files.includes(".") || rest.includes("-A"))
+      files = cur ? Object.keys(cur.children).filter((k) => k !== ".git") : [];
     for (const f of files) if (!g.staged.includes(f)) g.staged.push(f);
     return O();
   }
@@ -46,17 +59,35 @@ def("git", (a, w) => {
     g.commits.push({ msg, files: [...g.staged], branch: g.branch, hash: hash() });
     const n = g.staged.length;
     g.staged = [];
-    return O("[" + g.branch + " " + g.commits[g.commits.length - 1].hash + "] " + msg + "\n " + n + " файл(ов) изменено");
+    return O(
+      "[" +
+        g.branch +
+        " " +
+        g.commits[g.commits.length - 1].hash +
+        "] " +
+        msg +
+        "\n " +
+        n +
+        " файл(ов) изменено",
+    );
   }
 
   if (sub === "log") {
     if (!g.commits.length) return E("fatal: у текущей ветки нет коммитов");
-    return O([...g.commits].reverse().map((c) => c.hash + " " + c.msg).join("\n"));
+    return O(
+      [...g.commits]
+        .reverse()
+        .map((c) => c.hash + " " + c.msg)
+        .join("\n"),
+    );
   }
 
   if (sub === "branch") {
     const nm = rest.filter((x) => !x.startsWith("-"))[0];
-    if (nm) { if (!g.branches.includes(nm)) g.branches.push(nm); return O(); }
+    if (nm) {
+      if (!g.branches.includes(nm)) g.branches.push(nm);
+      return O();
+    }
     return O(g.branches.map((b) => (b === g.branch ? "* " : "  ") + b).join("\n"));
   }
 
@@ -82,7 +113,10 @@ def("git", (a, w) => {
   }
 
   if (sub === "remote") {
-    if (rest[0] === "add") { g.remote = rest[2] || rest[1]; return O(); }
+    if (rest[0] === "add") {
+      g.remote = rest[2] || rest[1];
+      return O();
+    }
     return O(g.remote ? "origin\t" + g.remote : "");
   }
 

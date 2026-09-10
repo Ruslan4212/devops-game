@@ -113,7 +113,11 @@ export class LessonRun {
     const step = this.step as DoStep;
     let feedback = "Файл сохранён, но задача шага ещё не закрыта.";
     if (step.kind === "do" && this.attempts === 1) feedback += `\n\n💡 ${step.hint}`;
-    return { status: "retry", feedback, reveal: this.attempts >= 2 && step.kind === "do" ? step.answer : undefined };
+    return {
+      status: "retry",
+      feedback,
+      reveal: this.attempts >= 2 && step.kind === "do" ? step.answer : undefined,
+    };
   }
 
   /** Игрок нажал «показать ответ» на «сделай» шаге. */
@@ -151,7 +155,10 @@ export class LessonRun {
   }
 
   private autoDo(answer: string): void {
-    const lines = answer.split("\n").map((x) => x.trim()).filter(Boolean);
+    const lines = answer
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
     for (const c of lines.slice(0, -1)) execLine(this.world, c);
     this.submitDo(lines[lines.length - 1] ?? answer);
   }
@@ -163,7 +170,9 @@ export class LessonRun {
    */
   private autoplayLegacy(): void {
     const doIdx: number[] = [];
-    this.lesson.steps.forEach((s, i) => { if (s.kind === "do") doIdx.push(i); });
+    this.lesson.steps.forEach((s, i) => {
+      if (s.kind === "do") doIdx.push(i);
+    });
     const passed = new Set<number>();
     const mark = (): void => {
       for (const di of doIdx) {

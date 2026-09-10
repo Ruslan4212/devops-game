@@ -25,8 +25,7 @@ describe("переписанные вручную акты действител�
       const kinds = lesson.steps.map((s) => s.kind);
       // урок не должен быть «стеной текста»: где-то игрок обязан что-то сделать —
       // набрать команду, решить задачу или хотя бы ответить на вопрос
-      const hasInteraction =
-        kinds.includes("type") || kinds.includes("do") || kinds.includes("quiz");
+      const hasInteraction = kinds.includes("type") || kinds.includes("do") || kinds.includes("quiz");
       expect(hasInteraction, lesson.id).toBe(true);
       expect(kinds.includes("say") || kinds.includes("watch"), lesson.id).toBe(true);
     });

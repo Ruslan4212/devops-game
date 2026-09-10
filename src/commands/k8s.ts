@@ -33,7 +33,8 @@ def("kubectl", (a, w) => {
     if (!f) return E("kubectl apply: укажи файл: kubectl apply -f deploy.yaml");
     const y = readFile(w, resolvePath(w, f));
     if (y == null) return E("error: файл " + f + " не найден");
-    if (!/kind:\s*\w+/.test(y)) return E("error: в манифесте нет поля kind — Kubernetes не понимает, что создавать");
+    if (!/kind:\s*\w+/.test(y))
+      return E("error: в манифесте нет поля kind — Kubernetes не понимает, что создавать");
     const kind = (y.match(/kind:\s*(\w+)/) || [])[1];
     const name = (y.match(/name:\s*([\w-]+)/) || [])[1] || "app";
 
@@ -41,8 +42,17 @@ def("kubectl", (a, w) => {
       const reps = Number((y.match(/replicas:\s*(\d+)/) || [])[1] || 1);
       const hasEnvDb = /DB_URL/.test(y);
       const existing = k.deploys.find((x) => x.name === name);
-      if (!existing) k.deploys.push({ name, replicas: reps, image: (y.match(/image:\s*(\S+)/) || [])[1] || "app", crash: !hasEnvDb });
-      else { existing.replicas = reps; existing.crash = !hasEnvDb; }
+      if (!existing)
+        k.deploys.push({
+          name,
+          replicas: reps,
+          image: (y.match(/image:\s*(\S+)/) || [])[1] || "app",
+          crash: !hasEnvDb,
+        });
+      else {
+        existing.replicas = reps;
+        existing.crash = !hasEnvDb;
+      }
       syncPods(w);
       return O("deployment.apps/" + name + (existing ? " configured" : " created"));
     }
@@ -57,13 +67,24 @@ def("kubectl", (a, w) => {
     const what = rest[0] || "";
     if (/^pod/.test(what)) {
       if (!k.pods.length) return O("Ресурсы не найдены.");
-      return O("NAME                  STATUS             RESTARTS\n" +
-        k.pods.map((p) => p.name.padEnd(22) + p.status.padEnd(19) + p.restarts).join("\n"));
+      return O(
+        "NAME                  STATUS             RESTARTS\n" +
+          k.pods.map((p) => p.name.padEnd(22) + p.status.padEnd(19) + p.restarts).join("\n"),
+      );
     }
     if (/^deploy/.test(what)) {
       if (!k.deploys.length) return O("Ресурсы не найдены.");
-      return O("NAME       READY   IMAGE\n" +
-        k.deploys.map((d) => d.name.padEnd(11) + (d.crash ? "0/" + d.replicas : d.replicas + "/" + d.replicas).padEnd(8) + d.image).join("\n"));
+      return O(
+        "NAME       READY   IMAGE\n" +
+          k.deploys
+            .map(
+              (d) =>
+                d.name.padEnd(11) +
+                (d.crash ? "0/" + d.replicas : d.replicas + "/" + d.replicas).padEnd(8) +
+                d.image,
+            )
+            .join("\n"),
+      );
     }
     if (/^s(vc|ervice)/.test(what))
       return O("NAME       PORT\n" + (k.svcs.map((s) => s.name.padEnd(11) + s.port).join("\n") || "(нет)"));
@@ -73,24 +94,35 @@ def("kubectl", (a, w) => {
   if (sub === "describe") {
     const p = k.pods.find((x) => x.name === rest[1]) || k.pods[0];
     if (!p) return E("не найдено");
-    return O("Name:     " + p.name + "\nStatus:   " + p.status + "\nRestarts: " + p.restarts + "\n\nEvents:\n" +
-      (p.status === "Running"
-        ? "  Normal  Started   контейнер запущен"
-        : "  Warning BackOff   перезапуск контейнера\n  Warning Failed    контейнер завершился с кодом 1"));
+    return O(
+      "Name:     " +
+        p.name +
+        "\nStatus:   " +
+        p.status +
+        "\nRestarts: " +
+        p.restarts +
+        "\n\nEvents:\n" +
+        (p.status === "Running"
+          ? "  Normal  Started   контейнер запущен"
+          : "  Warning BackOff   перезапуск контейнера\n  Warning Failed    контейнер завершился с кодом 1"),
+    );
   }
 
   if (sub === "logs") {
     const nm = rest.filter((x) => !x.startsWith("-")).pop();
     const p = k.pods.find((x) => x.name === nm) || k.pods.find((x) => x.status !== "Running") || k.pods[0];
     if (!p) return E("не найдено подов");
-    return O(p.status === "Running"
-      ? "server listening on :8080\nGET /health 200"
-      : "FATAL: переменная окружения DB_URL не задана — приложение не может подключиться к базе\nexit status 1");
+    return O(
+      p.status === "Running"
+        ? "server listening on :8080\nGET /health 200"
+        : "FATAL: переменная окружения DB_URL не задана — приложение не может подключиться к базе\nexit status 1",
+    );
   }
 
   if (sub === "scale") {
     const r = (rest.find((x) => x.startsWith("--replicas")) || "").split("=")[1];
-    const nm = (rest.find((x) => x.includes("/")) || "").split("/")[1] || rest.filter((x) => !x.startsWith("-")).pop();
+    const nm =
+      (rest.find((x) => x.includes("/")) || "").split("/")[1] || rest.filter((x) => !x.startsWith("-")).pop();
     const d = k.deploys.find((x) => x.name === nm) || k.deploys[0];
     if (!d) return E("не найден deployment");
     if (!r) return E("укажи --replicas=N");
@@ -110,7 +142,11 @@ def("kubectl", (a, w) => {
       return O("deployment.apps/" + d.name + " rolled back — вернулись на предыдущую рабочую версию");
     }
     if (rest[0] === "status")
-      return O(d.crash ? "Waiting for deployment rollout to finish... поды не поднимаются" : 'deployment "' + d.name + '" successfully rolled out');
+      return O(
+        d.crash
+          ? "Waiting for deployment rollout to finish... поды не поднимаются"
+          : 'deployment "' + d.name + '" successfully rolled out',
+      );
     return E("kubectl rollout status|undo");
   }
 

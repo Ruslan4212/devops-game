@@ -3,7 +3,11 @@ import { mergeProgress } from "../src/sync/merge";
 import type { Progress } from "../src/engine/progress";
 
 const P = (o: Partial<Progress> = {}): Progress => ({
-  xp: 0, done: {}, cur: null, hints: {}, ...o,
+  xp: 0,
+  done: {},
+  cur: null,
+  hints: {},
+  ...o,
 });
 
 describe("mergeProgress — слияние прогресса устройств", () => {

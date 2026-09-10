@@ -27,10 +27,10 @@ export function renderRail(p: Progress, curId: string | null, onPick: (id: strin
     for (const l of items) {
       const locked = !isUnlocked(l, p);
       const b = document.createElement("button");
-      b.className = "ms" + (p.done[l.id] ? " done" : "") + (l.id === curId ? " cur" : "") + (locked ? " lock" : "");
+      b.className =
+        "ms" + (p.done[l.id] ? " done" : "") + (l.id === curId ? " cur" : "") + (locked ? " lock" : "");
       b.innerHTML =
-        `<span class="b">${p.done[l.id] ? "✓" : locked ? "🔒" : l.id}</span>` +
-        `<span>${l.title}</span>`;
+        `<span class="b">${p.done[l.id] ? "✓" : locked ? "🔒" : l.id}</span>` + `<span>${l.title}</span>`;
       b.disabled = locked;
       b.onclick = () => onPick(l.id);
       box.appendChild(b);

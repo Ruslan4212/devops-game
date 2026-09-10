@@ -62,10 +62,20 @@ def("chmod", (a, w) => {
   if (!n) return E("chmod: " + f + ": Нет такого файла");
   if (n.type !== "file") return E("chmod: " + f + ": это каталог");
   const map: Record<string, string> = {
-    "7": "rwx", "6": "rw-", "5": "r-x", "4": "r--",
-    "3": "-wx", "2": "-w-", "1": "--x", "0": "---",
+    "7": "rwx",
+    "6": "rw-",
+    "5": "r-x",
+    "4": "r--",
+    "3": "-wx",
+    "2": "-w-",
+    "1": "--x",
+    "0": "---",
   };
-  if (/^[0-7]{3}$/.test(m)) n.mode = m.split("").map((d) => map[d]).join("");
+  if (/^[0-7]{3}$/.test(m))
+    n.mode = m
+      .split("")
+      .map((d) => map[d])
+      .join("");
   else if (/\+x/.test(m)) n.mode = n.mode.replace(/^(..)./, "$1x");
   else return E("chmod: непонятные права: " + m);
   return O();

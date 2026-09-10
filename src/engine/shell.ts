@@ -7,11 +7,25 @@ export const fail = (out: string): CmdResult => ({ out, code: 1, err: true });
 
 export function tokenize(s: string): string[] {
   const out: string[] = [];
-  let cur = "", q: string | null = null;
+  let cur = "",
+    q: string | null = null;
   for (const c of s) {
-    if (q) { if (c === q) q = null; else cur += c; continue; }
-    if (c === '"' || c === "'") { q = c; continue; }
-    if (/\s/.test(c)) { if (cur) { out.push(cur); cur = ""; } continue; }
+    if (q) {
+      if (c === q) q = null;
+      else cur += c;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      q = c;
+      continue;
+    }
+    if (/\s/.test(c)) {
+      if (cur) {
+        out.push(cur);
+        cur = "";
+      }
+      continue;
+    }
     cur += c;
   }
   if (cur) out.push(cur);
@@ -34,7 +48,10 @@ export function runScript(w: World, abs: string): CmdResult {
     return fail("bash: " + abs + ": Отказано в доступе — файл не исполняемый (chmod +x)");
   if (!/^#!/.test(n.content))
     return fail("bash: " + abs + ": нет строки-шебанга (#!/bin/bash) — система не знает, чем запускать");
-  const lines = n.content.split("\n").slice(1).filter((l) => l.trim() && !l.trim().startsWith("#"));
+  const lines = n.content
+    .split("\n")
+    .slice(1)
+    .filter((l) => l.trim() && !l.trim().startsWith("#"));
   const out: string[] = [];
   for (const l of lines) {
     const r = execLine(w, l, { record: false });
@@ -55,7 +72,9 @@ function runOne(w: World, seg: string, stdin: string | null): CmdResult {
   }
   const name = toks[0];
   const args = toks.slice(1);
-  const rawArgs = tokenize(seg).slice(w.sudo ? 2 : 1).map((t) => expand(w, t));
+  const rawArgs = tokenize(seg)
+    .slice(w.sudo ? 2 : 1)
+    .map((t) => expand(w, t));
 
   if (name.startsWith("./") || name.startsWith("/")) {
     const abs = resolvePath(w, name);
@@ -67,7 +86,8 @@ function runOne(w: World, seg: string, stdin: string | null): CmdResult {
     return runScript(w, resolvePath(w, args[0]));
   }
   const fn = CMDS[name];
-  if (!fn) return fail("bash: " + name + ": команда не найдена. Набери help — там команды для текущего задания.");
+  if (!fn)
+    return fail("bash: " + name + ": команда не найдена. Набери help — там команды для текущего задания.");
   try {
     return fn(args, w, stdin, rawArgs);
   } catch (e) {
@@ -92,7 +112,10 @@ export function execLine(w: World, line: string, opts: { record?: boolean } = {}
     line = line.slice(0, rm.index);
   }
 
-  const segs = line.split("|").map((s) => s.trim()).filter(Boolean);
+  const segs = line
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
   let stdin: string | null = null;
   let res: CmdResult = ok();
   for (const s of segs) {

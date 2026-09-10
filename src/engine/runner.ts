@@ -29,13 +29,22 @@ export class MissionRun {
     this.mission.objs.forEach((o, i) => {
       if (this.done[i]) return;
       let v = false;
-      try { v = !!o.ok(this.world); } catch { v = false; }
-      if (v) { this.done[i] = true; changed = true; }
+      try {
+        v = !!o.ok(this.world);
+      } catch {
+        v = false;
+      }
+      if (v) {
+        this.done[i] = true;
+        changed = true;
+      }
     });
     return changed;
   }
 
-  get complete(): boolean { return this.done.every(Boolean); }
+  get complete(): boolean {
+    return this.done.every(Boolean);
+  }
 
   /** Невыполненные задачи — тесты используют их для понятного сообщения об ошибке. */
   get pending(): string[] {

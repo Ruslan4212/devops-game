@@ -10,8 +10,12 @@ export interface Progress {
 const KEY = "devops_terminal_rpg_v1";
 
 export const RANKS: [number, string][] = [
-  [0, "Стажёр"], [120, "Junior"], [350, "Junior+"],
-  [650, "Middle−"], [1000, "Middle"], [1380, "Крепкий Middle"],
+  [0, "Стажёр"],
+  [120, "Junior"],
+  [350, "Junior+"],
+  [650, "Middle−"],
+  [1000, "Middle"],
+  [1380, "Крепкий Middle"],
 ];
 
 export const rankOf = (xp: number): string => {
@@ -23,13 +27,24 @@ export const nextRank = (xp: number) => RANKS.find((q) => xp < q[0]);
 
 export function loadProgress(): Progress {
   const empty: Progress = { xp: 0, done: {}, cur: null, hints: {} };
-  try { return Object.assign(empty, JSON.parse(localStorage.getItem(KEY) || "{}")); }
-  catch { return empty; }
+  try {
+    return Object.assign(empty, JSON.parse(localStorage.getItem(KEY) || "{}"));
+  } catch {
+    return empty;
+  }
 }
 export function saveProgress(p: Progress): void {
   p.updatedAt = Date.now();
-  try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* приватный режим — просто не сохраняем */ }
+  try {
+    localStorage.setItem(KEY, JSON.stringify(p));
+  } catch {
+    /* приватный режим — просто не сохраняем */
+  }
 }
 export function clearProgress(): void {
-  try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
 }

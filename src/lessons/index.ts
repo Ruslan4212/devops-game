@@ -36,9 +36,7 @@ export const LESSONS: Lesson[] = [
   ...act04,
   ...act05,
   ...act06,
-  ...missionsToLessons([
-    ...act07, ...act08, ...act09, ...act10,
-  ]),
+  ...missionsToLessons([...act07, ...act08, ...act09, ...act10]),
 ];
 
 export const lessonById = (id: string): Lesson | undefined => LESSONS.find((l) => l.id === id);

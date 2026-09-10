@@ -1,8 +1,22 @@
-export interface FileNode { type: "file"; content: string; mode: string; owner?: string }
-export interface DirNode { type: "dir"; children: Record<string, FSNode> }
+export interface FileNode {
+  type: "file";
+  content: string;
+  mode: string;
+  owner?: string;
+}
+export interface DirNode {
+  type: "dir";
+  children: Record<string, FSNode>;
+}
 export type FSNode = FileNode | DirNode;
 
-export interface Proc { pid: number; user: string; cpu: number; cmd: string; port?: number }
+export interface Proc {
+  pid: number;
+  user: string;
+  cpu: number;
+  cmd: string;
+  port?: number;
+}
 
 export interface Service {
   desc: string;
@@ -27,34 +41,88 @@ export interface Service {
   journalLines?: number;
 }
 
-export interface Commit { msg: string; files: string[]; branch: string; hash: string }
+export interface Commit {
+  msg: string;
+  files: string[];
+  branch: string;
+  hash: string;
+}
 export interface GitState {
-  branch: string; branches: string[]; staged: string[]; commits: Commit[];
-  remote: string | null; pushed: number; merged?: string[];
+  branch: string;
+  branches: string[];
+  staged: string[];
+  commits: Commit[];
+  remote: string | null;
+  pushed: number;
+  merged?: string[];
 }
 
-export interface DockerImage { tag: string; layers: number }
+export interface DockerImage {
+  tag: string;
+  layers: number;
+}
 export interface Container {
-  name: string; image: string; state: "running" | "exited";
-  hostPort: number | null; cPort: number | null; logs: string[];
+  name: string;
+  image: string;
+  state: "running" | "exited";
+  hostPort: number | null;
+  cPort: number | null;
+  logs: string[];
 }
 
-export interface CiRun { n: number; stages: [string, string][]; ok: boolean; secretLeak: boolean; log: string[] }
-export interface CiState { runs: CiRun[]; secrets: string[]; workflow?: string }
+export interface CiRun {
+  n: number;
+  stages: [string, string][];
+  ok: boolean;
+  secretLeak: boolean;
+  log: string[];
+}
+export interface CiState {
+  runs: CiRun[];
+  secrets: string[];
+  workflow?: string;
+}
 
-export interface TfState { inited: boolean; plan: { add: string[]; del: string[] } | null; applied: string[] }
+export interface TfState {
+  inited: boolean;
+  plan: { add: string[]; del: string[] } | null;
+  applied: string[];
+}
 
-export interface K8sDeploy { name: string; replicas: number; image: string; crash: boolean }
-export interface K8sPod { name: string; deploy: string; status: string; restarts: number }
-export interface K8sState { deploys: K8sDeploy[]; pods: K8sPod[]; svcs: { name: string; port: number }[] }
+export interface K8sDeploy {
+  name: string;
+  replicas: number;
+  image: string;
+  crash: boolean;
+}
+export interface K8sPod {
+  name: string;
+  deploy: string;
+  status: string;
+  restarts: number;
+}
+export interface K8sState {
+  deploys: K8sDeploy[];
+  pods: K8sPod[];
+  svcs: { name: string; port: number }[];
+}
 
-export interface Alert { name: string; sev: string; desc: string }
+export interface Alert {
+  name: string;
+  sev: string;
+  desc: string;
+}
 
-export interface LogEntry { cmd: string; code: number }
+export interface LogEntry {
+  cmd: string;
+  code: number;
+}
 
 export interface World {
-  user: string; host: string;
-  fs: DirNode; cwd: string;
+  user: string;
+  host: string;
+  fs: DirNode;
+  cwd: string;
   env: Record<string, string>;
   procs: Proc[];
   services: Record<string, Service>;
@@ -91,13 +159,20 @@ export interface CmdResult {
 
 export type CommandFn = (args: string[], w: World, stdin: string | null, raw: string[]) => CmdResult;
 
-export interface Objective { t: string; d: string; ok: (w: World) => boolean }
+export interface Objective {
+  t: string;
+  d: string;
+  ok: (w: World) => boolean;
+}
 
 /** шаг эталонного решения: либо команда, либо запись файла через редактор */
 export type SolutionStep = string | { file: string; content: string };
 
 export interface Mission {
-  id: string; act: number; title: string; xp: number;
+  id: string;
+  act: number;
+  title: string;
+  xp: number;
   why: string;
   incident?: boolean;
   cheat: [string, string][];
@@ -108,7 +183,10 @@ export interface Mission {
   solution: SolutionStep[];
 }
 
-export interface Act { id: number; name: string }
+export interface Act {
+  id: number;
+  name: string;
+}
 
 /* ======================================================================
  *  Модель урока (новая): один шаг = одно действие.
@@ -118,13 +196,25 @@ export interface Act { id: number; name: string }
 export type Check = (w: World) => boolean;
 
 /** Просто текст-подводка. Кнопка «Дальше». */
-export interface SayStep { kind: "say"; text: string }
+export interface SayStep {
+  kind: "say";
+  text: string;
+}
 
 /** Команда выполняется сама, игрок видит вывод и пояснение. «I do». */
-export interface WatchStep { kind: "watch"; text?: string; run: string; note: string }
+export interface WatchStep {
+  kind: "watch";
+  text?: string;
+  run: string;
+  note: string;
+}
 
 /** Игрок обязан набрать ровно эту команду — мышечная память. «We do». */
-export interface TypeStep { kind: "type"; text: string; cmd: string }
+export interface TypeStep {
+  kind: "type";
+  text: string;
+  cmd: string;
+}
 
 /** Настоящая маленькая задача. Ответ показывается сам после 2 промахов. «You do». */
 export interface DoStep {
@@ -138,7 +228,13 @@ export interface DoStep {
 }
 
 /** Проверка понимания без печати. */
-export interface QuizStep { kind: "quiz"; text: string; options: string[]; answer: number; explain: string }
+export interface QuizStep {
+  kind: "quiz";
+  text: string;
+  options: string[];
+  answer: number;
+  explain: string;
+}
 
 export type Step = SayStep | WatchStep | TypeStep | DoStep | QuizStep;
 

@@ -1,8 +1,6 @@
-export const $ = <T extends HTMLElement = HTMLElement>(sel: string): T =>
-  document.querySelector(sel) as T;
+export const $ = <T extends HTMLElement = HTMLElement>(sel: string): T => document.querySelector(sel) as T;
 
-export const esc = (s: unknown): string =>
-  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+export const esc = (s: unknown): string => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
 let toastTimer: number | undefined;
 export function toast(text: string): void {

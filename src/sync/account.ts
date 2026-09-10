@@ -21,7 +21,10 @@ export interface AccountApi {
 const $ = <T extends HTMLElement = HTMLElement>(s: string): T => document.querySelector(s) as T;
 const esc = (s: unknown): string => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const usernameFromEmail = (email: string): string =>
-  (email.split("@")[0] || "user").replace(/[^a-z0-9_]+/gi, "_").slice(0, 24).toLowerCase();
+  (email.split("@")[0] || "user")
+    .replace(/[^a-z0-9_]+/gi, "_")
+    .slice(0, 24)
+    .toLowerCase();
 
 export function initAccount(deps: Deps): AccountApi {
   let account: Account | null = null;
@@ -36,9 +39,7 @@ export function initAccount(deps: Deps): AccountApi {
   btn.onclick = openModal;
 
   const refreshBtn = (): void => {
-    btn.textContent = account
-      ? "☁ " + account.email.split("@")[0]
-      : cloud.isConfigured ? "войти" : "аккаунт";
+    btn.textContent = account ? "☁ " + account.email.split("@")[0] : cloud.isConfigured ? "войти" : "аккаунт";
   };
   refreshBtn();
 
@@ -85,7 +86,9 @@ export function initAccount(deps: Deps): AccountApi {
 
     const email = (): string => $<HTMLInputElement>("#aEmail").value.trim();
     const pass = (): string => $<HTMLInputElement>("#aPass").value;
-    const err = (t: string): void => { $("#aErr").textContent = t; };
+    const err = (t: string): void => {
+      $("#aErr").textContent = t;
+    };
     const busy = (on: boolean): void => {
       $<HTMLButtonElement>("#aIn").disabled = on;
       $<HTMLButtonElement>("#aUp").disabled = on;
@@ -93,7 +96,8 @@ export function initAccount(deps: Deps): AccountApi {
 
     $("#authForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      busy(true); err("");
+      busy(true);
+      err("");
       const r = await cloud.signIn(email(), pass());
       busy(false);
       if (!r.ok) return err(translateAuthError(r.error));
@@ -101,7 +105,8 @@ export function initAccount(deps: Deps): AccountApi {
     });
     $("#aUp").addEventListener("click", async () => {
       if (!email() || pass().length < 6) return err("Введите почту и пароль не короче 6 символов.");
-      busy(true); err("");
+      busy(true);
+      err("");
       const r = await cloud.signUp(email(), pass());
       busy(false);
       if (!r.ok) return err(translateAuthError(r.error));
@@ -139,7 +144,12 @@ export function initAccount(deps: Deps): AccountApi {
       else onSignedOut();
     })
     .catch(() => {});
-  cloud.currentAccount().then((acc) => { if (acc) void onSignedIn(acc); }).catch(() => {});
+  cloud
+    .currentAccount()
+    .then((acc) => {
+      if (acc) void onSignedIn(acc);
+    })
+    .catch(() => {});
 
   /* ---------- отложенная отправка ---------- */
   function schedulePush(): void {

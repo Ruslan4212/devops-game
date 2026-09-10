@@ -29,8 +29,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
 
   if (step.kind === "say") {
     body =
-      `<div class="lp-say">${esc(step.text)}</div>` +
-      `<button class="lp-next" id="lpNext">Дальше →</button>`;
+      `<div class="lp-say">${esc(step.text)}</div>` + `<button class="lp-next" id="lpNext">Дальше →</button>`;
   }
 
   if (step.kind === "watch") {

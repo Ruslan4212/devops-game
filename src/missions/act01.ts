@@ -14,7 +14,10 @@ export const seedAppLog = (w: World): void => {
 
 export const act01: Mission[] = [
   {
-    id: "1.1", act: 1, title: "Первый вход", xp: 30,
+    id: "1.1",
+    act: 1,
+    title: "Первый вход",
+    xp: 30,
     why: "Терминал — это диалог с машиной. Ты всегда находишься <b>в каком-то каталоге</b>, и почти каждая команда работает относительно него. Три команды закрывают 80% навигации: узнать где ты, посмотреть что вокруг, перейти дальше.",
     cheat: [
       ["pwd", "показать текущий каталог"],
@@ -40,7 +43,10 @@ export const act01: Mission[] = [
     solution: ["pwd", "ls", "cat notes.txt", "cd /var/log", "ls -l"],
   },
   {
-    id: "1.2", act: 1, title: "Найти улику в логах", xp: 40,
+    id: "1.2",
+    act: 1,
+    title: "Найти улику в логах",
+    xp: 40,
     why: "Логи — первое место, куда смотрит инженер, когда «что-то сломалось». Читать их целиком невозможно, поэтому связка <b>grep</b> (найти строки) и <b>| wc -l</b> (посчитать) — базовый рефлекс. Символ <b>|</b> отправляет вывод одной команды на вход другой.",
     cheat: [
       ["cd /var/log", "перейти к логам"],
@@ -56,12 +62,23 @@ export const act01: Mission[] = [
       "Ключ -i делает поиск нечувствительным к регистру",
       "Труба | передаёт результат дальше: grep -i error app.log | wc -l",
     ],
-    setup: (w) => { seedAppLog(w); w.cwd = "/var/log"; },
+    setup: (w) => {
+      seedAppLog(w);
+      w.cwd = "/var/log";
+    },
     objs: [
       { t: "Посмотри последние строки лога", d: "tail -n 3 app.log", ok: ran(/^tail\b.*app\.log/) },
       { t: "Найди в логе все строки с ошибками", d: "grep -i error app.log", ok: ran(/^grep\b.*app\.log/) },
-      { t: "Посчитай, сколько всего ошибок", d: "grep -i error app.log | wc -l", ok: ran(/grep[^|]*\|\s*wc\s+-l/) },
-      { t: "Сохрани найденные ошибки в файл errors.txt", d: "grep -i error app.log > /tmp/errors.txt", ok: has("/tmp/errors.txt", /ERROR/i) },
+      {
+        t: "Посчитай, сколько всего ошибок",
+        d: "grep -i error app.log | wc -l",
+        ok: ran(/grep[^|]*\|\s*wc\s+-l/),
+      },
+      {
+        t: "Сохрани найденные ошибки в файл errors.txt",
+        d: "grep -i error app.log > /tmp/errors.txt",
+        ok: has("/tmp/errors.txt", /ERROR/i),
+      },
     ],
     solution: [
       "tail -n 3 app.log",
@@ -71,7 +88,10 @@ export const act01: Mission[] = [
     ],
   },
   {
-    id: "1.3", act: 1, title: "Навести порядок", xp: 40,
+    id: "1.3",
+    act: 1,
+    title: "Навести порядок",
+    xp: 40,
     why: "Создавать, копировать, переносить и удалять — рутина, которую ты будешь делать каждый день, в том числе в скриптах. Ключ <b>-p</b> у mkdir создаёт всю цепочку каталогов сразу, а <b>find</b> ищет файлы, когда не помнишь, куда положил.",
     cheat: [
       ["mkdir -p ~/work/backup", "создать каталог с родителями"],
@@ -87,12 +107,31 @@ export const act01: Mission[] = [
       "Переименовать = переместить: mv старое.txt новое.txt",
       'find ~ -name "*.log" ищет от домашнего каталога',
     ],
-    setup: (w) => { seedAppLog(w); writeFile(w, "/home/devops/tmp-мусор.txt", "удали меня"); },
+    setup: (w) => {
+      seedAppLog(w);
+      writeFile(w, "/home/devops/tmp-мусор.txt", "удали меня");
+    },
     objs: [
-      { t: "Создай каталог ~/work/backup одной командой", d: "mkdir -p ~/work/backup", ok: (w) => !!getNode(w, "/home/devops/work/backup") },
-      { t: "Скопируй туда /var/log/app.log", d: "cp /var/log/app.log ~/work/backup/", ok: (w) => !!getNode(w, "/home/devops/work/backup/app.log") },
-      { t: "Переименуй копию в app-2026.log", d: "cd ~/work/backup && mv app.log app-2026.log", ok: (w) => !!getNode(w, "/home/devops/work/backup/app-2026.log") },
-      { t: "Удали ненужный файл ~/tmp-мусор.txt", d: "rm ~/tmp-мусор.txt", ok: (w) => !getNode(w, "/home/devops/tmp-мусор.txt") },
+      {
+        t: "Создай каталог ~/work/backup одной командой",
+        d: "mkdir -p ~/work/backup",
+        ok: (w) => !!getNode(w, "/home/devops/work/backup"),
+      },
+      {
+        t: "Скопируй туда /var/log/app.log",
+        d: "cp /var/log/app.log ~/work/backup/",
+        ok: (w) => !!getNode(w, "/home/devops/work/backup/app.log"),
+      },
+      {
+        t: "Переименуй копию в app-2026.log",
+        d: "cd ~/work/backup && mv app.log app-2026.log",
+        ok: (w) => !!getNode(w, "/home/devops/work/backup/app-2026.log"),
+      },
+      {
+        t: "Удали ненужный файл ~/tmp-мусор.txt",
+        d: "rm ~/tmp-мусор.txt",
+        ok: (w) => !getNode(w, "/home/devops/tmp-мусор.txt"),
+      },
       { t: "Найди все .log файлы в домашнем каталоге", d: 'find ~ -name "*.log"', ok: ran(/^find\b.*-name/) },
     ],
     solution: [

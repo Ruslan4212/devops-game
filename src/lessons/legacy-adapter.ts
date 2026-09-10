@@ -2,7 +2,12 @@ import type { DoStep, Lesson, Mission, Step } from "../engine/types";
 
 /** Убирает html-разметку из учебного текста старых заданий. */
 const strip = (s: string): string =>
-  s.replace(/<code>/g, "").replace(/<\/code>/g, "").replace(/<[^>]+>/g, "").replace(/\s+\n/g, "\n").trim();
+  s
+    .replace(/<code>/g, "")
+    .replace(/<\/code>/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+\n/g, "\n")
+    .trim();
 
 /**
  * Пока акты 2–10 не переписаны вручную, показываем их в новой пошаговой оболочке:

@@ -6,8 +6,7 @@ export type Tone = "ok" | "err" | "warn" | "dim" | "info" | null;
 
 const out = (): HTMLElement => $("#out");
 
-export const promptFor = (w: World | null): string =>
-  w ? `${w.user}@${w.host}:${shortCwd(w)}$` : "$";
+export const promptFor = (w: World | null): string => (w ? `${w.user}@${w.host}:${shortCwd(w)}$` : "$");
 
 export function setPrompt(w: World | null): void {
   $("#prompt").textContent = promptFor(w);
@@ -40,10 +39,20 @@ export function printCommand(w: World | null, line: string): void {
 export class InputHistory {
   private items: string[] = [];
   private ix = 0;
-  push(line: string): void { this.items.push(line); this.ix = this.items.length; }
-  prev(): string | null { if (this.ix <= 0) return null; this.ix--; return this.items[this.ix] ?? ""; }
+  push(line: string): void {
+    this.items.push(line);
+    this.ix = this.items.length;
+  }
+  prev(): string | null {
+    if (this.ix <= 0) return null;
+    this.ix--;
+    return this.items[this.ix] ?? "";
+  }
   next(): string | null {
-    if (this.ix >= this.items.length - 1) { this.ix = this.items.length; return ""; }
+    if (this.ix >= this.items.length - 1) {
+      this.ix = this.items.length;
+      return "";
+    }
     this.ix++;
     return this.items[this.ix] ?? "";
   }

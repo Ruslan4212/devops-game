@@ -11,7 +11,10 @@ export function resolvePath(w: World, p?: string): string {
   const parts = p.startsWith("/") ? [] : splitPath(w.cwd);
   for (const seg of splitPath(p)) {
     if (seg === ".") continue;
-    if (seg === "..") { parts.pop(); continue; }
+    if (seg === "..") {
+      parts.pop();
+      continue;
+    }
     parts.push(seg);
   }
   return "/" + parts.join("/");
@@ -60,7 +63,10 @@ export function readFile(w: World, abs: string): string | null {
 
 export function copyNode(n: FSNode): FSNode {
   return n.type === "dir"
-    ? { type: "dir", children: Object.fromEntries(Object.entries(n.children).map(([k, v]) => [k, copyNode(v)])) }
+    ? {
+        type: "dir",
+        children: Object.fromEntries(Object.entries(n.children).map(([k, v]) => [k, copyNode(v)])),
+      }
     : { type: "file", content: n.content, mode: n.mode, owner: n.owner };
 }
 

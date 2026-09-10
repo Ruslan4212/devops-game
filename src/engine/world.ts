@@ -20,8 +20,10 @@ function baseFS(): DirNode {
 
 export function newWorld(): World {
   return {
-    user: "devops", host: "ops-01",
-    fs: baseFS(), cwd: "/home/devops",
+    user: "devops",
+    host: "ops-01",
+    fs: baseFS(),
+    cwd: "/home/devops",
     env: { HOME: "/home/devops", USER: "devops", PATH: "/usr/bin:/bin", SHELL: "/bin/bash" },
     procs: [
       { pid: 1, user: "root", cpu: 0.0, cmd: "/sbin/init" },
