@@ -14,5 +14,6 @@ import "./monitoring";
 import "./prom";
 import "./grafana";
 import "./zabbix";
+import "./python";
 
 export { CMDS } from "./registry";

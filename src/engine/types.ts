@@ -168,6 +168,16 @@ export interface PromState {
   rulesLoaded: boolean;
 }
 
+/** Состояние симулятора Python (акт «Python для DevOps»). */
+export interface PyState {
+  /** активировано виртуальное окружение: python -m venv .venv && source .venv/bin/activate */
+  venv: boolean;
+  /** пакеты, установленные через pip (requests, pyyaml, ...) */
+  pkgs: string[];
+  /** сколько раз пользователь успешно запустил python-скрипт */
+  ran: number;
+}
+
 export interface LogEntry {
   cmd: string;
   code: number;
@@ -195,6 +205,8 @@ export interface World {
   grafana?: GrafanaState;
   /** состояние симулятора Zabbix (акт «Zabbix») */
   zabbix?: ZabbixState;
+  /** состояние симулятора Python (акт «Python для DevOps») */
+  py?: PyState;
   alerts: Alert[];
   code: number;
   log: LogEntry[];

@@ -13,6 +13,7 @@ import { act10 } from "../src/lessons/act10";
 import { act11 } from "../src/lessons/act11";
 import { act12 } from "../src/lessons/act12";
 import { act13 } from "../src/lessons/act13";
+import { act14 } from "../src/lessons/act14";
 import { RANKS, rankOf } from "../src/engine/progress";
 import { LessonRun } from "../src/engine/lesson-run";
 
@@ -41,6 +42,7 @@ describe("переписанные вручную акты действител�
     ...act11,
     ...act12,
     ...act13,
+    ...act14,
   ]) {
     it(`${lesson.id}: есть демонстрация и повтор`, () => {
       const kinds = lesson.steps.map((s) => s.kind);
