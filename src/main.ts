@@ -1,5 +1,5 @@
 import "./style.css";
-import { LESSONS, lessonById } from "./lessons";
+import { ACTS, LESSONS, lessonById } from "./lessons";
 import { LessonRun } from "./engine/lesson-run";
 import type { StepResult } from "./engine/lesson-run";
 import { clearProgress, loadProgress, nextRank, rankOf, RANKS, saveProgress } from "./engine/progress";
@@ -287,6 +287,23 @@ function showHow(): void {
 
 $("#howBtn").onclick = showHow;
 $("#glosBtn").onclick = () => void import("./ui/glossary").then((m) => m.openGlossary());
+$("#certBtn").onclick = () => {
+  if (!allLessonsDone(P)) {
+    toast("Сертификат откроется, когда пройдены все уроки и экзамены");
+    return;
+  }
+  void import("./ui/certificate").then(({ downloadCertificate }) => {
+    downloadCertificate({
+      xp: P.xp,
+      rank: rankOf(P.xp),
+      lessonsDone: Object.keys(P.done).length,
+      lessonsTotal: LESSONS.length,
+      capstone: !!P.capstone,
+      path: ACTS.map((a) => a.name),
+      date: new Date().toLocaleDateString("ru-RU", { year: "numeric", month: "long", day: "numeric" }),
+    });
+  });
+};
 $("#resetBtn").onclick = () => {
   if (!confirm("Сбросить весь прогресс и начать с первого урока?")) return;
   clearProgress();
