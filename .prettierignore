@@ -1,7 +1,0 @@
-dist
-dist-single
-dev-dist
-play
-node_modules
-*.md
-sandbox-server

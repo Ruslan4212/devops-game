@@ -1,16 +1,35 @@
-name: CI (vite-rewrite)
+name: CI
 
 on:
-  push:
-    branches: [vite-rewrite, main]
   pull_request:
-
-permissions:
-  contents: read
+    branches: [main]
+  push:
+    branches: [main]
 
 jobs:
-  quality:
-    name: Линт, типы, тесты, сборка
+  build:
+    name: Сборка index.html
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash build.sh
+        run: bash build.sh
+      - name: Проверить, что index.html действительно собрался
+        run: test -s index.html
+      - name: Загрузить собранный index.html для следующих джобов
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-site
+          path: |
+            index.html
+            manifest.json
+            icon.svg
+            sw.js
+          retention-days: 3
+
+  unit:
+    name: Юнит-тесты игровой логики
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,11 +38,31 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm run format:check
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - run: npm run build:single
-      - name: npm audit (не блокирует)
-        run: npm audit --omit=dev || true
+      - uses: actions/download-artifact@v4
+        with:
+          name: built-site
+      - run: npm run test:unit
+
+  e2e:
+    name: E2E (Playwright, реальный браузер)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: built-site
+      - name: Установить браузер Chromium для Playwright
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

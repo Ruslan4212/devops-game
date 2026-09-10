@@ -1,0 +1,295 @@
+/* =====================================================================
+   ЭКРАНЫ: ПЕРСОНАЖ, КАРЬЕРА, СЮЖЕТ + события новых слоёв
+   ===================================================================== */
+BADGES.push(
+ {id:"drill40",ic:"⌨",n:"Беглость",d:"40 команд в мышечной памяти"},
+ {id:"drillall",ic:"⌘",n:"Клавиатурный самурай",d:"Все команды закреплены"},
+ {id:"combo15",ic:"⚡",n:"Комбо ×15",d:"15 верных команд подряд"},
+ {id:"dailyall",ic:"✧",n:"День закрыт",d:"Все задания дня выполнены"},
+ {id:"firstoffer",ic:"✉",n:"Первый оффер",d:"Пройдено собеседование"},
+ {id:"iv5",ic:"⚑",n:"Опытный кандидат",d:"5 собеседований пройдено"},
+ {id:"middle",ic:"♛",n:"Middle DevOps",d:"Оффер на middle принят"});
+
+function bar(pct,col){return `<div class="xpbar" style="width:100%"><i style="width:${Math.min(100,pct)}%;background:${col||"linear-gradient(90deg,var(--amber),var(--amber-2))"}"></i></div>`}
+
+/* ================= СЕРТИФИКАТ MIDDLE DEVOPS ================= */
+async function buildCertificateCanvas(stats){
+  try{await document.fonts.load('800 64px Archivo');await document.fonts.load('600 20px Manrope');
+    await document.fonts.load('500 22px "JetBrains Mono"');}catch(e){}
+  const W=1200,H=800,cv=document.createElement("canvas");cv.width=W;cv.height=H;
+  const x=cv.getContext("2d");
+  const bg=x.createLinearGradient(0,0,W,H);bg.addColorStop(0,"#0c0f14");bg.addColorStop(1,"#12161f");
+  x.fillStyle=bg;x.fillRect(0,0,W,H);
+  const glow=x.createRadialGradient(W*0.85,H*0.05,0,W*0.85,H*0.05,650);
+  glow.addColorStop(0,"rgba(139,124,245,.16)");glow.addColorStop(1,"rgba(139,124,245,0)");
+  x.fillStyle=glow;x.fillRect(0,0,W,H);
+  const glow2=x.createRadialGradient(W*0.05,H*0.95,0,W*0.05,H*0.95,600);
+  glow2.addColorStop(0,"rgba(240,135,63,.14)");glow2.addColorStop(1,"rgba(240,135,63,0)");
+  x.fillStyle=glow2;x.fillRect(0,0,W,H);
+  x.strokeStyle="rgba(240,135,63,.55)";x.lineWidth=2;x.strokeRect(28,28,W-56,H-56);
+  x.strokeStyle="rgba(255,255,255,.08)";x.lineWidth=1;x.strokeRect(40,40,W-80,H-80);
+  x.fillStyle="#f0873f";x.beginPath();x.arc(90,90,6,0,7);x.fill();
+  x.fillStyle="#93a0b5";x.font="600 15px 'JetBrains Mono'";x.textBaseline="alphabetic";
+  x.fillText("PIPELINE · OPS ACADEMY",112,96);
+  x.fillStyle="#5c6a80";x.textAlign="right";x.fillText("СЕРТИФИКАТ О ПРОХОЖДЕНИИ КУРСА",W-90,96);x.textAlign="left";
+  x.fillStyle="#ffb067";x.font="900 72px Archivo, sans-serif";x.fillText("MIDDLE DEVOPS",90,230);
+  x.fillStyle="#e8ecf4";x.font="500 22px Manrope, sans-serif";
+  x.fillText("Курс «Pipeline: путь до Middle DevOps» пройден полностью:",90,278);
+  x.fillText("14 миров, "+stats.missions+" миссий, "+stats.labs+" лабораторий, "+stats.bosses+" боевых собеседований.",90,308);
+  x.strokeStyle="rgba(255,255,255,.12)";x.beginPath();x.moveTo(90,344);x.lineTo(W-90,344);x.stroke();
+  x.fillStyle="#5c6a80";x.font="600 14px 'JetBrains Mono'";x.fillText("ВЫДАН",90,384);
+  x.fillStyle="#ffffff";x.font="800 46px Archivo, sans-serif";x.fillText(stats.username,90,432);
+  const cols=[["XP",stats.xp],["МИССИЙ",stats.missions+"/96"],["ЛАБОРАТОРИЙ",stats.labs+"/13"],["БОССОВ",stats.bosses+"/14"],["БЕЙДЖЕЙ",stats.badges+"/25"]];
+  const cw=(W-180)/cols.length;
+  cols.forEach((c,i)=>{
+    const cx=90+cw*i;
+    x.fillStyle="#5c6a80";x.font="600 12px 'JetBrains Mono'";x.fillText(c[0],cx,486);
+    x.fillStyle="#3fbf8f";x.font="700 32px 'JetBrains Mono'";x.fillText(String(c[1]),cx,522);
+  });
+  x.strokeStyle="rgba(255,255,255,.12)";x.beginPath();x.moveTo(90,566);x.lineTo(W-90,566);x.stroke();
+  x.fillStyle="#93a0b5";x.font="500 16px Manrope, sans-serif";
+  x.fillText("Путь: Терминал и Linux → Сети → Git → Docker → CI/CD → IaC → Kubernetes →",90,606);
+  x.fillText("Мониторинг → Облако и безопасность → Zabbix → Prometheus → Grafana → Terraform → Python",90,630);
+  x.fillStyle="#5c6a80";x.font="500 15px 'JetBrains Mono'";
+  x.fillText(stats.date,90,H-90);
+  x.textAlign="right";x.fillStyle="#5c6a80";x.fillText("ruslan4212.github.io/devops-game",W-90,H-90);x.textAlign="left";
+  return cv;
+}
+async function downloadCertificate(){
+  const r=rank();
+  if(r.g!=="middle"){toast("Сертификат откроется по достижении ранга Middle DevOps");return}
+  toast("Готовлю сертификат…");
+  const cv=await buildCertificateCanvas({
+    username:(typeof ACCOUNT!=="undefined"&&ACCOUNT&&ACCOUNT.username)?ACCOUNT.username:"Player",
+    xp:S.xp,missions:Object.keys(S.mis).length,labs:Object.keys(S.labs).length,
+    bosses:Object.keys(S.boss).length,badges:S.badges.length,
+    date:new Date().toLocaleDateString("ru-RU",{year:"numeric",month:"long",day:"numeric"})
+  });
+  cv.toBlob(b=>{
+    const url=URL.createObjectURL(b);
+    const a=document.createElement("a");a.href=url;a.download="pipeline-middle-devops-certificate.png";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast("Сертификат скачан ✓");
+  },"image/png");
+}
+async function downloadCertificateFor(stats){
+  toast("Готовлю сертификат…");
+  const cv=await buildCertificateCanvas(stats);
+  cv.toBlob(b=>{
+    const url=URL.createObjectURL(b);
+    const a=document.createElement("a");a.href=url;a.download="pipeline-middle-devops-certificate.png";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast("Сертификат скачан ✓");
+  },"image/png");
+}
+
+function cloudSection(){
+  const c=cloudCfg();
+  const inputCss="flex:1;min-width:220px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font-family:var(--mono);font-size:13px";
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">☁ облачное сохранение</div>
+    <p class="muted" style="font-size:13.5px;margin:8px 0 12px;max-width:64ch">Прогресс живёт только в этом браузере — при очистке кэша или смене устройства он пропадёт. Привяжи бесплатный <a href="https://github.com/settings/tokens/new?description=Pipeline%20save&scopes=gist" target="_blank" rel="noopener" style="color:var(--amber-2)">токен GitHub с правом <code>gist</code></a> (только gist, больше ничего не давай — токен хранится в этом браузере и уходит только на api.github.com) и сохраняйся в приватный gist одной кнопкой.</p>
+    <div class="row" style="margin-bottom:8px">
+      <input id="cloudtok" type="password" autocomplete="off" spellcheck="false" placeholder="ghp_… — токен GitHub с правом gist" value="${esc(c.token||"")}" style="${inputCss}">
+    </div>
+    <div class="row" style="margin-bottom:10px">
+      <input id="cloudgid" autocomplete="off" spellcheck="false" placeholder="id gist для восстановления на новом устройстве (необязательно, если уже сохранялся отсюда)" value="${esc(c.gistId||"")}" style="${inputCss}">
+    </div>
+    <div class="row">
+      <button class="btn ghost" data-act="cloudsave">Сохранить в облако</button>
+      <button class="btn ghost" data-act="cloudload">Загрузить из облака</button>
+      ${c.gistId?`<a href="https://gist.github.com/${c.gistId}" target="_blank" rel="noopener" class="lbl" style="margin-left:auto;align-self:center">открыть gist ↗</a>`:""}
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:10px">${c.lastSync?`Последняя синхронизация: ${new Date(c.lastSync).toLocaleString("ru")}`:"Ещё не синхронизировалось."}</p>
+  </section>`;
+}
+
+function reengageSection(){
+  const notifState=(typeof Notification!=="undefined")?Notification.permission:"unsupported";
+  const canInstall=!!window.deferredInstallPrompt;
+  const installed=window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches;
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">🔔 не потерять стрик</div>
+    <p class="muted" style="font-size:13.5px;margin:8px 0 14px;max-width:64ch">Напоминание вечером, если сегодня ещё не заходил, и установка игры на телефон/компьютер как отдельного приложения — без магазинов приложений.</p>
+    <div class="row">
+      ${notifState==="granted"?`<span class="pill" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:rgba(63,191,143,.12);color:var(--ok);font-size:13px">✓ напоминания включены</span>`
+        :notifState==="denied"?`<span class="muted" style="font-size:12.5px">Уведомления заблокированы в браузере — включи их в настройках сайта, если захочешь.</span>`
+        :notifState==="unsupported"?"":`<button class="btn ghost" data-act="notifon">Включить напоминание о стрике</button>`}
+      ${installed?`<span class="pill" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:rgba(63,191,143,.12);color:var(--ok);font-size:13px">✓ установлено как приложение</span>`
+        :canInstall?`<button class="btn ghost" data-act="installapp">📲 Установить как приложение</button>`:""}
+    </div>
+  </section>`;
+}
+
+function viewHero(){
+  const r=rank(),nx=rankNext(),o=overall(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
+  const st=storyAvailable();
+  return `<section class="card pad" style="margin-bottom:16px">
+    <div class="row" style="align-items:flex-start;gap:22px">
+      <div style="flex:1;min-width:240px">
+        <div class="lbl">персонаж · уровень ${LVL(S.xp)}</div>
+        <h1 style="font-size:30px;margin:4px 0 4px">${r.n}</h1>
+        <p class="muted" style="margin:0 0 12px;max-width:56ch">${r.d}</p>
+        ${j?`<p style="margin:0 0 12px">Работает: <b>${j.n}</b> · ${gradeName(j.g)} · ${j.pay}</p>`
+           :`<p class="muted" style="margin:0 0 12px">Работы пока нет. Загляни в «Карьеру» — там есть вакансии по твоему уровню.</p>`}
+        <div style="max-width:340px">${bar(nx?((o-r.min)/(nx.min-r.min)*100):100)}
+        <div class="lbl" style="margin-top:6px">общий уровень ${o} ${nx?`· до «${nx.n}» ещё ${nx.min-o}`:"· максимум достигнут"}</div></div>
+        ${r.g==="middle"?`<button class="btn" data-act="cert" style="margin-top:14px">🏆 Скачать сертификат Middle DevOps</button>`:""}
+      </div>
+      <div style="min-width:190px">
+        <div class="lbl">кратко</div>
+        <div class="tw"><table>
+          <tr><td>Миссии</td><td class="mono">${Object.keys(S.mis).length}/${totals().m}</td></tr>
+          <tr><td>Лаборатории</td><td class="mono">${Object.keys(S.labs).length}/${totals().l}</td></tr>
+          <tr><td>Боссы</td><td class="mono">${Object.keys(S.boss).length}/${WORLDS.length}</td></tr>
+          <tr><td>Команд в руках</td><td class="mono">${drLearned()}/${DR.length}</td></tr>
+          <tr><td>Собеседований</td><td class="mono">${(S.interviews||[]).length}</td></tr>
+          <tr><td>Стрик</td><td class="mono">${S.streak} дн.</td></tr>
+        </table></div>
+      </div>
+    </div></section>
+
+  ${st.length?`<section class="card pad" style="margin-bottom:16px;border-color:rgba(124,107,242,.45);background:linear-gradient(90deg,rgba(124,107,242,.10),transparent)">
+     <div class="lbl" style="color:#a99bff">новая сцена · ${st[0].act}</div>
+     <h2 style="font-size:21px;margin:6px 0 8px">${st[0].t}</h2>
+     ${st[0].b}
+     <div class="row" style="margin-top:12px">${st[0].ch.map((c,i)=>`<button class="btn ${i?"ghost":""}" data-story="${st[0].id}:${i}">${c.t}</button>`).join("")}</div>
+   </section>`:""}
+
+  <section class="card pad" style="margin-bottom:16px">
+    <div class="lbl" style="margin-bottom:12px">навыки</div>
+    <div class="grid2" style="gap:14px 26px">
+    ${SKILLS.map(s=>{const v=skillOf(s.id);
+      const col=v>=70?"var(--ok)":v>=40?"var(--amber)":"var(--faint)";
+      return `<div><div class="row" style="justify-content:space-between;margin-bottom:4px">
+        <span>${s.ic} ${s.n}</span><span class="mono" style="color:${col}">${v}</span></div>
+        ${bar(v,v>=70?"var(--ok)":undefined)}</div>`}).join("")}
+      <div><div class="row" style="justify-content:space-between;margin-bottom:4px">
+        <span>☺ Софт-скиллы</span><span class="mono">${softSkill()}</span></div>${bar(softSkill(),"var(--violet)")}</div>
+    </div>
+    <p class="muted" style="font-size:12.5px;margin:14px 0 0">Навык растёт от миссий, лабораторий, босса мира и мастерства в тренажёре. Софт-скиллы — от пройденных собеседований, повторов и сюжетных решений.</p>
+  </section>
+
+  <section class="card pad" style="margin-bottom:16px">
+    <div class="lbl" style="margin-bottom:10px">пройденный сюжет</div>
+    ${(S.storySeen||[]).length?STORY.filter(s=>(S.storySeen||[]).includes(s.id)).map(s=>
+      `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><span class="lbl">${s.act}</span>
+       <div style="font-weight:700">${s.t}</div>
+       <div class="muted" style="font-size:13px">${(S.storyPick&&S.storyPick[s.id])||""}</div></div>`).join("")
+      :`<p class="muted" style="margin:0">Пока пусто. Сцены открываются по мере роста персонажа.</p>`}
+  </section>
+  <section class="card pad" style="margin-bottom:16px">
+    <div class="lbl">управление прогрессом</div>
+    <p class="muted" style="font-size:13.5px;margin:8px 0 12px;max-width:64ch">Прогресс хранится в этом браузере. Сбросить можно в любой момент — навыки, миссии, лаборатории, тренажёр и карьера обнулятся и игра начнётся с нуля. Перед сбросом имеет смысл скопировать сохранение: его можно вставить обратно и вернуться к текущему состоянию.</p>
+    <div class="row"><button class="btn ghost" data-act="export">Скопировать сохранение</button>
+      <button class="btn ghost" data-act="import">Вставить сохранение</button>
+      <button class="btn ghost" data-act="reset" style="color:var(--bad);border-color:rgba(226,86,90,.45)">Сбросить весь прогресс</button></div>
+  </section>
+  ${cloudSection()}
+  ${reengageSection()}
+  <div class="lbl" style="margin-bottom:10px">бейджи · ${S.badges.length}/${BADGES.length}</div>
+  <div class="badges">${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"":"off"}"><div class="ic">${b.ic}</div><b>${b.n}</b><small>${b.d}</small></div>`).join("")}</div>`;
+}
+
+function viewCareer(){
+  const r=rank(),o=overall(),j=S.job?JOBS.find(x=>x.id===S.job.id):null;
+  const qs=todayQuests();
+  const myIdx=j?gradeIdx(j.g):-1;
+  const cards=JOBS.map(job=>{
+    const reqs=Object.entries(job.req).map(([k,v])=>({k,v,cur:skillOf(k)}));
+    const ready=reqs.every(x=>x.cur>=x.v);
+    const close=reqs.every(x=>x.cur>=x.v-12);
+    const tooLow=gradeIdx(job.g)>myIdx+2&&!close;
+    const attempts=(S.interviews||[]).filter(x=>x.id===job.id);
+    const got=attempts.some(x=>x.passed);
+    const cur=j&&j.id===job.id;
+    return `<div class="card pad" style="border-color:${cur?"rgba(63,191,143,.5)":ready?"rgba(240,135,63,.5)":"var(--line)"};opacity:${tooLow?.5:1}">
+      <div class="row" style="align-items:flex-start">
+        <div style="flex:1;min-width:220px">
+          <div class="row" style="gap:8px"><span class="chip ${ready?"lab":""}">${gradeName(job.g)}</span>
+            <span class="chip">${job.pay}</span>${cur?`<span class="chip done">твоё место работы</span>`:got?`<span class="chip done">был оффер</span>`:""}</div>
+          <h3 style="font-size:19px;margin:8px 0 2px">${job.n}</h3>
+          <div class="lbl">${job.tag}</div>
+          <p class="muted" style="margin:8px 0 0;font-size:13.5px">${job.desc}</p>
+        </div>
+        <div style="min-width:210px">
+          <div class="lbl" style="margin-bottom:6px">требования</div>
+          ${reqs.map(x=>{const s=skillMeta(x.k);
+            return `<div class="row" style="justify-content:space-between;font-size:12.5px;margin-bottom:3px">
+              <span>${s.n}</span><span class="mono" style="color:${x.cur>=x.v?"var(--ok)":x.cur>=x.v-12?"var(--warn)":"var(--bad)"}">${x.cur}/${x.v}</span></div>`}).join("")}
+          ${job.lab?`<div class="lbl" style="margin-top:8px">тестовое: ${S.labs[job.lab]?`<span style="color:var(--ok)">${LABS[job.lab].t} ✓</span>`:LABS[job.lab].t}</div>`:""}
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ${ready?"":"ghost"} sm" data-career="apply:${job.id}" ${tooLow?"disabled":""}>
+          ${cur?"Пройти ещё раз":ready?"Откликнуться":close?"Рискнуть и откликнуться":"Пока рано"}</button>
+        ${attempts.length?`<span class="muted" style="font-size:12px">попыток: ${attempts.length}${got?" · оффер получен":""}</span>`:""}
+      </div></div>`}).join("");
+  return `<section class="hero" style="margin-bottom:18px">
+    <div class="card pad">
+      <div class="lbl">карьера</div>
+      <h1 style="font-size:26px;margin:4px 0 6px">${j?`${j.n} · ${gradeName(j.g)}`:"Пока без работы"}</h1>
+      <p class="muted" style="margin:0 0 12px;max-width:60ch">${j?`Ты здесь с ${S.job.since}. ${j.desc}`:"Вакансии открываются по мере роста навыков. Можно откликаться раньше — отказ даёт точный список того, что подтянуть."}</p>
+      <div style="max-width:320px">${bar(o)}<div class="lbl" style="margin-top:6px">${r.n} · общий уровень ${o}</div></div>
+    </div>
+    <div class="card pad">
+      <div class="lbl">задания дня</div>
+      <div style="margin-top:10px">${qs.map(q=>{
+        const rec=S.quests.list.find(x=>x.id===q.id);
+        return `<div class="row" style="justify-content:space-between;font-size:13.5px;margin-bottom:8px">
+          <span style="color:${rec.done?"var(--ok)":"var(--txt)"}">${rec.done?"✓":"○"} ${q.t}</span>
+          <span class="mono muted">${Math.min(rec.p,q.n)}/${q.n} · +${q.xp}</span></div>`}).join("")}</div>
+      <div class="lbl" style="margin-top:4px">${S.quests.bonus?"бонус за все три получен":"все три = ещё +50 XP"}</div>
+    </div></section>
+    <div class="lbl" style="margin-bottom:12px">вакансии</div>
+    <div style="display:flex;flex-direction:column;gap:12px">${cards}</div>`;
+}
+
+/* ---------- события новых слоёв ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-drill],[data-career],[data-story]");
+  if(!t)return;
+  const d=t.dataset.drill,c=t.dataset.career,s=t.dataset.story;
+  if(d){
+    if(d==="check"){const i=document.getElementById("drin");drCheck(i?i.value:"");return}
+    if(d==="next"){drNext();return}
+    if(d==="stop"){finishDrill();return}
+    if(d==="again"){startDrill(DRL.mode,DRL.w);return}
+    if(d.startsWith("world:")){startDrill("world",d.split(":")[1]);return}
+    startDrill(d);return;
+  }
+  if(s){
+    const [id,i]=s.split(":");const sc=STORY.find(x=>x.id===id);
+    S.storySeen=(S.storySeen||[]).concat([id]);
+    S.storyPick=S.storyPick||{};S.storyPick[id]=sc.ch[+i].e;
+    addXP(40);checkDay();save();
+    toast(sc.ch[+i].e);
+    render();return;
+  }
+  if(c){
+    if(c.startsWith("apply:")){startInterview(c.split(":")[1]);return}
+    if(c.startsWith("retry:")){startInterview(c.split(":")[1]);return}
+    if(c==="ivgo"){IV.phase="q";IV.i=0;IV.ans=null;IV.checked=false;drawIV();return}
+    if(c.startsWith("ivopt:")){if(IV.checked)return;IV.ans=+c.split(":")[1];drawIV();return}
+    if(c==="ivcheck"){IV.checked=true;if(IV.ans===IV.items[IV.i].c)IV.ok++;
+      srsUpdate(IV.items[IV.i].q,IV.ans===IV.items[IV.i].c,IV.items[IV.i]);save();drawIV();return}
+    if(c==="ivnext"){if(IV.i<IV.items.length-1){IV.i++;IV.ans=null;IV.checked=false;drawIV()}else ivFinish();return}
+    if(c==="ivlab"){const id=IV.j.lab;IV.pendingLab=id;startLab(id);return}
+    if(c.startsWith("accept:")){acceptOffer(c.split(":")[1]);return}
+    if(c.startsWith("goworld:")){S.openWorld=c.split(":")[1];go("map");return}
+  }
+});
+document.addEventListener("keydown",e=>{
+  const el=document.getElementById("drin");
+  if(DRL&&!DRL.done&&el&&document.activeElement===el&&e.key==="Enter"){
+    e.preventDefault();DRL.checked?drNext():drCheck(el.value);return;
+  }
+  if(IV&&IV.phase==="q"){
+    if(/^[1-9]$/.test(e.key)&&!IV.checked){const i=+e.key-1;if(i<IV.items[IV.i].a.length){IV.ans=i;drawIV()}}
+    else if(e.key==="Enter"){e.preventDefault();
+      if(IV.checked){if(IV.i<IV.items.length-1){IV.i++;IV.ans=null;IV.checked=false;drawIV()}else ivFinish()}
+      else if(IV.ans!==null){IV.checked=true;if(IV.ans===IV.items[IV.i].c)IV.ok++;save();drawIV()}}
+  }
+});

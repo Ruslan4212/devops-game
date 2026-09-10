@@ -1,0 +1,386 @@
+<script>
+/* =====================================================================
+   АККАУНТЫ, СИНХРОНИЗАЦИЯ, ЛИДЕРБОРД, ПУБЛИЧНЫЙ ПРОФИЛЬ (Supabase)
+   Отдельный скрипт-блок, подключается ПОСЛЕ основного движка (p9.txt).
+   Ничего не переписывает в игровой логике — только читает/пишет S
+   и добавляет свой слой поверх. Библиотека supabase-js подключена
+   тегом <script> в p1.txt перед основным скриптом.
+
+   НАСТРОЙКА (один раз):
+   1. Создать бесплатный проект на supabase.com
+   2. Выполнить supabase_schema.sql в SQL Editor проекта
+   3. Project Settings → API → скопировать Project URL и anon public key
+      и вставить их в константы ниже
+   4. (опционально) Authentication → Providers → Email → выключить
+      "Confirm email", чтобы вход был мгновенным без письма
+   ===================================================================== */
+const SUPABASE_URL="https://eotzgzaeuzvreidwkltf.supabase.co";
+const SUPABASE_ANON_KEY="sb_publishable_mRzT0lXHpvXgfQiO8o--Jw_9ii-wJ39";
+const CLOUD_ENABLED=SUPABASE_URL.startsWith("http")&&typeof supabase!=="undefined";
+const sb=CLOUD_ENABLED?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+
+let ACCOUNT=null; // {id, email, username} после входа
+let AUTHOPEN=false, authMode="in", authBusy=false, authErr="";
+
+function esc37(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+
+/* ---------- модалка входа/регистрации ---------- */
+function viewAuth(){
+  const inputCss="width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:10px 12px;font-family:var(--mono);font-size:13.5px;margin-bottom:10px";
+  if(!CLOUD_ENABLED){
+    return `<div class="modal-back" data-authnav="close"><div class="modal" style="max-width:440px">
+      <div class="row" style="margin-bottom:10px"><h2 style="font-size:18px">Облако пока не настроено</h2>
+        <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
+      <p class="muted" style="font-size:13.5px">Разработчик игры ещё не подключил Supabase (нужно вписать URL и ключ проекта в p37.txt). Прогресс продолжает сохраняться локально и через облачный Gist на вкладке «Персонаж».</p>
+    </div></div>`;
+  }
+  if(ACCOUNT){
+    return `<div class="modal-back" data-authnav="close"><div class="modal" style="max-width:420px">
+      <div class="row" style="margin-bottom:14px"><h2 style="font-size:18px">👤 Аккаунт</h2>
+        <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
+      <p style="margin:0 0 4px"><b>${esc37(ACCOUNT.username||ACCOUNT.email)}</b></p>
+      <p class="muted" style="font-size:12.5px;margin:0 0 16px">${esc37(ACCOUNT.email)}</p>
+      <div class="row"><button class="btn" data-authnav="push">Сохранить в аккаунт</button>
+        <button class="btn ghost" data-authnav="pull">Загрузить из аккаунта</button></div>
+      <button class="btn ghost" data-authnav="signout" style="margin-top:10px;color:var(--bad);border-color:rgba(226,86,90,.4)">Выйти из аккаунта</button>
+      <p class="muted" style="font-size:11.5px;margin-top:14px">Публичный профиль: <a href="?u=${encodeURIComponent(ACCOUNT.username||"")}" target="_blank" style="color:var(--amber-2)">эта же ссылка, добавь домен сайта</a></p>
+    </div></div>`;
+  }
+  return `<div class="modal-back" data-authnav="close"><div class="modal" style="max-width:420px">
+    <div class="row" style="margin-bottom:14px"><h2 style="font-size:18px">👤 ${authMode==="in"?"Вход":"Регистрация"}</h2>
+      <button class="btn ghost sm" data-authnav="close" style="margin-left:auto">Закрыть ✕</button></div>
+    <input id="authEmail" class="gloinput" style="${inputCss}" placeholder="email" autocomplete="email">
+    <input id="authPass" type="password" class="gloinput" style="${inputCss}" placeholder="пароль (от 6 символов)" autocomplete="${authMode==="in"?"current-password":"new-password"}">
+    ${authErr?`<p style="color:var(--bad);font-size:12.5px;margin:-2px 0 10px">${esc37(authErr)}</p>`:""}
+    <button class="btn" data-authnav="submit" style="width:100%;justify-content:center" ${authBusy?"disabled":""}>${authBusy?"Подождите…":authMode==="in"?"Войти":"Создать аккаунт"}</button>
+    <p class="muted" style="font-size:12.5px;margin-top:14px;text-align:center">
+      ${authMode==="in"?`Ещё нет аккаунта? <a href="#" data-authnav="switch" style="color:var(--amber-2)">Зарегистрироваться</a>`
+                       :`Уже есть аккаунт? <a href="#" data-authnav="switch" style="color:var(--amber-2)">Войти</a>`}</p>
+    <p class="muted" style="font-size:11.5px;margin-top:10px">Аккаунт даёт: синхронизацию между устройствами, место в общем рейтинге и публичный профиль-визитку для резюме.</p>
+  </div></div>`;
+}
+function toggleAuth(open){
+  AUTHOPEN=open===undefined?!AUTHOPEN:open; authErr="";
+  let host=document.getElementById("authhost");
+  if(!host){host=document.createElement("div");host.id="authhost";document.body.appendChild(host);}
+  host.innerHTML=AUTHOPEN?viewAuth():"";
+  if(AUTHOPEN){const el=document.getElementById("authEmail");if(el)el.focus();}
+}
+function redrawAuth(){const host=document.getElementById("authhost");if(host&&AUTHOPEN)host.innerHTML=viewAuth();}
+
+async function authSubmit(){
+  const email=(document.getElementById("authEmail")||{}).value||"";
+  const pass=(document.getElementById("authPass")||{}).value||"";
+  if(!email||pass.length<6){authErr="Email и пароль от 6 символов";redrawAuth();return}
+  authBusy=true;authErr="";redrawAuth();
+  try{
+    if(authMode==="in"){
+      const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
+      if(error)throw error;
+      await onSignedIn(data.user);
+      toggleAuth(false);toast("Вход выполнен");
+    }else{
+      const{data,error}=await sb.auth.signUp({email,password:pass});
+      if(error)throw error;
+      if(!data.session){authBusy=false;authErr="Проверь почту — письмо с подтверждением отправлено";redrawAuth();return}
+      await onSignedIn(data.user);
+      toggleAuth(false);toast("Аккаунт создан");
+    }
+  }catch(e){authErr=e.message||"Не получилось";}
+  authBusy=false;redrawAuth();
+}
+function hasRealProgress(state){return!!(state&&((state.xp||0)>0||Object.keys(state.mis||{}).length>0));}
+async function onSignedIn(user){
+  ACCOUNT={id:user.id,email:user.email,username:null};
+  const{data}=await sb.from("profiles").select("username,state").eq("id",user.id).maybeSingle();
+  const cloudState=data&&data.state;
+  const cloudHas=hasRealProgress(cloudState);
+  const localHas=hasRealProgress(S);
+  if(data&&data.username)ACCOUNT.username=data.username;
+  else{
+    let uname=(user.email||"player").split("@")[0].replace(/[^a-zA-Z0-9_]/g,"").slice(0,20)||"player";
+    ACCOUNT.username=uname;
+  }
+  if(cloudHas&&!localHas){
+    // новое устройство/чистый браузер — молча подхватываем прогресс из аккаунта
+    S=Object.assign(defState(),cloudState);save();lastPushedJSON=JSON.stringify(S);
+    toast("Прогресс синхронизирован с аккаунтом ✓");render();
+  }else if(cloudHas&&localHas&&JSON.stringify(cloudState)!==JSON.stringify(S)){
+    // и там, и там что-то накопилось — не решаем сами, спрашиваем
+    const useCloud=confirm("В аккаунте уже есть сохранённый прогресс, и в этом браузере тоже что-то пройдено.\n\nOK — продолжить с прогрессом из аккаунта (прогресс этого браузера будет заменён).\nОтмена — оставить прогресс этого браузера (он перезапишет аккаунт).");
+    if(useCloud){S=Object.assign(defState(),cloudState);save();render();}
+    lastPushedJSON=JSON.stringify(S);
+    await pushProfile(true);
+  }else{
+    await pushProfile(true);
+  }
+}
+async function ensureUsername(){
+  if(ACCOUNT.username)return ACCOUNT.username;
+  const u=prompt("Придумай имя пользователя (латиница/цифры, для рейтинга и публичного профиля):","player");
+  ACCOUNT.username=(u||"player").replace(/[^a-zA-Z0-9_]/g,"").slice(0,20)||"player";
+  return ACCOUNT.username;
+}
+async function pushProfile(silent){
+  if(!CLOUD_ENABLED||!ACCOUNT)return;
+  await ensureUsername();
+  const r=rank(),T=totals();
+  try{
+    let{error:e1}=await sb.from("profiles").upsert({id:ACCOUNT.id,username:ACCOUNT.username,state:S,updated_at:new Date().toISOString()});
+    if(e1&&/duplicate key/i.test(e1.message)){authErr="";ACCOUNT.username=ACCOUNT.username+Math.floor(Math.random()*1000);
+      ({error:e1}=await sb.from("profiles").upsert({id:ACCOUNT.id,username:ACCOUNT.username,state:S,updated_at:new Date().toISOString()}));}
+    if(e1)throw e1;
+    const{error:e2}=await sb.from("public_stats").upsert({id:ACCOUNT.id,username:ACCOUNT.username,xp:S.xp,rank_name:r.n,streak:S.streak,
+      missions_done:Object.keys(S.mis).length,labs_done:Object.keys(S.labs).length,bosses_done:Object.keys(S.boss).length,
+      badges_count:S.badges.length,updated_at:new Date().toISOString()});
+    if(e2)throw e2;
+    lastPushedJSON=JSON.stringify(S);
+    if(!silent)toast("Сохранено в аккаунт ✓");
+  }catch(e){if(!silent)toast("Не вышло сохранить: "+e.message);}
+}
+async function pullProfile(){
+  if(!CLOUD_ENABLED||!ACCOUNT)return;
+  try{
+    const{data,error}=await sb.from("profiles").select("state,username").eq("id",ACCOUNT.id).maybeSingle();
+    if(error)throw error;
+    if(!data||!data.state||!Object.keys(data.state).length){toast("В аккаунте пока нет сохранения");return}
+    if(!confirm("Загрузка из аккаунта заменит текущий прогресс в этом браузере. Продолжить?"))return;
+    S=Object.assign(defState(),data.state);
+    ACCOUNT.username=data.username;
+    save();render();
+    lastPushedJSON=JSON.stringify(S);
+    toast("Прогресс загружен из аккаунта ✓");
+  }catch(e){toast("Не вышло загрузить: "+e.message);}
+}
+
+/* ---------- фоновая синхронизация раз в ~25с, если что-то изменилось ---------- */
+let lastPushedJSON=null;
+if(CLOUD_ENABLED)setInterval(()=>{
+  if(!ACCOUNT)return;
+  const cur=JSON.stringify(S);
+  if(cur!==lastPushedJSON)pushProfile(true);
+},25000);
+
+/* ---------- лидерборд ---------- */
+async function viewLeaderboardAsync(){
+  const host=document.getElementById("view");
+  if(!CLOUD_ENABLED){host.innerHTML=`<section class="card pad"><div class="lbl">рейтинг</div><h1 style="font-size:24px;margin:6px 0">Облако не настроено</h1><p class="muted">Разработчик ещё не подключил Supabase — глобальный рейтинг появится после настройки.</p></section>`;return}
+  host.innerHTML=`<section class="card pad"><div class="lbl">рейтинг</div><h1 style="font-size:24px;margin:6px 0">Загрузка…</h1></section>`;
+  const{data,error}=await sb.from("public_stats").select("*").order("xp",{ascending:false}).limit(50);
+  if(error){host.innerHTML=`<section class="card pad"><p class="muted">Не удалось загрузить рейтинг: ${esc37(error.message)}</p></section>`;return}
+  const rows=(data||[]).map((r,i)=>`<tr ${ACCOUNT&&r.username===ACCOUNT.username?'style="background:rgba(240,135,63,.08)"':""}>
+    <td class="mono">${i+1}</td><td>${esc37(r.username)}</td><td class="mono">${r.xp}</td><td>${esc37(r.rank_name)}</td>
+    <td class="mono">${r.streak}🔥</td><td class="mono">${r.missions_done}</td><td class="mono">${r.badges_count}</td></tr>`).join("");
+  host.innerHTML=`<section class="card pad">
+    <div class="lbl">рейтинг · топ ${(data||[]).length}</div>
+    <h1 style="font-size:24px;margin:6px 0 4px">Кто дальше всех продвинулся</h1>
+    <p class="muted" style="font-size:13px;margin:0 0 16px">${ACCOUNT?"Твоя строка подсвечена.":"Войди в аккаунт, чтобы попасть в этот список."}</p>
+    <div class="tw"><table><tr><th>#</th><th>игрок</th><th>xp</th><th>ранг</th><th>стрик</th><th>миссий</th><th>бейджей</th></tr>${rows||'<tr><td colspan="7" class="muted">Пока никого — стань первым.</td></tr>'}</table></div>
+  </section>`;
+}
+function viewLeaderboard(){setTimeout(viewLeaderboardAsync,0);return `<section class="card pad"><div class="lbl">рейтинг</div><h1 style="font-size:24px;margin:6px 0">Загрузка…</h1></section>`;}
+
+/* ---------- публичный профиль (?u=username) ---------- */
+async function renderPublicProfile(username){
+  document.body.innerHTML=`<div class="wrap" style="max-width:640px;margin:0 auto;padding:60px 18px"><div id="pp" class="card pad" style="text-align:center">Загрузка профиля «${esc37(username)}»…</div></div>`;
+  if(!CLOUD_ENABLED){document.getElementById("pp").innerHTML="Облако не настроено на этом сайте.";return}
+  const{data,error}=await sb.from("public_stats").select("*").eq("username",username).maybeSingle();
+  const el=document.getElementById("pp");
+  if(error||!data){el.innerHTML=`Профиль «${esc37(username)}» не найден.`;return}
+  const isMiddle=data.rank_name==="Middle DevOps";
+  el.innerHTML=`
+    <div class="lbl">публичный профиль pipeline: путь до middle devops</div>
+    <h1 style="font-size:30px;margin:8px 0 2px">${esc37(data.username)}</h1>
+    <p class="muted" style="margin:0 0 20px">${esc37(data.rank_name)} · ${data.xp} XP · стрик ${data.streak} дн.</p>
+    ${isMiddle?`<div style="margin-bottom:18px;padding:10px 14px;border:1px solid rgba(240,135,63,.4);border-radius:8px;background:rgba(240,135,63,.08);display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">🏆</span><span style="flex:1;font-size:13.5px">Курс пройден полностью — доступен сертификат</span>
+      <button class="btn ghost sm" id="ppCertBtn">Скачать</button></div>`:""}
+    <div class="stat-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px">
+      <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.missions_done}</b><span class="lbl">миссий</span></div>
+      <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.labs_done}</b><span class="lbl">лабораторий</span></div>
+      <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.bosses_done}</b><span class="lbl">боссов</span></div>
+    </div>
+    <p class="muted" style="font-size:12.5px">Обновлено ${new Date(data.updated_at).toLocaleDateString("ru")} · <a href="${location.pathname}" style="color:var(--amber-2)">пройти курс самому →</a></p>`;
+  if(isMiddle){
+    const btn=document.getElementById("ppCertBtn");
+    if(btn)btn.addEventListener("click",()=>downloadCertificateFor({
+      username:data.username,xp:data.xp,missions:data.missions_done,labs:data.labs_done,
+      bosses:data.bosses_done,badges:data.badges_count,
+      date:new Date(data.updated_at).toLocaleDateString("ru-RU",{year:"numeric",month:"long",day:"numeric"})
+    }));
+  }
+}
+
+/* ---------- плавающая кнопка аккаунта + обработчики ---------- */
+const acctBtn=document.createElement("button");
+acctBtn.className="glofab";acctBtn.style.right="82px";acctBtn.title="Аккаунт";acctBtn.textContent="👤";
+acctBtn.addEventListener("click",()=>toggleAuth(true));
+document.body.appendChild(acctBtn);
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-authnav]");
+  if(!t)return;
+  e.preventDefault();
+  const n=t.dataset.authnav;
+  if(n==="close"){if(e.target===t)toggleAuth(false);return}
+  else if(n==="submit")authSubmit();
+  else if(n==="switch"){authMode=authMode==="in"?"up":"in";authErr="";redrawAuth();}
+  else if(n==="push")pushProfile(false);
+  else if(n==="pull")pullProfile();
+  else if(n==="signout"){sb.auth.signOut();ACCOUNT=null;toggleAuth(false);toast("Вышли из аккаунта");}
+});
+
+/* ---------- PWA: установка как приложение + офлайн-оболочка ---------- */
+window.deferredInstallPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();window.deferredInstallPrompt=e;
+  if(S.tab==="hero")render();
+});
+window.addEventListener("appinstalled",()=>{window.deferredInstallPrompt=null;if(S.tab==="hero")render();});
+if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")){
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+
+/* ---------- напоминание вечером, если сегодня ещё не заходил ---------- */
+(function streakNotify(){
+  if(typeof Notification==="undefined"||Notification.permission!=="granted")return;
+  const hour=new Date().getHours();
+  if(hour<20)return;
+  if(S.last===today())return;
+  const key="pipeline_notif_"+today();
+  if(localStorage.getItem(key))return;
+  localStorage.setItem(key,"1");
+  try{new Notification("Стрик догорает 🔥",{
+    body:S.streak>0?`Сегодня ещё не заходил — ${S.streak} ${S.streak===1?"день":"дней"} подряд можно потерять`:"Загляни в Pipeline хотя бы на 10 минут",
+    icon:"icon.svg"
+  });}catch(e){}
+})();
+
+/* ---------- настоящий сервер: реальный изолированный Linux по WebSocket ----------
+   SANDBOX_URL пуст, пока sandbox-server/ не задеплоен на своей машине —
+   см. sandbox-server/README.md. Формат: wss://ваш-туннель/sandbox */
+const SANDBOX_URL="wss://72.56.16.8.nip.io/sandbox";
+let RS=null;
+function viewRealSandbox(){
+  if(!SANDBOX_URL)return `<section class="card pad"><div class="lbl">настоящий сервер</div><h1 style="font-size:22px;margin:6px 0">Ещё не подключено</h1><p class="muted" style="max-width:60ch">Разработчик пока не задеплоил sandbox-server. А пока — ссылки на бесплатные внешние песочницы с настоящим Docker/Kubernetes доступны на экране победы над боссом миров Linux, Docker, Kubernetes и Terraform.</p></section>`;
+  if(!CLOUD_ENABLED||!ACCOUNT)return `<section class="card pad"><div class="lbl">настоящий сервер</div><h1 style="font-size:22px;margin:6px 0">Нужен аккаунт</h1><p class="muted">Войди через кнопку 👤 в углу экрана, чтобы получить доступ к реальному изолированному серверу.</p></section>`;
+  setTimeout(connectRealSandbox,0);
+  const bridges=(typeof REAL_LABS!=="undefined")?Object.values(REAL_LABS):[];
+  return `<section class="card pad" style="margin-bottom:10px">
+    <div class="lbl">настоящий сервер · реальный изолированный linux</div>
+    <p class="muted" style="font-size:13px;margin:6px 0 0">Ограничение по времени на сессию, без доступа в интернет из песочницы — но настоящие процессы, файлы и права, не симуляция. Это голый Linux: если нужен именно Docker, Kubernetes или Terraform по-настоящему — здесь их нет, но есть бесплатные проверенные площадки ниже.</p>
+  </section>
+  <div class="lab"><div class="cli"><div class="bar"><i></i><i></i><i></i><span style="margin-left:8px" id="rs-status">подключение…</span></div>
+    <div id="rsterm" style="height:420px;padding:8px 0"></div></div></div>
+  ${bridges.length?`<section class="card pad" style="margin-top:10px;border-color:rgba(139,124,245,.4)">
+    <div class="lbl" style="color:#a99bff">если нужен именно docker/kubernetes/terraform по-настоящему</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+      ${bridges.map(rl=>`<a class="btn ghost sm" href="${rl.u}" target="_blank" rel="noopener" title="${esc37(rl.d)}">${rl.t} ↗</a>`).join("")}
+    </div>
+  </section>`:""}`;
+}
+function rsPrint(text){if(RS&&RS.term){RS.term.write(text);RS.term.scrollToBottom();}}
+async function connectRealSandbox(){
+  if(RS&&RS.ws&&RS.ws.readyState<=1)return;
+  const host=document.getElementById("rsterm");if(!host)return;
+  const term=new Terminal({
+    convertEol:true,cursorBlink:true,fontFamily:"var(--mono)",fontSize:13,scrollback:5000,
+    theme:{background:"#00000000",foreground:"#E6EAF2",cursor:"#F6A821"}
+  });
+  const fitAddon=new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(host);
+  fitAddon.fit();
+  const onWinResize=()=>{fitAddon.fit();if(RS&&RS.ws&&RS.ws.readyState===1)RS.ws.send(JSON.stringify({type:"resize",cols:term.cols,rows:term.rows}));};
+  window.addEventListener("resize",onWinResize);
+  RS={ws:null,term,fitAddon,onWinResize};
+  const{data}=await sb.auth.getSession();
+  const token=data&&data.session&&data.session.access_token;
+  if(!token){toast("Сессия истекла, войди заново");term.write("Сессия истекла — войди заново через 👤 и открой вкладку снова.\r\n");return}
+  let ws;
+  try{ws=new WebSocket(SANDBOX_URL);}catch(e){toast("Не удалось открыть соединение");return}
+  RS.ws=ws;
+  ws.onopen=()=>ws.send(JSON.stringify({token}));
+  ws.onmessage=(ev)=>{
+    let m;try{m=JSON.parse(ev.data);}catch(e){return}
+    if(m.type==="ready"){
+      const st=document.getElementById("rs-status");if(st)st.textContent=`подключено · лимит ${m.minutes} мин`;
+      term.write("Подключено к реальному серверу.\r\n");
+      term.focus();
+      ws.send(JSON.stringify({type:"resize",cols:term.cols,rows:term.rows}));
+    }else if(m.type==="out"){rsPrint(m.data);}
+  };
+  ws.onclose=(ev)=>{
+    window.removeEventListener("resize",onWinResize);
+    const st=document.getElementById("rs-status");if(st)st.textContent="отключено";
+    term.write("\r\n[сессия завершена: "+(ev.reason||"соединение закрыто")+"]\r\n");
+  };
+  ws.onerror=()=>toast("Не удалось подключиться к реальному серверу");
+  term.onData(d=>{if(RS&&RS.ws&&RS.ws.readyState===1)RS.ws.send(JSON.stringify({type:"in",data:d}));});
+  term.onResize(({cols,rows})=>{if(RS&&RS.ws&&RS.ws.readyState===1)RS.ws.send(JSON.stringify({type:"resize",cols,rows}));});
+}
+
+/* ---------- комментарии к миссиям ---------- */
+async function loadCommentsAsync(missionId){
+  const host=document.getElementById("cmts-"+missionId);
+  if(!host)return;
+  if(!CLOUD_ENABLED){host.innerHTML='<p class="muted" style="font-size:12.5px">Облако не настроено.</p>';return}
+  const{data,error}=await sb.from("comments").select("*").eq("mission_id",missionId).order("created_at",{ascending:false}).limit(50);
+  if(error){
+    const missing=/relation .*comments.* does not exist|could not find the table/i.test(error.message);
+    host.innerHTML=`<p class="muted" style="font-size:12.5px">${missing?"Таблица комментариев ещё не создана в базе.":"Не удалось загрузить: "+esc37(error.message)}</p>`;
+    return;
+  }
+  host.innerHTML=(data&&data.length)?data.map(c=>`<div style="padding:9px 0;border-top:1px solid var(--line)">
+    <div class="row" style="margin-bottom:2px"><b style="font-size:13px">${esc37(c.username)}</b>
+    <span class="muted" style="font-size:11px;margin-left:auto">${new Date(c.created_at).toLocaleDateString("ru")}</span></div>
+    <p style="margin:0;font-size:13.5px;white-space:pre-wrap">${esc37(c.body)}</p></div>`).join("")
+    :'<p class="muted" style="font-size:12.5px">Пока никто не написал — начни обсуждение.</p>';
+}
+function viewComments(missionId){
+  setTimeout(()=>loadCommentsAsync(missionId),0);
+  const canPost=CLOUD_ENABLED&&ACCOUNT;
+  return `<section class="card pad" style="margin-top:16px;text-align:left">
+    <div class="lbl">💬 обсуждение миссии</div>
+    ${canPost?`<div class="row" style="margin:10px 0">
+        <input id="cmtinput-${missionId}" placeholder="вопрос или заметка по миссии…" maxlength="1000" style="flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font-size:13.5px">
+        <button class="btn ghost sm" data-cmtpost="${missionId}">Отправить</button></div>`
+      :`<p class="muted" style="font-size:12.5px;margin:10px 0">${CLOUD_ENABLED?"Войди в аккаунт (кнопка 👤 в углу), чтобы написать комментарий.":"Комментарии появятся после настройки облака."}</p>`}
+    <div id="cmts-${missionId}"><p class="muted" style="font-size:12.5px">Загрузка…</p></div>
+  </section>`;
+}
+async function postComment(missionId){
+  const el=document.getElementById("cmtinput-"+missionId);
+  const body=(el?el.value:"").trim();
+  if(!body)return;
+  await ensureUsername();
+  const{error}=await sb.from("comments").insert({mission_id:missionId,user_id:ACCOUNT.id,username:ACCOUNT.username,body});
+  if(error){toast("Не отправилось: "+error.message);return}
+  if(el)el.value="";
+  loadCommentsAsync(missionId);
+}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-cmtpost]");
+  if(t)postComment(t.dataset.cmtpost);
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&e.target&&e.target.id&&e.target.id.startsWith("cmtinput-")){
+    e.preventDefault();postComment(e.target.id.slice("cmtinput-".length));
+  }
+});
+
+/* ---------- инициализация ---------- */
+(function initCloud(){
+  const params=new URLSearchParams(location.search);
+  const pu=params.get("u");
+  if(pu){renderPublicProfile(pu);return}
+  // p37.txt подключается отдельным <script> ПОСЛЕ основного движка (p9.txt), который уже
+  // вызвал render() один раз до того, как этот файл определил viewLeaderboard/ACCOUNT —
+  // если сохранённая вкладка зависит от этого слоя, перерисовать сразу, когда всё готово
+  if(S.tab==="leaderboard")render();
+  if(!CLOUD_ENABLED)return;
+  sb.auth.getSession().then(({data})=>{
+    if(data&&data.session)onSignedIn(data.session.user).then(()=>{if(S.tab==="hero")render();});
+  });
+})();
+</script>

@@ -1,9 +1,15 @@
+plans_raw.txt
+plans_new.txt
+outline.md
+
+# служебное
+.DS_Store
+Thumbs.db
+.claude/
+
+# тестовые инструменты (Node/Playwright) — не нужны в раздаваемом сайте
 node_modules/
-dist/
-dist-single/
-.vite/
-*.local
-.claude/settings.local.json
-.env
-.env.local
-dev-dist/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

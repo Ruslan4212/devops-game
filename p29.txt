@@ -1,0 +1,235 @@
+/* =====================================================================
+   ЖИЗНЬ: персонаж, деньги, потребности, магазин
+   ===================================================================== */
+
+/* ---------- внешность ---------- */
+const SKIN=["#F2C9A0","#E0A97B","#C98A5E","#9C6440","#6E4526"];
+const HAIRC=["#2B2118","#6B4423","#B5793B","#D9B36B","#8E8E8E","#C7452F","#5B4BA8","#2E8B7A"];
+const HAIRS_M=["короткие","ёжик","с пробором","кудри","длинные","лысина"];
+const HAIRS_F=["каре","хвост","длинные","кудри","пучок","короткие"];
+const EYESC=["#3B2F2A","#4A6B8A","#4E7A4E","#6B5B95"];
+const FACE=["спокойное","улыбка","серьёзное"];
+
+function defLife(){return{
+  created:false,sex:"m",name:"",skin:1,hair:0,hairc:0,eyes:0,face:1,glasses:false,beard:false,cap:false,
+  money:8000,day:null,hunger:70,health:100,mood:60,
+  wear:{top:"tshirt",shoes:"sneakers_old"},
+  own:[],home:null,car:null,tech:[],
+  dead:false,deaths:0,trips:[],log:[],totalEarned:0,totalSpent:0,daysLived:0
+}}
+
+/* ---------- SVG-портрет ---------- */
+function hairPath(sex,style){
+  const S=sex==="f"?HAIRS_F:HAIRS_M;const n=S[style]||S[0];
+  const map={
+   "короткие":'<path d="M62 62c0-22 16-34 38-34s38 12 38 34c0 6-2 10-4 12-2-16-14-24-34-24s-32 8-34 24c-2-2-4-6-4-12z"/>',
+   "ёжик":'<path d="M62 64c0-24 18-36 38-36s38 12 38 36c-4-8-10-12-10-12s-4 6-8 4c-4-2-4-8-4-8s-6 8-12 6c-6-2-6-10-6-10s-8 10-14 8c-6-2-6-10-6-10s-8 10-12 12-4 10-4 10z"/>',
+   "с пробором":'<path d="M62 62c0-22 16-34 38-34s38 12 38 34c0 6-2 10-4 12-2-14-10-22-24-24-6 8-16 12-30 12-6 0-12-2-16-4-2 4-2 10-2 14-0 0-0-6 0-10z"/>',
+   "кудри":'<path d="M64 60a13 13 0 0 1 13-14 14 14 0 0 1 23-8 14 14 0 0 1 23 8 13 13 0 0 1 13 14c0 8-4 14-4 14-2-16-14-24-32-24s-30 8-32 24c0 0-4-6-4-14z"/>',
+   "длинные":'<path d="M60 66c0-24 18-38 40-38s40 14 40 38c0 20-2 34-6 46l-10 2c4-16 4-32 2-44-4-14-14-20-26-20s-22 6-26 20c-2 12-2 28 2 44l-10-2c-4-12-6-26-6-46z"/>',
+   "лысина":'<path d="M66 66c2-12 10-18 18-20-8 6-12 12-14 22-2 0-3-1-4-2z"/>',
+   "каре":'<path d="M58 70c0-26 18-42 42-42s42 16 42 42c0 14-2 26-4 34l-12 2c3-10 4-22 3-32-4-16-14-22-29-22s-25 6-29 22c-1 10 0 22 3 32l-12-2c-2-8-4-20-4-34z"/>',
+   "хвост":'<path d="M62 62c0-22 16-34 38-34s38 12 38 34c0 6-2 10-4 12-2-16-14-24-34-24s-32 8-34 24c-2-2-4-6-4-12z"/><path d="M136 58c10 4 16 14 14 26-2 12-8 20-14 24 4-10 6-20 4-30-2-8-4-14-4-20z"/>',
+   "пучок":'<path d="M62 62c0-22 16-34 38-34s38 12 38 34c0 6-2 10-4 12-2-16-14-24-34-24s-32 8-34 24c-2-2-4-6-4-12z"/><circle cx="100" cy="22" r="12"/>'
+  };
+  return map[n]||map["короткие"];
+}
+function outfitColor(top){return({
+  none:"#8892A6",tshirt:"#4A7FB5",hoodie:"#4B5563",shirt:"#E8E4DA",suit:"#2B3446",tech:"#1F6F5C"
+})[top]||"#4A7FB5"}
+function avatarSVG(L,size){
+  const s=size||200,sk=SKIN[L.skin]||SKIN[1],hc=HAIRC[L.hairc]||HAIRC[0],ec=EYESC[L.eyes]||EYESC[0];
+  const oc=outfitColor(L.wear&&L.wear.top);
+  const bg=L.home?(HOMES.find(h=>h.id===L.home)||{}).bg||"#1B2230":"#141922";
+  const mouth=L.face===1?'<path d="M88 108q12 10 24 0" stroke="#8A5A44" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    :L.face===2?'<path d="M88 110h24" stroke="#8A5A44" stroke-width="3" stroke-linecap="round"/>'
+    :'<path d="M90 108q10 6 20 0" stroke="#8A5A44" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  const dead=L.dead?'<g opacity=".55"><path d="M84 84l12 12M96 84l-12 12M104 84l12 12M116 84l-12 12" stroke="#0A0D12" stroke-width="4" stroke-linecap="round"/></g>':
+    `<g><ellipse cx="88" cy="88" rx="5" ry="6" fill="#fff"/><circle cx="89" cy="89" r="3" fill="${ec}"/>
+     <ellipse cx="112" cy="88" rx="5" ry="6" fill="#fff"/><circle cx="113" cy="89" r="3" fill="${ec}"/></g>`;
+  return `<svg viewBox="0 0 200 210" width="${s}" height="${s*1.05}" role="img" aria-label="персонаж">
+   <defs><clipPath id="cl${s}"><rect x="0" y="0" width="200" height="210" rx="14"/></clipPath></defs>
+   <g clip-path="url(#cl${s})">
+   <rect width="200" height="210" fill="${bg}"/>
+   <circle cx="100" cy="235" r="80" fill="${oc}"/>
+   ${L.wear&&L.wear.top==="suit"?'<path d="M78 168l22 22 22-22-8-14h-28z" fill="#E8E4DA"/><path d="M96 170l4 8 4-8-4-6z" fill="#8C2F39"/>':""}
+   ${L.wear&&L.wear.top==="hoodie"?'<path d="M70 172q30 14 60 0v-8q-30 12-60 0z" fill="#000" opacity=".18"/>':""}
+   <rect x="88" y="126" width="24" height="24" rx="10" fill="${sk}"/>
+   <ellipse cx="100" cy="84" rx="40" ry="44" fill="${sk}"/>
+   <ellipse cx="61" cy="86" rx="6" ry="9" fill="${sk}"/><ellipse cx="139" cy="86" rx="6" ry="9" fill="${sk}"/>
+   ${L.beard&&L.sex==="m"?`<path d="M64 92c0 26 16 40 36 40s36-14 36-40c0 0-6 22-36 22S64 92 64 92z" fill="${hc}" opacity=".85"/>`:""}
+   ${dead}
+   ${mouth}
+   <g fill="${hc}">${hairPath(L.sex,L.hair)}</g>
+   ${L.glasses?'<g fill="none" stroke="#2A3342" stroke-width="3"><circle cx="88" cy="88" r="12"/><circle cx="112" cy="88" r="12"/><path d="M100 88h0M76 86l-10-2M124 86l10-2"/></g>':""}
+   ${L.cap?`<g><path d="M58 60c0-24 18-38 42-38s42 14 42 38z" fill="#2E8B7A"/><path d="M142 60c14 0 22 4 26 10-12 4-40 4-68 4z" fill="#25705F"/></g>`:""}
+   </g></svg>`;
+}
+
+/* ---------- товары ---------- */
+const FOOD=[
+ {id:"noodles",n:"Доширак",p:60,h:12,m:-2,d:"Топливо студента. Голод уходит, самоуважение тоже."},
+ {id:"grechka",n:"Гречка с курицей",p:180,h:26,m:0,d:"Скучно, дёшево, работает. Основа рациона инженера."},
+ {id:"shawarma",n:"Шаурма у метро",p:280,h:34,m:4,d:"Быстро и сытно. Иногда — приключение."},
+ {id:"lunch",n:"Бизнес-ланч",p:520,h:45,m:6,d:"Нормальная еда в середине дня. Заметно влияет на настроение."},
+ {id:"delivery",n:"Доставка на вечер",p:900,h:55,m:10,d:"Не выходя из дома. Дорого, но после дежурства — можно."},
+ {id:"resto",n:"Ужин в ресторане",p:3200,h:70,m:22,d:"Событие, а не приём пищи. Сильно поднимает настроение."},
+ {id:"groceries",n:"Продукты на неделю",p:4200,h:100,m:5,d:"Самый выгодный вариант: сытость под завязку за половину цены доставки.",bulk:true}
+];
+const CLOTHES=[
+ {id:"tshirt",n:"Футболка",p:1500,slot:"top",iv:0,m:0,d:"База. На собеседование в стартап — сойдёт."},
+ {id:"hoodie",n:"Худи",p:4500,slot:"top",iv:2,m:3,d:"Универсальная форма инженера. В ней не стыдно на созвоне."},
+ {id:"shirt",n:"Рубашка",p:6500,slot:"top",iv:6,m:4,d:"Плюс к серьёзности на собеседовании в корпорацию."},
+ {id:"suit",n:"Костюм",p:38000,slot:"top",iv:12,m:8,d:"Банк и энтерпрайз оценят. Заметный бонус на интервью."},
+ {id:"sneakers_old",n:"Старые кроссовки",p:0,slot:"shoes",iv:0,m:0,d:"Уже есть. Видали лучшие дни.",owned:true},
+ {id:"sneakers",n:"Нормальные кроссовки",p:9000,slot:"shoes",iv:3,m:5,d:"Ходить приятнее, выглядит опрятно."},
+ {id:"boots",n:"Ботинки",p:14000,slot:"shoes",iv:5,m:4,d:"Под рубашку и костюм."}
+];
+const HOMES=[
+ {id:"hostel",n:"Койка в хостеле",buy:0,rent:9000,mood:-2,bg:"#1A1F2B",d:"Дёшево и шумно. Спать можно, отдыхать — нет."},
+ {id:"room",n:"Комната в квартире",buy:0,rent:16000,mood:1,bg:"#1B2230",d:"Своя дверь. Уже человеческие условия."},
+ {id:"studio",n:"Студия",buy:5200000,rent:32000,mood:4,bg:"#1C2534",d:"Своё пространство. Настроение восстанавливается быстрее."},
+ {id:"flat2",n:"Двушка",buy:9800000,rent:55000,mood:7,bg:"#1E2A3A",d:"Есть где поставить второй монитор и жить."},
+ {id:"house",n:"Дом за городом",buy:21000000,rent:0,mood:12,bg:"#1C2C28",d:"Тишина, воздух, свой кабинет. Цель, к которой идут годами."}
+];
+const CARS=[
+ {id:"bike",n:"Велосипед",p:28000,up:0,mood:4,xp:0,d:"Дешёвый транспорт и немного здоровья. Расходов нет."},
+ {id:"used",n:"Подержанная машина",p:420000,up:9000,mood:6,xp:3,d:"Экономит время в дороге. Обслуживание и бензин — каждый месяц."},
+ {id:"new",n:"Новая машина",p:2400000,up:14000,mood:12,xp:5,d:"Комфорт и статус. И постоянная строка расходов."}
+];
+const TECH=[
+ {id:"kbd",n:"Механическая клавиатура",p:12000,xp:3,m:3,d:"Печатать приятнее. +3% к получаемому опыту."},
+ {id:"monitor",n:"Второй монитор",p:26000,xp:5,m:4,d:"Логи слева, документация справа. +5% к опыту."},
+ {id:"laptop",n:"Мощный ноутбук",p:140000,xp:10,m:6,d:"Кластер в minikube больше не тормозит. +10% к опыту."},
+ {id:"chair",n:"Нормальное кресло",p:45000,xp:4,m:8,d:"Спина скажет спасибо через год. +4% к опыту, +настроение."}
+];
+const TRIPS=[
+ {id:"weekend",n:"Выходные в горах",p:35000,m:30,d:"Два дня без ноутбука. Настроение возвращается."},
+ {id:"sea",n:"Неделя на море",p:140000,m:60,d:"Полноценный отпуск. Перезагрузка после тяжёлого квартала."},
+ {id:"asia",n:"Две недели в Азии",p:290000,m:90,d:"Далеко, долго, дорого — и запоминается на годы."}
+];
+const UTILITY_DAY=170;   // коммуналка и связь в день при своём или съёмном жилье
+const STREET_MOOD=-14;   // штраф к настроению без жилья
+const STREET_HEALTH=-6;
+
+/* ---------- экономика ---------- */
+function LF(){S.life=S.life||defLife();return S.life}
+function dailySalary(){
+  if(!S.job)return 0;
+  const j=JOBS.find(x=>x.id===S.job.id); if(!j)return 0;
+  return Math.round(parseInt(j.pay.replace(/\D/g,""),10)/30);
+}
+function dailyCosts(){
+  const l=LF();let c=0;
+  if(l.home){const h=HOMES.find(x=>x.id===l.home);
+    if(h&&!l.own.includes("home:"+h.id))c+=Math.round(h.rent/30);
+    c+=UTILITY_DAY;}
+  if(l.car){const car=CARS.find(x=>x.id===l.car);if(car)c+=Math.round(car.up/30)}
+  return c;
+}
+function techXPBonus(){const l=LF();return l.tech.reduce((a,id)=>a+((TECH.find(t=>t.id===id)||{}).xp||0),0)
+  +(l.car?((CARS.find(c=>c.id===l.car)||{}).xp||0):0)}
+function moodXPMod(){const m=LF().mood;return m>=80?10:m>=40?0:m>=20?-10:-25}
+function xpMultiplier(){return 1+(techXPBonus()+moodXPMod())/100}
+function interviewBonus(){
+  const l=LF();let b=0;
+  ["top","shoes"].forEach(sl=>{const it=CLOTHES.find(c=>c.id===l.wear[sl]);if(it)b+=it.iv});
+  if(l.mood>=70)b+=3; if(l.mood<25)b-=5;
+  if(l.hunger<20)b-=5;
+  return b;
+}
+function lifeAdd(txt,sum){
+  const l=LF();
+  l.log.unshift({d:today(),t:txt,s:sum||0});
+  if(l.log.length>40)l.log.length=40;
+}
+function earn(sum,why){const l=LF();l.money+=sum;l.totalEarned+=sum;if(why)lifeAdd(why,sum);save()}
+function spend(sum,why){const l=LF();if(l.money<sum)return false;l.money-=sum;l.totalSpent+=sum;lifeAdd(why,-sum);save();return true}
+
+/* ---------- суточный тик ---------- */
+function lifeTick(){
+  const l=LF(); if(!l.created)return null;
+  const t=today();
+  if(!l.day){l.day=t;save();return null}
+  if(l.day===t)return null;
+  let days=Math.round((new Date(t)-new Date(l.day))/864e5);
+  const skipped=days>3?days-3:0;
+  days=Math.min(days,3);            // за долгое отсутствие штрафуем максимум за три дня
+  const r={days,skipped,earned:0,spent:0,events:[]};
+  for(let i=0;i<days;i++){
+    if(l.dead)break;
+    l.daysLived++;
+    const sal=dailySalary();
+    if(sal){l.money+=sal;l.totalEarned+=sal;r.earned+=sal}
+    const cost=dailyCosts();
+    if(cost){
+      if(l.money>=cost){l.money-=cost;l.totalSpent+=cost;r.spent+=cost}
+      else{l.money=0;l.mood-=10;r.events.push("Не хватило денег на счета: настроение упало")}
+    }
+    l.hunger-=30;
+    if(l.hunger<0){l.health+=Math.round(l.hunger/2);l.hunger=0;r.events.push("Голодный день: здоровье падает")}
+    const h=l.home?HOMES.find(x=>x.id===l.home):null;
+    l.mood+=h?(h.mood-3):STREET_MOOD;
+    if(!h){l.health+=STREET_HEALTH;r.events.push("Ночёвка без жилья бьёт по здоровью")}
+    if(l.hunger>60&&l.health<100)l.health+=4;
+    l.mood=Math.max(0,Math.min(100,l.mood));
+    l.hunger=Math.max(0,Math.min(100,l.hunger));
+    l.health=Math.max(0,Math.min(100,l.health));
+    if(l.health<=0){lifeDeath();r.events.push("Организм не выдержал");break}
+  }
+  l.day=t;
+  if(r.earned)lifeAdd("Зарплата за "+days+" дн.",r.earned);
+  if(r.spent)lifeAdd("Жильё, коммуналка, авто",-r.spent);
+  save();
+  return r;
+}
+function lifeDeath(){
+  const l=LF();
+  l.dead=true;l.deaths++;
+  l.money=0;l.car=null;
+  if(l.home&&!l.own.includes("home:"+l.home))l.home=null;   // съёмное теряется, купленное остаётся
+  S.job=null;
+  lifeAdd("Истощение. Работа потеряна, накопления ушли на лечение",0);
+  save();
+}
+function lifeRevive(){
+  const l=LF();
+  l.dead=false;l.health=45;l.hunger=55;l.mood=35;l.money=6000;
+  lifeAdd("Выписан из больницы. Начинаем заново",0);
+  award("secondchance");save();
+}
+function eat(id){
+  const l=LF(),f=FOOD.find(x=>x.id===id); if(!f)return "нет такого";
+  if(l.money<f.p)return "не хватает денег";
+  spend(f.p,"Еда: "+f.n);
+  l.hunger=Math.min(100,l.hunger+f.h);
+  l.mood=Math.max(0,Math.min(100,l.mood+f.m));
+  if(l.hunger>50&&l.health<100)l.health=Math.min(100,l.health+3);
+  save();return null;
+}
+function buyItem(kind,id){
+  const l=LF();
+  if(kind==="clothes"){const it=CLOTHES.find(x=>x.id===id);if(!it)return "нет";
+    if(!l.own.includes("cl:"+id)&&!it.owned){if(!spend(it.p,"Одежда: "+it.n))return "не хватает денег";l.own.push("cl:"+id)}
+    l.wear[it.slot]=id;l.mood=Math.min(100,l.mood+(it.m||0));save();return null}
+  if(kind==="tech"){const it=TECH.find(x=>x.id===id);if(!it)return "нет";
+    if(l.tech.includes(id))return "уже куплено";
+    if(!spend(it.p,"Техника: "+it.n))return "не хватает денег";
+    l.tech.push(id);l.mood=Math.min(100,l.mood+(it.m||0));save();return null}
+  if(kind==="car"){const it=CARS.find(x=>x.id===id);if(!it)return "нет";
+    if(!spend(it.p,"Транспорт: "+it.n))return "не хватает денег";
+    l.car=id;l.mood=Math.min(100,l.mood+(it.mood||0));save();return null}
+  if(kind==="rent"){const it=HOMES.find(x=>x.id===id);if(!it||!it.rent)return "нельзя снять";
+    const first=Math.round(it.rent*2);   // первый месяц плюс залог
+    if(!spend(first,"Аренда: "+it.n+" (месяц + залог)"))return "не хватает на въезд";
+    l.home=id;l.own=l.own.filter(x=>!x.startsWith("home:"));save();return null}
+  if(kind==="buy"){const it=HOMES.find(x=>x.id===id);if(!it||!it.buy)return "не продаётся";
+    if(!spend(it.buy,"Покупка жилья: "+it.n))return "не хватает денег";
+    l.home=id;if(!l.own.includes("home:"+id))l.own.push("home:"+id);
+    l.mood=Math.min(100,l.mood+15);award("homeowner");save();return null}
+  if(kind==="trip"){const it=TRIPS.find(x=>x.id===id);if(!it)return "нет";
+    if(!spend(it.p,"Поездка: "+it.n))return "не хватает денег";
+    l.trips.push(id);l.mood=Math.min(100,l.mood+it.m);
+    if(l.trips.length>=3)award("traveler");save();return null}
+  return "неизвестная категория";
+}
