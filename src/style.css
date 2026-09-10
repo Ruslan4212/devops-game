@@ -579,6 +579,65 @@ button {
   color: var(--amber);
 }
 
+.glos-q {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 12px 0;
+  padding: 9px 12px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.glos-list {
+  max-height: 56vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.glos-head,
+.glos-row {
+  display: flex;
+  gap: 10px;
+  padding: 7px 11px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  border-top: 1px solid var(--line);
+}
+.glos-head:first-child {
+  border-top: 0;
+}
+.glos-head {
+  background: var(--panel2);
+}
+.glos-head code {
+  color: var(--amber);
+  font-weight: 700;
+}
+.glos-row code {
+  color: var(--blue);
+}
+.glos-row.glos-flag code {
+  color: var(--dim);
+}
+.glos-head code,
+.glos-row code {
+  font-family: var(--mono);
+  flex: 0 0 auto;
+  min-width: 72px;
+}
+.glos-head span,
+.glos-row span {
+  color: var(--dim);
+}
+.glos-empty {
+  padding: 16px;
+  color: var(--dim);
+  font-size: 13px;
+}
+
 .toast {
   position: fixed;
   left: 50%;

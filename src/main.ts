@@ -286,6 +286,7 @@ function showHow(): void {
 }
 
 $("#howBtn").onclick = showHow;
+$("#glosBtn").onclick = () => void import("./ui/glossary").then((m) => m.openGlossary());
 $("#resetBtn").onclick = () => {
   if (!confirm("Сбросить весь прогресс и начать с первого урока?")) return;
   clearProgress();
