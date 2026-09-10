@@ -1,48 +1,45 @@
 name: Deploy
 
-# GitHub Pages настроен на публикацию напрямую из ветки main (Settings → Pages →
-# Deploy from a branch → main /root). Сам деплой делает GitHub при пуше в main,
-# эта задача только следит, чтобы закоммиченные файлы были актуальны:
-#   index.html      — пересобирается из p*.txt скриптом build.sh (старая версия, корень сайта);
-#   next/index.html — одностраничный билд переписанной версии из ветки vite-rewrite (адрес /next/).
+# GitHub Pages настроен на публикацию напрямую из ветки main
+# (Settings → Pages → Deploy from a branch → main /root), поэтому сам деплой
+# делает GitHub при пуше в main. Эта задача ничего не публикует и не коммитит —
+# она только проверяет, что закоммиченные сборки не разошлись с исходниками:
+#
+#   index.html      — старая версия, собирается из p*.txt скриптом build.sh
+#   next/index.html — переписанная версия, берётся из ветки vite-rewrite (play/index.html)
+#
+# Если проверка падает — пересобери и закоммить файлы вручную.
 
-# Запускается и на пуш в vite-rewrite: тогда обновится только next/index.html,
-# чтобы переписанная версия на сайте не отставала от ветки.
 on:
   push:
-    branches: [main, vite-rewrite]
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  refresh:
-    name: Обновить index.html и next/index.html, если они разошлись с исходниками
+  check:
+    name: Проверить, что сборки в репозитории актуальны
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      # всегда работаем с main, даже если запуск пришёл с ветки vite-rewrite
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
 
-      - name: bash build.sh
-        run: bash build.sh
-
-      - name: Забрать билд переписанной версии из ветки vite-rewrite
+      - name: index.html собран из актуальных p*.txt
         run: |
-          mkdir -p next
+          bash build.sh
+          if ! git diff --quiet -- index.html; then
+            echo "::error::index.html отстал от p*.txt — выполни bash build.sh и закоммить результат"
+            exit 1
+          fi
+
+      - name: next/index.html совпадает с веткой vite-rewrite
+        run: |
           git fetch origin vite-rewrite --depth=1
-          git show origin/vite-rewrite:play/index.html > next/index.html
-
-      - name: Закоммитить, если сборка изменилась
-        run: |
-          if git diff --quiet -- index.html next/index.html; then
-            echo "index.html и next/index.html уже актуальны"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add index.html next/index.html
-            git commit -m "chore: обновить сборки (index.html из p*.txt, next/ из vite-rewrite) [skip ci]"
-            git push
+          git show origin/vite-rewrite:play/index.html > /tmp/next.html
+          if ! diff -q /tmp/next.html next/index.html >/dev/null; then
+            echo "::error::next/index.html отстал от ветки vite-rewrite — обнови его из play/index.html и закоммить"
+            exit 1
           fi
