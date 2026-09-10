@@ -792,6 +792,33 @@ button {
   margin-bottom: 14px;
 }
 
+.iv-topics {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.iv-topic {
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 11px 13px;
+  background: var(--panel2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.iv-topic:hover {
+  border-color: var(--amber);
+}
+.iv-topic b {
+  display: block;
+  font-size: 13.5px;
+}
+.iv-topic span {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+}
+
 .how-strict {
   display: block;
   margin: 12px 0;

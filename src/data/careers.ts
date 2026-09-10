@@ -353,6 +353,32 @@ export const STORY: StoryBeat[] = [
   },
 ];
 
+/** Акт курса -> тема технического банка (interview.ts). */
+const ACT_TO_TOPIC: Record<number, string> = {
+  1: "linux",
+  2: "linux",
+  3: "linux",
+  4: "net",
+  5: "git",
+  6: "docker",
+  7: "cicd",
+  8: "iac",
+  9: "k8s",
+  10: "obs",
+  11: "obs",
+  12: "obs",
+};
+
+/** Темы технических вопросов, релевантные вакансии (по её требованиям к актам). */
+export function jobTopics(job: Job): string[] {
+  const set = new Set<string>();
+  for (const act of job.reqActs) {
+    const t = ACT_TO_TOPIC[act];
+    if (t) set.add(t);
+  }
+  return [...set];
+}
+
 /** Перемешанная выборка n поведенческих вопросов. rnd — источник случайности (для тестов). */
 export function pickQuestions(n: number, rnd: () => number = Math.random): SoftQuestion[] {
   const pool = [...SOFT_QUESTIONS];

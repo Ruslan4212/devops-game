@@ -1,6 +1,19 @@
 import { $, esc, toast } from "./dom";
-import { JOBS, STORY, pickQuestions } from "../data/careers";
+import { JOBS, STORY, jobTopics, pickQuestions } from "../data/careers";
 import type { Job, SoftQuestion } from "../data/careers";
+import { pickTechQuestions } from "../data/interview";
+import type { TechQuestion } from "../data/interview";
+
+type IvQuestion = SoftQuestion | TechQuestion;
+
+function shuffled<T>(list: T[]): T[] {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export interface CareerDeps {
   /** пройден ли акт N целиком */
@@ -94,7 +107,11 @@ function renderList(d: CareerDeps): void {
 }
 
 function runInterview(job: Job, d: CareerDeps): void {
-  const qs = pickQuestions(job.questions);
+  // ~60% технических вопросов по темам вакансии + ~40% поведенческих
+  const nTech = Math.max(1, Math.round(job.questions * 0.6));
+  const tech = pickTechQuestions(jobTopics(job), nTech);
+  const soft = pickQuestions(job.questions - tech.length);
+  const qs: IvQuestion[] = shuffled([...tech, ...soft]).slice(0, job.questions);
   let i = 0;
   let correct = 0;
 
@@ -118,7 +135,7 @@ function runInterview(job: Job, d: CareerDeps): void {
 
   const step = (): void => {
     if (i >= qs.length) return finish();
-    const q: SoftQuestion = qs[i];
+    const q: IvQuestion = qs[i];
     $("#modBody").innerHTML =
       `<h1>${esc(job.name)}</h1>` +
       `<p class="cr-intro">${esc(job.intro)}</p>` +
