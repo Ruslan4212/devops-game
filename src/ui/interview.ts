@@ -57,18 +57,25 @@ function run(title: string, questions: TechQuestion[]): void {
   const step = (): void => {
     if (i >= questions.length) return finish();
     const q = questions[i];
+    // варианты в банке всегда лежат правильным первым — перемешиваем, чтобы
+    // самопроверка не превращалась в «жми первую кнопку».
+    const order = q.options.map((_, k) => k);
+    for (let a = order.length - 1; a > 0; a--) {
+      const b = Math.floor(Math.random() * (a + 1));
+      [order[a], order[b]] = [order[b], order[a]];
+    }
     $("#modBody").innerHTML =
       `<h1>${esc(title)}</h1>` +
       `<div class="cr-progress">Вопрос ${i + 1} из ${questions.length}</div>` +
       `<div class="cr-q">${esc(q.q)}</div>` +
       `<div class="cr-opts">` +
-      q.options.map((o, k) => `<button class="lp-opt" data-k="${k}">${esc(o)}</button>`).join("") +
+      order.map((oi, k) => `<button class="lp-opt" data-k="${k}">${esc(q.options[oi])}</button>`).join("") +
       `</div>`;
     $("#modBody")
       .querySelectorAll<HTMLButtonElement>(".lp-opt")
       .forEach((btn) => {
         btn.onclick = () => {
-          const ok = Number(btn.dataset.k) === q.answer;
+          const ok = order[Number(btn.dataset.k)] === q.answer;
           if (ok) correct++;
           $("#modBody").innerHTML =
             `<h1>${esc(title)}</h1>` +
