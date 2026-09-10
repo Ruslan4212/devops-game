@@ -6,6 +6,7 @@ import { act03 } from "../src/lessons/act03";
 import { act04 } from "../src/lessons/act04";
 import { act05 } from "../src/lessons/act05";
 import { act06 } from "../src/lessons/act06";
+import { act07 } from "../src/lessons/act07";
 import { RANKS, rankOf } from "../src/engine/progress";
 import { LessonRun } from "../src/engine/lesson-run";
 
@@ -20,7 +21,7 @@ describe("каждый урок проходится до конца", () => {
 });
 
 describe("переписанные вручную акты действительно ведут за руку", () => {
-  for (const lesson of [...act01, ...act02, ...act03, ...act04, ...act05, ...act06]) {
+  for (const lesson of [...act01, ...act02, ...act03, ...act04, ...act05, ...act06, ...act07]) {
     it(`${lesson.id}: есть демонстрация и повтор`, () => {
       const kinds = lesson.steps.map((s) => s.kind);
       // урок не должен быть «стеной текста»: где-то игрок обязан что-то сделать —
