@@ -1,4 +1,4 @@
-import { getNode, writeFile } from "../engine/vfs";
+import { getNode, mkdirp, resolvePath, writeFile } from "../engine/vfs";
 import { has, ran, ranAny } from "../missions/helpers";
 import type { Lesson, World } from "../engine/types";
 
@@ -11,6 +11,22 @@ const ownerCanExec =
   (w: World): boolean => {
     const n = getNode(w, path);
     return !!n && n.type === "file" && /x/.test(n.mode.slice(0, 3));
+  };
+
+/** Кому сейчас принадлежит файл (по умолчанию — текущему пользователю). Путь — как в терминале, относительно cwd. */
+const ownerIs =
+  (path: string, who: string) =>
+  (w: World): boolean => {
+    const n = getNode(w, resolvePath(w, path));
+    return !!n && n.type === "file" && (n.owner || w.user) === who;
+  };
+
+/** Ровно такая строка прав (rwxr-x--- и т.п.), как после chmod. Путь — как в терминале, относительно cwd. */
+const modeIs =
+  (path: string, mode: string) =>
+  (w: World): boolean => {
+    const n = getNode(w, resolvePath(w, path));
+    return !!n && n.type === "file" && n.mode === mode;
   };
 
 /** Домашняя папка с файлом-секретом и скриптом. */
@@ -773,6 +789,747 @@ export const act02: Lesson[] = [
           "Правило на всю жизнь:\n\n" +
           "Авто-перезапуск без ограничителя попыток — это не страховка, а бомба замедленного действия.\n" +
           "Если пишешь  Restart= , рядом всегда должен стоять  StartLimitBurst= .",
+      },
+    ],
+  },
+  {
+    id: "2.11",
+    act: 2,
+    title: "Отдать файл: chown",
+    xp: 25,
+    intro: "chmod меняет ЧТО можно делать с файлом. chown меняет, КОМУ он принадлежит.",
+    setup: (w) => {
+      mkdirp(w, "/home/devops/app");
+      writeFile(w, "/home/devops/app/deploy.log", "деплой запущен вручную через sudo по ошибке\n");
+      writeFile(w, "/home/devops/app/deploy.env", "STAGE=prod\n");
+      for (const f of ["/home/devops/app/deploy.log", "/home/devops/app/deploy.env"]) {
+        const n = getNode(w, f);
+        if (n && n.type === "file") n.owner = "root";
+      }
+      w.cwd = "/home/devops/app";
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Бывает, команду запускают через  sudo  по привычке, хотя не требовалось.\n" +
+          "Итог: файл в ТВОЕЙ собственной папке оказывается собственностью root, а твои\n" +
+          "обычные скрипты (работающие от devops) с ним потом мучаются.",
+      },
+      {
+        kind: "watch",
+        run: "ls -l deploy.log",
+        note: "Во второй колонке владелец —  root . Файл лежит в твоей папке, но принадлежит не тебе.",
+      },
+      {
+        kind: "say",
+        text:
+          "Передать файл другому владельцу —  chown  (change owner). Пишется:\n" +
+          "chown  НОВЫЙ_ВЛАДЕЛЕЦ  файл\n\n" +
+          "Но у chown, в отличие от chmod, есть жёсткое правило.",
+      },
+      {
+        kind: "watch",
+        run: "chown devops deploy.log",
+        note:
+          "«Операция не позволена — нужен sudo».\n\n" +
+          "Даже владея папкой, в которой лежит файл, менять ЧЬЯ это собственность нельзя без прав\n" +
+          "администратора. Иначе любой мог бы «присвоить» себе чужие файлы.",
+      },
+      {
+        kind: "watch",
+        run: "sudo chown devops deploy.log",
+        note: "С sudo — получилось. Проверим.",
+      },
+      {
+        kind: "watch",
+        run: "ls -l deploy.log",
+        note: "Владелец сменился на  devops . Дело в правах, не в файле.",
+      },
+      {
+        kind: "type",
+        text: "Повтори сам. Набери:  sudo chown devops deploy.log",
+        cmd: "sudo chown devops deploy.log",
+      },
+      {
+        kind: "do",
+        text: "Задача: тот же самый случай со вторым файлом —  deploy.env . Верни ему владельца devops.",
+        check: ownerIs("/home/devops/app/deploy.env", "devops"),
+        answer: "sudo chown devops deploy.env",
+        hint: "sudo chown devops deploy.env",
+      },
+      {
+        kind: "quiz",
+        text: "Почему  chown  требует sudo, даже если файл лежит в твоей собственной домашней папке?",
+        options: [
+          "Смена владельца — административное действие; без этого правила можно было бы присваивать себе чужие файлы",
+          "chown вообще никогда не требует sudo",
+          "chown опаснее, чем rm, поэтому его вообще запретили без root",
+        ],
+        answer: 0,
+        explain:
+          "chmod ты применяешь к СВОИМ файлам свободно. chown меняет принадлежность — это уже вопрос доверия во всей системе.",
+      },
+    ],
+  },
+  {
+    id: "2.12",
+    act: 2,
+    title: "id и группы: зачем нужна вторая тройка прав",
+    xp: 20,
+    intro: "Права делятся на владельца/группу/всех не просто так — вот кому это нужно.",
+    steps: [
+      {
+        kind: "say",
+        text:
+          "В Акте 2.1 ты разобрал права по трём группам: владелец, группа, остальные.\n" +
+          "Но кто такая «группа» в реальности? Спросим у системы: команда  id  (identity).",
+      },
+      {
+        kind: "watch",
+        run: "id",
+        note: "Три части ответа: uid — твой личный номер, gid — номер твоей основной группы, groups — все группы, в которых ты состоишь.",
+      },
+      {
+        kind: "say",
+        text:
+          "Смотри внимательно на  groups=1000(devops),27(sudo) . Ты состоишь сразу в ДВУХ группах:\n" +
+          "своей личной  devops  и системной  sudo .\n\n" +
+          "Членство в группе  sudo  — вот откуда у тебя вообще берётся право писать команды\n" +
+          "с приставкой  sudo . Это не волшебство, а обычное членство в группе.",
+      },
+      {
+        kind: "say",
+        text:
+          "Теперь понятно, зачем в chmod вторая тройка прав («группа»): на реальном сервере\n" +
+          "с командой из десяти человек заводят общую группу (например,  ops ), добавляют в неё\n" +
+          "нужных людей — и одной строкой  chmod 640 файл  дают им доступ, не открывая файл\n" +
+          "вообще всем на сервере.",
+      },
+      {
+        kind: "do",
+        text: "Задача: посмотри свои идентификаторы и группы.",
+        check: ran(/^id\b/),
+        answer: "id",
+        hint: "Одна команда:  id",
+      },
+      {
+        kind: "quiz",
+        text: "Что значит вхождение в группу  27(sudo)  в выводе  id ?",
+        options: [
+          "Пользователю разрешено выполнять команды с sudo — именно членство в группе даёт это право",
+          "Это просто техническая метка, ни на что не влияет",
+          "Значит, у пользователя есть ровно 27 отдельных прав",
+        ],
+        answer: 0,
+        explain:
+          "sudo проверяет не «особый статус», а обычное членство в группе. Убрать из группы — и sudo пропадёт.",
+      },
+    ],
+  },
+  {
+    id: "2.13",
+    act: 2,
+    title: "Числа как язык прав: реальные пресеты",
+    xp: 30,
+    intro: "На собеседовании реже спрашивают «что такое chmod», чаще — «какие права поставишь на X».",
+    setup: (w) => {
+      mkdirp(w, "/home/devops/app");
+      writeFile(w, "/home/devops/app/secrets.env", "DB_PASSWORD=hunter2\n");
+      writeFile(w, "/home/devops/app/deploy.sh", "#!/bin/bash\necho деплой\n");
+      writeFile(w, "/home/devops/app/index.html", "<h1>Магазин</h1>\n");
+      writeFile(w, "/home/devops/app/archive-2023.tar.gz", "(бинарный архив)\n");
+      w.cwd = "/home/devops/app";
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Четыре файла — четыре типичных случая, с которыми реально сталкиваются на работе.\n" +
+          "У каждого свой правильный пресет прав. Разберём и проставим все четыре.",
+      },
+      {
+        kind: "say",
+        text:
+          "secrets.env — пароли и токены. Читать и менять должен ТОЛЬКО владелец, больше никто —\n" +
+          "ни группа, ни остальные. Это  600 .",
+      },
+      {
+        kind: "do",
+        text: "Задача: закрой  secrets.env  как секрет — только владельцу читать и писать.",
+        check: modeIs("secrets.env", "rw-------"),
+        answer: "chmod 600 secrets.env",
+        hint: "chmod 600 secrets.env",
+      },
+      {
+        kind: "say",
+        text:
+          "deploy.sh — скрипт, который запускает вся команда деплоя (общая группа), но посторонним\n" +
+          "с сервера он не нужен вовсе. Владельцу — всё (rwx), группе — читать и запускать (r-x),\n" +
+          "остальным — ничего. Это  750 .",
+      },
+      {
+        kind: "do",
+        text: "Задача: выставь deploy.sh права  750 .",
+        check: modeIs("deploy.sh", "rwxr-x---"),
+        answer: "chmod 750 deploy.sh",
+        hint: "chmod 750 deploy.sh",
+      },
+      {
+        kind: "say",
+        text:
+          "index.html — страница сайта, её отдаёт веб-сервер ВСЕМ посетителям. Владельцу — читать\n" +
+          "и менять, всем остальным — только читать. Это  644 , самый частый пресет для\n" +
+          "публичных файлов.",
+      },
+      {
+        kind: "do",
+        text: "Задача: выставь index.html права  644 .",
+        check: modeIs("index.html", "rw-r--r--"),
+        answer: "chmod 644 index.html",
+        hint: "chmod 644 index.html",
+      },
+      {
+        kind: "say",
+        text:
+          "archive-2023.tar.gz — старый архив. Его больше никто, включая ТЕБЯ САМОГО, не должен\n" +
+          "случайно перезаписать — только читать. Права  444  убирают право записи вообще у всех,\n" +
+          "даже у владельца.",
+      },
+      {
+        kind: "do",
+        text: "Задача: сделай архив полностью доступным только для чтения — всем, включая себя.",
+        check: modeIs("archive-2023.tar.gz", "r--r--r--"),
+        answer: "chmod 444 archive-2023.tar.gz",
+        hint: "chmod 444 archive-2023.tar.gz",
+      },
+      {
+        kind: "quiz",
+        text: "Почему у архива, который никто не должен менять, ставят 444 даже владельцу?",
+        options: [
+          "444 убирает право записи у ВСЕХ, включая владельца — это защищает и от твоей собственной ошибки",
+          "444 — минимальное возможное значение chmod, меньше поставить нельзя",
+          "444 работает только для файлов с расширением .tar.gz",
+        ],
+        answer: 0,
+        explain: "Права — это не только защита от чужих. Иногда важно защитить файл от самого себя в спешке.",
+      },
+    ],
+  },
+  {
+    id: "2.14",
+    act: 2,
+    title: "Вежливо и жёстко: kill без -9 и с ним",
+    xp: 25,
+    intro: "kill по умолчанию — это просьба закончить работу. -9 — не просьба.",
+    setup: (w) => {
+      w.procs.push({ pid: 5200, user: "devops", cpu: 3.1, cmd: "node worker.js" });
+      w.procs.push({ pid: 5301, user: "devops", cpu: 61.0, cmd: "python3 stuck_migration.py" });
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "В Акте 2.5 ты уже завершал процессы. Но у  kill  есть нюанс, который часто путают:\n" +
+          "по умолчанию kill НЕ убивает программу мгновенно — он посылает ей сигнал TERM,\n" +
+          "вежливую просьбу «пожалуйста, закончи работу сам».",
+      },
+      {
+        kind: "say",
+        text:
+          "Программа, получив такой сигнал, успевает: сохранить несохранённые данные, закрыть\n" +
+          "соединения с базой, дописать логи — и только потом завершиться. Это и есть\n" +
+          "«корректное завершение».\n\n" +
+          "Флаг  -9  — совсем другое: это сигнал KILL, программе не дают ни единого шанса\n" +
+          "прибраться за собой. Обрыв мгновенно, что бы она ни делала в этот момент.",
+      },
+      {
+        kind: "do",
+        text: "Задача: PID 5200 (node worker.js) — обычный рабочий процесс. Заверши его вежливо, без -9.",
+        check: (w) => !w.procs.find((p) => p.pid === 5200) && !/-9/.test(lastCmd(w)),
+        answer: "kill 5200",
+        hint: "Просто  kill  и номер, без флагов:  kill 5200",
+      },
+      {
+        kind: "say",
+        text:
+          "А вот PID 5301 — скрипт миграции базы, который завис в бесконечном цикле уже несколько\n" +
+          "минут и не реагирует ни на что. Вежливая просьба ему уже не поможет — самое время\n" +
+          "эскалировать.",
+      },
+      {
+        kind: "do",
+        text: "Задача: заверши зависший PID 5301 жёстко.",
+        check: (w) => !w.procs.find((p) => p.pid === 5301) && /-9/.test(lastCmd(w)),
+        answer: "kill -9 5301",
+        hint: "kill -9 5301",
+      },
+      {
+        kind: "quiz",
+        text: "Почему НЕЛЬЗЯ всегда сразу использовать kill -9, если можно и без него?",
+        options: [
+          "-9 не даёт программе шанса сохранить данные и закрыть соединения аккуратно — начинают всегда с вежливого kill",
+          "kill -9 работает заметно медленнее обычного kill",
+          "Для kill -9 всегда обязательно нужен sudo",
+        ],
+        answer: 0,
+        explain:
+          "Правило дежурного: сначала TERM (kill), эскалация до KILL (-9) — только если процесс не отвечает.",
+      },
+    ],
+  },
+  {
+    id: "2.15",
+    act: 2,
+    title: "free и OOM Killer",
+    xp: 25,
+    intro: "Иногда сервис не падает сам — его убивает система, когда памяти не хватает на всех.",
+    setup: (w) => {
+      w.services.api = {
+        desc: "Order API",
+        state: "failed",
+        enabled: true,
+        err: "процесс убит системой из-за нехватки памяти",
+        journal: [
+          "systemd[1]: Started Order API.",
+          "kernel: Out of memory: Killed process 7841 (api) total-vm:2048000kB, anon-rss:1850000kB",
+          "systemd[1]: api.service: Main process exited, code=killed, status=9/KILL",
+        ],
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text: "Жалоба: сервис Order API «сам собой» упал ночью, никто его не трогал. Разбираемся.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Проверь статус сервиса  api",
+        check: ranAny(/systemctl\s+status\s+api/),
+        answer: "systemctl status api",
+        hint: "systemctl status api",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Прочитай журнал — там должна быть причина.",
+        check: ranAny(/journalctl\b.*api/),
+        answer: "journalctl -u api",
+        hint: "journalctl -u api",
+      },
+      {
+        kind: "say",
+        text:
+          "Ключевая строка:  kernel: Out of memory: Killed process 7841 (api) .\n\n" +
+          "Это не авария приложения — это  OOM Killer  (Out Of Memory Killer), часть самого ядра\n" +
+          "Linux. Когда свободной памяти на сервере не остаётся совсем, ядро вынуждено убить\n" +
+          "хоть кого-то, иначе рухнет вся система разом. Оно выбирает жертву по числу  oom_score  —\n" +
+          "обычно это самый прожорливый по памяти процесс.",
+      },
+      {
+        kind: "say",
+        text:
+          "Важно: сам процесс тут ни при чём — его настигло удушение системы целиком.\n" +
+          "Первое, что проверяют в таких случаях, помимо журнала — текущее состояние памяти.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Проверь текущее состояние оперативной памяти.",
+        check: ran(/^free\b/),
+        answer: "free",
+        hint: "Одна команда:  free",
+      },
+      {
+        kind: "quiz",
+        text: "По какому принципу OOM Killer выбирает, какой процесс убить?",
+        options: [
+          "По oom_score — обычно это самый прожорливый по памяти процесс на сервере",
+          "Убивает случайный процесс по номеру PID",
+          "Всегда убивает процесс, который был запущен последним",
+        ],
+        answer: 0,
+        explain:
+          "Лечится не «перезапуском» — а увеличением памяти, лимитами по контейнерам или поиском утечки в самом процессе.",
+      },
+    ],
+  },
+  {
+    id: "2.16",
+    act: 2,
+    title: "chmod-ловушка: запер сам себя",
+    xp: 20,
+    intro: "chmod 000 убирает права вообще у всех — включая тебя самого.",
+    setup: (w) => {
+      mkdirp(w, "/home/devops/app");
+      writeFile(w, "/home/devops/app/config.env", "STAGE=staging\n");
+      w.cwd = "/home/devops/app";
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Инженер, перестраховываясь насчёт секретов, иногда «на всякий случай» ставит файлу\n" +
+          "права 000 — вообще без единой единицы. Посмотрим, что из этого получается.",
+      },
+      { kind: "watch", run: "chmod 000 config.env", note: "Тишина, как обычно у chmod." },
+      {
+        kind: "watch",
+        run: "ls -l config.env",
+        note: "Девять прочерков подряд —  ---------- . Ни читать, ни писать не может уже НИКТО. Даже владелец.",
+      },
+      {
+        kind: "say",
+        text:
+          "Вот и ловушка: 000 не «спрятал секрет от чужих», а запер сам файл наглухо, в том числе\n" +
+          "от владельца. Формально это защита, но пользоваться файлом стало невозможно.\n\n" +
+          "Для секрета правильный пресет — уже знакомый тебе  600 : владельцу можно, остальным нет.",
+      },
+      {
+        kind: "do",
+        text: "Задача: верни себе доступ — поставь секретный пресет прав  600 .",
+        check: modeIs("config.env", "rw-------"),
+        answer: "chmod 600 config.env",
+        hint: "chmod 600 config.env",
+      },
+      {
+        kind: "quiz",
+        text: "Чем плохи права  000  для файла, который тебе самому нужен по работе?",
+        options: [
+          "000 убирает доступ вообще у всех, включая владельца — файлом станет невозможно пользоваться",
+          "000 — это то же самое, что 600, просто другая запись",
+          "000 работает только для папок, а не для файлов",
+        ],
+        answer: 0,
+        explain:
+          "«Максимально закрыто» не значит «правильно закрыто». Секрету нужен доступ ровно одному — владельцу, это 600, а не 000.",
+      },
+    ],
+  },
+  {
+    id: "2.17",
+    act: 2,
+    title: "Инцидент: enabled ≠ работает прямо сейчас ⚡",
+    xp: 35,
+    intro: "Сервис включён в автозапуск — и всё равно не отвечает уже третий день.",
+    setup: (w) => {
+      w.services.nginx = {
+        desc: "A high performance web server",
+        state: "inactive",
+        enabled: true,
+        needsPort: 80,
+        journal: [
+          "systemd[1]: Stopping A high performance web server...",
+          "systemd[1]: Stopped A high performance web server. (остановлено вручную, плановые работы в пятницу)",
+        ],
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Понедельник, утро. Жалоба: «Сайт магазина не открывается уже который день».\n" +
+          "Ты заходишь на сервер разобраться.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Проверь статус nginx.",
+        check: ranAny(/systemctl\s+status\s+nginx/),
+        answer: "systemctl status nginx",
+        hint: "systemctl status nginx",
+      },
+      {
+        kind: "say",
+        text:
+          "Странная картина:  Active: inactive (dead) , но при этом  Loaded: ... enabled .\n\n" +
+          "На первый взгляд как будто должно работать само — сервис же «включён». Прежде чем\n" +
+          "чинить, разберись, откуда взялась остановка.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Прочитай журнал nginx.",
+        check: ranAny(/journalctl\b.*nginx/),
+        answer: "journalctl -u nginx",
+        hint: "journalctl -u nginx",
+      },
+      {
+        kind: "say",
+        text:
+          "В журнале — обычная плановая остановка в пятницу, во время работ. Кто-то выполнил\n" +
+          "systemctl stop  и просто забыл включить обратно.\n\n" +
+          "Здесь и кроется путаница: enable  отвечает ТОЛЬКО за то, что произойдёт ПРИ СЛЕДУЮЩЕЙ\n" +
+          "перезагрузке сервера. Он не «следит» за сервисом постоянно и не поднимает его обратно\n" +
+          "сам, если кто-то остановил вручную. С пятницы по понедельник сервер не перезагружали —\n" +
+          "значит, nginx так и провисел выключенным все выходные.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Запусти nginx прямо сейчас.",
+        check: (w) => w.services.nginx?.state === "active",
+        answer: "sudo systemctl start nginx",
+        hint: "sudo systemctl start nginx",
+      },
+      {
+        kind: "quiz",
+        text: "Сервис enabled=true, но кто-то вручную его остановил. Поднимется ли он сам, если сервер прямо сейчас НЕ перезагружать?",
+        options: [
+          "Нет — enabled решает только то, что будет при следующей ЗАГРУЗКЕ сервера, а не прямо сейчас",
+          "Да, через несколько минут systemd поднимет его сам",
+          "Да, enabled означает, что сервис невозможно остановить вручную",
+        ],
+        answer: 0,
+        explain:
+          "enabled и «сейчас запущен» — два разных вопроса. Оба стоит проверять по отдельности, как в этом уроке.",
+      },
+    ],
+  },
+  {
+    id: "2.18",
+    act: 2,
+    title: "Инцидент: деплою не хватает прав ⚡",
+    xp: 35,
+    intro: "Тикет: «Permission denied при попытке дописать в release.log». Разбираешься сам.",
+    setup: (w) => {
+      mkdirp(w, "/home/devops/app");
+      writeFile(w, "/home/devops/app/release.log", "релиз 1.3.0, деплоил вручную через sudo\n");
+      const n = getNode(w, "/home/devops/app/release.log");
+      if (n && n.type === "file") {
+        n.owner = "root";
+        n.mode = "rw-------";
+      }
+      w.cwd = "/home/devops/app";
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Тикет от разработчика: «Наш скрипт деплоя (работает от devops) падает с Permission denied,\n" +
+          "пытаясь дописать в release.log. Файл когда-то давно заводили вручную через sudo».\n\n" +
+          "Разберись и почини — двух отдельных проблем здесь на самом деле одна причина в двух местах.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Посмотри подробности файла.",
+        check: ran(/^ls\s+-l\s+release\.log/),
+        answer: "ls -l release.log",
+        hint: "ls -l release.log",
+      },
+      {
+        kind: "say",
+        text:
+          "Видно сразу два несовпадения:\n\n" +
+          "  1) владелец —  root , а деплой-скрипт работает от  devops\n" +
+          "  2) права —  rw------- , то есть доступ вообще только у владельца — у root\n\n" +
+          "Значит, чинить нужно и ВЛАДЕНИЕ, и ПРАВА отдельно — это две разные оси, chmod одно\n" +
+          "не заменяет другое.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Верни файл владельцу devops.",
+        check: ownerIs("release.log", "devops"),
+        answer: "sudo chown devops release.log",
+        hint: "sudo chown devops release.log",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Выставь права: владельцу — читать и писать, остальным — только читать (644).",
+        check: modeIs("release.log", "rw-r--r--"),
+        answer: "chmod 644 release.log",
+        hint: "chmod 644 release.log",
+      },
+      {
+        kind: "quiz",
+        text: "Почему в этом тикете понадобились И chown, И chmod — а не что-то одно?",
+        options: [
+          "chown меняет, КОМУ принадлежит файл, chmod — ЧТО с ним может делать этот владелец и остальные; это разные оси",
+          "Можно было обойтись одним только chown, chmod здесь лишний",
+          "chmod автоматически исправляет владельца заодно",
+        ],
+        answer: 0,
+        explain:
+          "Владение неправильное — деплой-скрипт не тот пользователь. Права слишком узкие — даже правильный владелец не спасёт без rw.",
+      },
+    ],
+  },
+  {
+    id: "2.19",
+    act: 2,
+    title: "Собери отчёт об инциденте",
+    xp: 30,
+    intro: "Пригодится тот же приём из Акта 1: сохранить вывод команд в файл, а не пересказывать словами.",
+    setup: (w) => {
+      w.services.nginx = {
+        desc: "A high performance web server",
+        state: "failed",
+        enabled: true,
+        err: "bind() to 0.0.0.0:80 failed (98: Address already in use)",
+        journal: ["systemd[1]: Starting A high performance web server..."],
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Тимлид просит короткую сводку по инциденту с nginx — статус и причину из журнала —\n" +
+          "в отдельном файле, чтобы приложить к разбору после дежурства. Тот же приём с  >  и  >> ,\n" +
+          "что и в Акте 1, только теперь на новом материале.",
+      },
+      {
+        kind: "do",
+        text: "1) Сохрани статус сервиса в файл  incident.txt",
+        check: has("incident.txt", /nginx/),
+        answer: "systemctl status nginx > incident.txt",
+        hint: "systemctl status nginx > incident.txt",
+      },
+      {
+        kind: "do",
+        text: "2) Допиши в конец того же файла записи из журнала — не заменяя то, что уже сохранено.",
+        check: has("incident.txt", /Address already in use/),
+        answer: "journalctl -u nginx >> incident.txt",
+        hint: "Знак  >> , а не  > , чтобы дописать:  journalctl -u nginx >> incident.txt",
+      },
+      {
+        kind: "do",
+        text: "3) Проверь получившийся файл целиком.",
+        check: ran(/^cat\s+incident\.txt\s*$/),
+        answer: "cat incident.txt",
+        hint: "cat incident.txt",
+      },
+      {
+        kind: "quiz",
+        text: "Почему для второй команды использовали  >> , а не  > ?",
+        options: [
+          "Чтобы дописать журнал к уже сохранённому статусу, а не стереть его целиком",
+          "journalctl вообще не умеет работать со знаком >",
+          "Разницы нет, можно было использовать любой из двух",
+        ],
+        answer: 0,
+        explain: "Тот же принцип из Акта 1: > заменяет файл целиком, >> дописывает в конец.",
+      },
+    ],
+  },
+  {
+    id: "2.20",
+    act: 2,
+    title: "Финал акта: ночной звонок ⚡⚡",
+    xp: 55,
+    intro: "2 часа ночи, сайт магазина не открывается целиком. Разберись и почини всё, что найдёшь.",
+    setup: (w) => {
+      w.services.nginx = {
+        desc: "A high performance web server",
+        state: "failed",
+        enabled: false,
+        needsPort: 80,
+        err: "bind() to 0.0.0.0:80 failed (98: Address already in use)",
+        journal: ["systemd[1]: Starting A high performance web server..."],
+      };
+      w.procs.push({ pid: 2290, user: "root", cpu: 0.4, cmd: "python3 -m http.server 80", port: 80 });
+      w.ports[80] = "python3";
+      mkdirp(w, "/home/devops/app");
+      writeFile(w, "/home/devops/app/release.log", "релиз 1.4.0\n");
+      const n = getNode(w, "/home/devops/app/release.log");
+      if (n && n.type === "file") n.owner = "root";
+      w.cwd = "/home/devops/app";
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Звонок в 2 часа ночи: «Сайт магазина не открывается вообще, клиенты не могут оформить\n" +
+          "ни одного заказа». Ты один на дежурстве. Собери весь Акт 2 воедино — по алгоритму,\n" +
+          "без паники.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Проверь статус nginx.",
+        check: ranAny(/systemctl\s+status\s+nginx/),
+        answer: "systemctl status nginx",
+        hint: "systemctl status nginx",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Прочитай журнал nginx.",
+        check: ranAny(/journalctl\b.*nginx/),
+        answer: "journalctl -u nginx",
+        hint: "journalctl -u nginx",
+      },
+      {
+        kind: "say",
+        text: "Знакомая картина из Акта 2.9: порт 80 уже кем-то занят. Проверь, кем именно.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Посмотри, какие программы слушают порты.",
+        check: ran(/^ss\b/),
+        answer: "ss -ltn",
+        hint: "ss -ltn",
+      },
+      {
+        kind: "do",
+        text: "Шаг 4. Освободи порт — заверши забытый посторонний процесс 2290. Он не твой, действуй соответственно.",
+        check: (w) => !w.procs.find((p) => p.pid === 2290),
+        answer: "sudo kill -9 2290",
+        hint: "Процесс запущен от root, значит нужен sudo:  sudo kill -9 2290",
+      },
+      {
+        kind: "do",
+        text: "Шаг 5. Запусти nginx.",
+        check: (w) => w.services.nginx?.state === "active",
+        answer: "sudo systemctl start nginx",
+        hint: "sudo systemctl start nginx",
+      },
+      {
+        kind: "do",
+        text: "Шаг 6. Включи автозапуск, чтобы следующая перезагрузка не повторила эту же ночь.",
+        check: (w) => !!w.services.nginx?.enabled,
+        answer: "sudo systemctl enable nginx",
+        hint: "sudo systemctl enable nginx",
+      },
+      {
+        kind: "say",
+        text:
+          "Сайт снова открывается. Пока ты здесь — заодно замечаешь: release.log в папке деплоя\n" +
+          "почему-то принадлежит root. Раз уж ты не спишь, почини и это, чтобы утром CI не упал следом.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 7. Верни release.log владельцу devops.",
+        check: ownerIs("release.log", "devops"),
+        answer: "sudo chown devops release.log",
+        hint: "sudo chown devops release.log",
+      },
+      {
+        kind: "say",
+        text: "Осталось зафиксировать, что произошло, — так же, как в прошлом уроке.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 8. Сохрани финальный статус nginx в отчёт  night-incident.txt",
+        check: has("night-incident.txt", /nginx/),
+        answer: "systemctl status nginx > night-incident.txt",
+        hint: "systemctl status nginx > night-incident.txt",
+      },
+      {
+        kind: "do",
+        text: "Шаг 9. Допиши в конец отчёта короткий итог своими словами.",
+        check: has("night-incident.txt", /порт освобождён/),
+        answer: 'echo "порт освобождён, права release.log починены" >> night-incident.txt',
+        hint: 'echo "порт освобождён, права release.log починены" >> night-incident.txt',
+      },
+      {
+        kind: "do",
+        text: "Шаг 10. Прочитай готовый отчёт перед тем, как наконец лечь спать.",
+        check: ran(/^cat\s+night-incident\.txt\s*$/),
+        answer: "cat night-incident.txt",
+        hint: "cat night-incident.txt",
+      },
+      {
+        kind: "say",
+        text:
+          "Инцидент закрыт полностью: сайт работает, автозапуск включён, права починены, отчёт готов.\n\n" +
+          "Акт 2 пройден. Ты умеешь: читать и назначать права (ls -l, chmod, реальные пресеты),\n" +
+          "передавать владение (chown), понимать группы (id), находить и завершать процессы вежливо\n" +
+          "и жёстко (ps, top, kill), управлять сервисами и их автозапуском (systemctl), читать причину\n" +
+          "по журналу (journalctl), распознавать шторм перезапусков и OOM Killer — и собирать всё\n" +
+          "это в отчёт. Дальше — bash-скрипты: то же самое, но без ручного набора каждой команды.",
       },
     ],
   },
