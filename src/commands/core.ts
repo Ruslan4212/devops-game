@@ -22,6 +22,16 @@ def("clear", () => ({ out: "", code: 0, clear: true }));
 def("hint", () => ({ out: "", code: 0, hint: true }));
 def("restart", () => ({ out: "", code: 0, restart: true }));
 
+/**
+ * exit N — завершает bash-скрипт немедленно с кодом N (0, если не указан).
+ * Работает и внутри цепочки && / || (например  [ -z "$1" ] && exit 1 ), не только
+ * отдельной строкой — см. exitCalled в runScript (engine/shell.ts).
+ */
+def("exit", (a) => {
+  const code = a[0] ? Number(a[0]) || 0 : 0;
+  return { out: "", code, exitCalled: code };
+});
+
 def("edit", (a, w) => {
   if (!a[0]) return E("edit: укажи файл, например: edit Dockerfile");
   return { out: "", code: 0, edit: resolvePath(w, a[0]) };

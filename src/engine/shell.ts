@@ -33,15 +33,26 @@ export function tokenize(s: string): string[] {
 }
 
 export function expand(w: World, s: string): string {
-  return s.replace(/\$\{(\w+)\}|\$(\w+)|\$\?/g, (m, a, b) => {
+  return s.replace(/\$\{(\w+)\}|\$(\w+)|\$\?|\$#/g, (m, a, b) => {
     if (m === "$?") return String(w.code);
+    if (m === "$#") return w.env["#"] !== undefined ? w.env["#"] : "0";
     const k = a || b;
     return w.env[k] !== undefined ? w.env[k] : "";
   });
 }
 
-/** Запуск bash-скрипта: проверяет шебанг и бит выполнения — как настоящая система. */
-export function runScript(w: World, abs: string): CmdResult {
+/**
+ * Запуск bash-скрипта: проверяет шебанг и бит выполнения — как настоящая система.
+ *
+ * args становятся позиционными параметрами $1.."9" и $# на время выполнения (как в
+ * настоящем bash). Строка  set -e / set -euo pipefail  включает «останавливаться на
+ * первой ошибке» — тогда команда с ненулевым кодом обрывает скрипт, и его итоговый код
+ * возврата становится ненулевым. Строка  exit N  тоже завершает скрипт с кодом N.
+ * Без set -e и exit поведение ровно то же, что было раньше: скрипт всегда «успешен»
+ * (код 0), даже если какая-то команда внутри вернула ошибку — это осознанное упрощение
+ * для ранних актов, которые ещё не разбирают коды возврата.
+ */
+export function runScript(w: World, abs: string, args: string[] = []): CmdResult {
   const n = getNode(w, abs);
   if (!n || n.type !== "file") return fail("bash: " + abs + ": Нет такого файла");
   if (!/x/.test(n.mode.slice(0, 3)))
@@ -52,12 +63,44 @@ export function runScript(w: World, abs: string): CmdResult {
     .split("\n")
     .slice(1)
     .filter((l) => l.trim() && !l.trim().startsWith("#"));
+
+  const argKeys = [...args.map((_, i) => String(i + 1)), "#"];
+  const savedEnv: Record<string, string | undefined> = {};
+  for (const k of argKeys) savedEnv[k] = w.env[k];
+  args.forEach((a, i) => (w.env[String(i + 1)] = a));
+  w.env["#"] = String(args.length);
+
+  let strict = false;
+  let failCode: number | null = null;
   const out: string[] = [];
-  for (const l of lines) {
+  for (const raw of lines) {
+    const l = raw.trim();
+    if (/^set\s+-\w*e/.test(l)) {
+      strict = true;
+      continue;
+    }
     const r = execLine(w, l, { record: false });
     if (r.out) out.push(r.out);
+    if (r.exitCalled !== undefined) {
+      failCode = r.exitCalled;
+      break;
+    }
+    // как в настоящем bash: неуспех — это часть && / || цепочки (проверка условия), а не
+    // «настоящая» ошибка строки — set -e не должен обрывать скрипт на самом [ -z "$1" ]
+    const isGuardLine = /&&|\|\|/.test(l);
+    if (strict && !isGuardLine && (r.code || 0) !== 0) {
+      out.push("bash: строка «" + l + "» завершилась с ошибкой — скрипт остановлен (set -e)");
+      failCode = r.code || 0;
+      break;
+    }
+  }
+
+  for (const k of argKeys) {
+    if (savedEnv[k] === undefined) delete w.env[k];
+    else w.env[k] = savedEnv[k];
   }
   w.scriptRan = (w.scriptRan || 0) + 1;
+  if (failCode != null && failCode !== 0) return { out: out.join("\n"), code: failCode, err: true };
   return ok(out.join("\n"));
 }
 
@@ -78,12 +121,12 @@ function runOne(w: World, seg: string, stdin: string | null): CmdResult {
 
   if (name.startsWith("./") || name.startsWith("/")) {
     const abs = resolvePath(w, name);
-    if (getNode(w, abs)) return runScript(w, abs);
+    if (getNode(w, abs)) return runScript(w, abs, args);
     return fail("bash: " + name + ": Нет такого файла или каталога");
   }
   if (name === "bash" || name === "sh") {
     if (!args[0]) return fail("bash: укажи скрипт");
-    return runScript(w, resolvePath(w, args[0]));
+    return runScript(w, resolvePath(w, args[0]), args.slice(1));
   }
   const fn = CMDS[name];
   if (!fn)
@@ -95,16 +138,18 @@ function runOne(w: World, seg: string, stdin: string | null): CmdResult {
   }
 }
 
-/**
- * Разбирает строку целиком: конвейеры `|` и перенаправление `>` / `>>`.
- * record=false используется при запуске скриптов, чтобы их внутренние
- * команды не засоряли историю, по которой проверяются задачи.
- */
-export function execLine(w: World, line: string, opts: { record?: boolean } = {}): CmdResult {
-  const record = opts.record !== false;
-  line = line.trim();
-  if (!line) return ok();
+/** Разбивает строку на сегменты по `&&`/`||`, храня оператор, что идёт ПОСЛЕ сегмента. */
+function splitChain(line: string): { seg: string; op: "&&" | "||" | null }[] {
+  const parts = line.split(/(&&|\|\|)/);
+  const out: { seg: string; op: "&&" | "||" | null }[] = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    out.push({ seg: (parts[i] ?? "").trim(), op: (parts[i + 1] as "&&" | "||" | undefined) ?? null });
+  }
+  return out;
+}
 
+/** Один конвейер: команды через `|`, с необязательным перенаправлением `>` / `>>` в конце. */
+function execPipeline(w: World, line: string): CmdResult {
   let redir: { mode: string; file: string } | null = null;
   const rm = line.match(/\s(>>|>)\s*(\S+)\s*$/);
   if (rm) {
@@ -120,10 +165,7 @@ export function execLine(w: World, line: string, opts: { record?: boolean } = {}
   let res: CmdResult = ok();
   for (const s of segs) {
     res = runOne(w, s, stdin);
-    if (res.clear || res.hint || res.edit || res.restart) {
-      if (record) w.log.push({ cmd: line.trim(), code: res.code || 0 });
-      return res;
-    }
+    if (res.clear || res.hint || res.edit || res.restart || res.exitCalled !== undefined) return res;
     stdin = res.out;
   }
 
@@ -133,8 +175,40 @@ export function execLine(w: World, line: string, opts: { record?: boolean } = {}
     writeFile(w, abs, prev + (res.out || "") + "\n");
     res = ok();
   }
+  return res;
+}
+
+/**
+ * Разбирает строку целиком: `&&` / `||` между командами (короткое замыкание, как в
+ * настоящем bash — [ -z "$1" ] && echo "нет аргумента"), внутри каждого сегмента —
+ * конвейеры `|` и перенаправление `>` / `>>`.
+ * record=false используется при запуске скриптов, чтобы их внутренние
+ * команды не засоряли историю, по которой проверяются задачи.
+ */
+export function execLine(w: World, line: string, opts: { record?: boolean } = {}): CmdResult {
+  const record = opts.record !== false;
+  line = line.trim();
+  if (!line) return ok();
+
+  const chain = /&&|\|\|/.test(line) ? splitChain(line) : [{ seg: line, op: null as "&&" | "||" | null }];
+  // каждая выполненная команда цепочки печатает своё — как в настоящем терминале,
+  // поэтому вывод копим по всем сегментам, а не берём только последний
+  const outs: string[] = [];
+  let res: CmdResult = ok();
+  for (const { seg, op } of chain) {
+    if (!seg) continue;
+    res = execPipeline(w, seg);
+    if (res.out) outs.push(res.out);
+    if (res.clear || res.hint || res.edit || res.restart || res.exitCalled !== undefined) {
+      if (record) w.log.push({ cmd: line, code: res.code || 0 });
+      return { ...res, out: outs.join("\n") };
+    }
+    w.code = res.code || 0;
+    if (op === "&&" && res.code !== 0) break;
+    if (op === "||" && res.code === 0) break;
+  }
 
   w.code = res.code || 0;
-  if (record) w.log.push({ cmd: (rm ? line + " " + rm[0].trim() : line).trim(), code: w.code });
-  return res;
+  if (record) w.log.push({ cmd: line, code: w.code });
+  return { ...res, out: outs.join("\n") };
 }

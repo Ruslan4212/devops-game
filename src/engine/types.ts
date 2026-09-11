@@ -228,6 +228,8 @@ export interface CmdResult {
   hint?: boolean;
   restart?: boolean;
   edit?: string;
+  /** команда exit внутри скрипта: код, с которым скрипт должен немедленно завершиться */
+  exitCalled?: number;
 }
 
 export type CommandFn = (args: string[], w: World, stdin: string | null, raw: string[]) => CmdResult;
