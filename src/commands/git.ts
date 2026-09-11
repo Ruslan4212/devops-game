@@ -55,7 +55,22 @@ def("git", (a, w) => {
     const i = rest.indexOf("-m");
     const msg = i >= 0 ? rest[i + 1] : null;
     if (!msg) return E('git: нужен текст коммита: git commit -m "описание"');
+
+    if (rest.includes("--amend")) {
+      const last = [...g.commits].reverse().find((c) => c.branch === g.branch);
+      if (!last) return E("fatal: у текущей ветки нет коммитов, --amend нечего менять");
+      last.msg = msg;
+      if (g.staged.length) {
+        last.files = [...new Set([...last.files, ...g.staged])];
+        g.staged = [];
+      }
+      return O("[" + g.branch + " " + last.hash + "] " + msg + "\n (amend) сообщение обновлено");
+    }
+
     if (!g.staged.length) return E("nothing to commit — сначала git add");
+    // коммит, закрывающий заскриптованный конфликт: конфликтный файл был добавлен —
+    // значит игрок его отредактировал и теперь подтверждает разрешение
+    if (g.conflictFile && g.staged.includes(g.conflictFile)) g.conflictFile = null;
     g.commits.push({ msg, files: [...g.staged], branch: g.branch, hash: hash() });
     const n = g.staged.length;
     g.staged = [];
@@ -70,6 +85,22 @@ def("git", (a, w) => {
         n +
         " файл(ов) изменено",
     );
+  }
+
+  if (sub === "restore") {
+    if (!rest.includes("--staged")) return E("git restore: в тренажёре поддерживается только --staged ФАЙЛ");
+    const f = rest.filter((x) => !x.startsWith("-"))[0];
+    if (!f) return E("git restore --staged: укажи файл");
+    g.staged = g.staged.filter((s) => s !== f);
+    return O();
+  }
+
+  if (sub === "tag") {
+    g.tags = g.tags || [];
+    const nm = rest.filter((x) => !x.startsWith("-"))[0];
+    if (!nm) return O(g.tags.join("\n"));
+    if (!g.tags.includes(nm)) g.tags.push(nm);
+    return O();
   }
 
   if (sub === "log") {
@@ -108,6 +139,18 @@ def("git", (a, w) => {
   if (sub === "merge") {
     const nm = rest.filter((x) => !x.startsWith("-"))[0];
     if (!g.branches.includes(nm)) return E("merge: ветка '" + nm + "' не найдена");
+    if (g.conflictFile) {
+      return {
+        out:
+          "Auto-merging " +
+          g.conflictFile +
+          "\nCONFLICT (content): Merge conflict in " +
+          g.conflictFile +
+          "\nAutomatic merge failed; fix conflicts and then commit the result.",
+        code: 1,
+        err: true,
+      };
+    }
     g.merged = (g.merged || []).concat(nm);
     return O("Обновление " + hash() + "\nFast-forward — ветка " + nm + " влита в " + g.branch);
   }

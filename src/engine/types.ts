@@ -55,6 +55,10 @@ export interface GitState {
   remote: string | null;
   pushed: number;
   merged?: string[];
+  /** заскриптованный конфликт слияния: имя файла, который «не сливается» сам собой */
+  conflictFile?: string | null;
+  /** метки релизов (git tag) */
+  tags?: string[];
 }
 
 export interface DockerImage {
