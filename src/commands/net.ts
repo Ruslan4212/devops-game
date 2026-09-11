@@ -46,6 +46,14 @@ def("curl", (a, w) => {
   if (!url) return E("curl: укажи URL");
   const head = a.includes("-I");
 
+  // заготовленный ответ для конкретного URL (404/500/просроченный сертификат и т.п.) —
+  // проверяется первым, остальные правила ниже — старые дефолты для example.com и т.д.
+  const mock = w.httpMocks?.[url];
+  if (mock) {
+    if (mock.code !== 0) return { out: mock.body, code: mock.code, err: true };
+    return O(head ? mock.headers : mock.body);
+  }
+
   const m = url.match(/localhost:(\d+)|127\.0\.0\.1:(\d+)/);
   if (m) {
     const port = Number(m[1] || m[2]);

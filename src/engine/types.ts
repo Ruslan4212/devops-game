@@ -217,6 +217,15 @@ export interface World {
   execedContainer?: boolean;
   /** заполненность диска в процентах (растёт при шторме перезапусков) */
   disk?: number;
+  /** заготовленные ответы curl на конкретный URL (акт «Сети») — 404/500/TLS и т.п. сценарии */
+  httpMocks?: Record<string, HttpMock>;
+}
+
+/** Заготовленный ответ curl на конкретный URL: код, заголовки и тело. */
+export interface HttpMock {
+  code: number;
+  headers: string;
+  body: string;
 }
 
 export interface CmdResult {
