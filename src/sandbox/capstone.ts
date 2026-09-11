@@ -2,6 +2,7 @@ import "@xterm/xterm/css/xterm.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SandboxClient } from "./client";
+import { CAPSTONE_TASKS as TASKS } from "../data/capstone-tasks";
 
 interface Deps {
   /** access-токен текущей сессии Supabase или null, если не выполнен вход */
@@ -13,20 +14,6 @@ interface Deps {
 
 const SANDBOX_URL = import.meta.env.VITE_SANDBOX_URL as string | undefined;
 
-/** По одному заданию на каждый акт курса — «примени всё, что прошёл». */
-const TASKS: string[] = [
-  "Акт 1. Осмотреться на сервере: whoami, pwd, ls -la ~, cat /etc/os-release. Найти в /var/log самый свежий лог и вывести его последние 20 строк.",
-  "Акт 2. Создать каталог ~/app, положить туда deploy.sh, выставить ему права 750 (chmod) и убедиться через ls -l. Посмотреть свои процессы: ps -ef | grep $USER.",
-  "Акт 3. Дописать deploy.sh: шебанг, set -euo pipefail, аргумент $1 (окружение), проверка что цель задана, вывод даты. Запустить: ./deploy.sh prod.",
-  "Акт 4. Проверить сеть: curl -I http://localhost (или другой доступный адрес), посмотреть слушающие порты (ss -ltnp). В комментарии объяснить полученный HTTP-код.",
-  'Акт 5. В ~/app: git init, положить index.html, git add . && git commit -m "capstone: init". Создать ветку feature/banner, изменить файл, закоммитить, слить в main.',
-  "Акт 6. Написать Dockerfile для статики (FROM nginx:alpine, COPY index.html). Собрать: docker build -t capstone:1.0 . Запустить контейнер с пробросом порта, проверить curl-ом.",
-  "Акт 7. Создать .github/workflows/ci.yml: триггер on: push, шаг с проверкой синтаксиса (bash -n deploy.sh). В комментарии — где хранить секреты и почему не в репозитории.",
-  "Акт 8. Написать main.tf с ресурсом local_file (filename ~/app/build.txt, content — дата сборки). Выполнить terraform init, terraform plan (разобрать знаки), terraform apply.",
-  "Акт 9. Написать deploy.yaml (kind: Deployment, replicas: 2, образ capstone:1.0, env). Есть kubectl — применить и kubectl get pods; нет — объяснить каждое поле манифеста.",
-  "Акт 10. Свести всё в ~/app/capstone.sh: скрипт выполняет шаги 3, 5 и 8 без ручного ввода и печатает отчёт (что сделано, сколько заняло) — это твой мини-runbook.",
-];
-
 export function openCapstone(deps: Deps): void {
   const ov = document.createElement("div");
   ov.className = "cap-ov";
@@ -37,7 +24,10 @@ export function openCapstone(deps: Deps): void {
     `<div class="cap-head"><b>Капстоун — реальный сервер</b>` +
     `<button class="cap-x" id="capX">закрыть</button></div>` +
     `<p>Ниже — <b>настоящий изолированный Linux-контейнер</b>, не симулятор. ` +
-    `Примени всё из курса. Сессия ограничена по времени; контейнер удаляется после закрытия.</p>` +
+    `Он без сети и без Docker внутри (ради безопасности сервера, где он крутится) — ` +
+    `часть заданий выполняешь по-настоящему (Linux, bash, git, python3), часть — ` +
+    `пишешь файл и объясняешь, как на реальном ревью. Сессия ограничена по времени; ` +
+    `контейнер удаляется после закрытия.</p>` +
     `<ol class="cap-tasks">` +
     TASKS.map((t) => `<li>${t}</li>`).join("") +
     `</ol>` +

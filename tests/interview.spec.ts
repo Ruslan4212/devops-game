@@ -5,7 +5,19 @@ import { JOBS, jobTopics } from "../src/data/careers";
 describe("технический банк собеседования", () => {
   it("покрывает основные темы DevOps", () => {
     const ids = TECH_TOPICS.map((t) => t.id).sort();
-    expect(ids).toEqual(["cicd", "docker", "git", "iac", "k8s", "linux", "net", "obs", "python", "zabbix"]);
+    expect(ids).toEqual([
+      "cicd",
+      "docker",
+      "git",
+      "iac",
+      "incidents",
+      "k8s",
+      "linux",
+      "net",
+      "obs",
+      "python",
+      "zabbix",
+    ]);
   });
 
   it("в каждой теме минимум 5 вопросов, все валидны", () => {
