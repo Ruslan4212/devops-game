@@ -54,6 +54,12 @@ export function promShortValue(expr: string, p: PromState): string {
   }
   if (/histogram_quantile\s*\(\s*0\.99/.test(e)) return "0.41";
   if (/histogram_quantile\s*\(\s*0\.95/.test(e)) return "0.213";
+  if (/sum\s*\(\s*rate\s*\(\s*http_requests_total/.test(e)) {
+    return /status\s*=~?\s*"5/.test(e) ? "0.06" : "124.8";
+  }
+  if (/increase\s*\(\s*http_requests_total.*\[/.test(e)) {
+    return /status\s*=~?\s*"5/.test(e) ? "6" : "12390";
+  }
   if (/rate\s*\(\s*http_requests_total/.test(e)) {
     return /status\s*=\s*"5\d\d"/.test(e) ? "0.02" : "41.3";
   }
