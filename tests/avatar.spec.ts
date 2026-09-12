@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  EYESC,
   HAIRC,
   HAIRS_F,
   HAIRS_M,
@@ -9,6 +10,7 @@ import {
   hairPath,
   hairStyles,
   outfitColor,
+  shoeColor,
 } from "../src/data/avatar";
 
 describe("персонаж — палитры", () => {
@@ -47,7 +49,7 @@ describe("персонаж — портрет", () => {
     expect(svg.startsWith("<svg")).toBe(true);
     expect(svg.endsWith("</svg>")).toBe(true);
     expect(svg).toContain('width="120"');
-    expect(svg).toContain('viewBox="0 0 200 210"');
+    expect(svg).toContain('viewBox="0 0 200 360"');
     expect(svg).toContain("<ellipse");
   });
 
@@ -59,9 +61,16 @@ describe("персонаж — портрет", () => {
   });
 
   it("борода рисуется только у мужского персонажа", () => {
-    const beardPath = 'd="M64 92c0 26';
+    const beardPath = 'd="M66 96c2 20';
     expect(avatarSVG({ ...defaultAppearance(), sex: "m", beard: true })).toContain(beardPath);
     expect(avatarSVG({ ...defaultAppearance(), sex: "f", beard: true })).not.toContain(beardPath);
+  });
+
+  it("стиль бороды выбирает соответствующий контур", () => {
+    const short = avatarSVG({ ...defaultAppearance(), sex: "m", beard: true, beardStyle: 1 });
+    const full = avatarSVG({ ...defaultAppearance(), sex: "m", beard: true, beardStyle: 2 });
+    expect(short).toContain('d="M64 92c0 24');
+    expect(full).toContain('d="M62 88c-2 28');
   });
 
   it("одежда влияет на цвет", () => {
@@ -75,5 +84,27 @@ describe("персонаж — портрет", () => {
     const svg = avatarSVG(weird);
     expect(svg.startsWith("<svg")).toBe(true);
     expect(svg).toContain(SKIN[1]);
+  });
+
+  it("обувь красится по слоту обуви", () => {
+    expect(avatarSVG(defaultAppearance(), { shoes: "boots" })).toContain(shoeColor("boots"));
+    expect(avatarSVG(defaultAppearance(), { shoes: "sneakers" })).toContain(shoeColor("sneakers"));
+  });
+
+  it("аксессуар рисуется, только когда указан", () => {
+    const base = defaultAppearance();
+    expect(avatarSVG(base)).not.toContain('#2E8B7A" opacity=".9"');
+    expect(avatarSVG(base, { accessory: "backpack" })).toContain("#2E8B7A");
+    expect(avatarSVG(base, { accessory: "sunglasses" })).toContain("#1A1F29");
+    expect(avatarSVG(base, { accessory: null })).not.toContain("#1A1F29");
+  });
+
+  it("8 причёсок на каждый пол, у всех есть контур", () => {
+    expect(HAIRS_M.length).toBeGreaterThanOrEqual(8);
+    expect(HAIRS_F.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("не меньше 6 цветов глаз", () => {
+    expect(EYESC.length).toBeGreaterThanOrEqual(6);
   });
 });

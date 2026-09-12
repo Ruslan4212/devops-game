@@ -1,5 +1,5 @@
 import { $, esc } from "./dom";
-import { EYESC, FACE, HAIRC, SKIN, avatarSVG, defaultAppearance, hairStyles } from "../data/avatar";
+import { BEARDS, EYESC, FACE, HAIRC, SKIN, avatarSVG, defaultAppearance, hairStyles } from "../data/avatar";
 import type { Appearance, Sex } from "../data/avatar";
 import type { Life } from "../engine/life";
 
@@ -9,7 +9,7 @@ export interface CharacterDeps {
   persist: () => void;
 }
 
-type NumField = "skin" | "hair" | "hairc" | "eyes" | "face";
+type NumField = "skin" | "hair" | "hairc" | "eyes" | "face" | "beardStyle";
 type BoolField = "glasses" | "beard" | "cap";
 
 /** Экран персонажа: портрет и настройка внешности. */
@@ -43,7 +43,12 @@ export function openCharacter(d: CharacterDeps): void {
     body.innerHTML =
       `<h1>🙂 Персонаж</h1>` +
       `<div class="ch-wrap">` +
-      `<div class="ch-portrait">${avatarSVG(look, { size: 180, top: d.life.wear.top })}</div>` +
+      `<div class="ch-portrait">${avatarSVG(look, {
+        size: 150,
+        top: d.life.wear.top,
+        shoes: d.life.wear.shoes,
+        accessory: d.life.accessory,
+      })}</div>` +
       `<div class="ch-controls">` +
       `<div class="ch-row"><span>Имя</span>` +
       `<input id="chName" class="ch-name" maxlength="24" value="${esc(look.name)}" placeholder="как тебя зовут"></div>` +
@@ -59,7 +64,9 @@ export function openCharacter(d: CharacterDeps): void {
           (look.sex === "m" ? chip(look.beard, "beard|", "борода") : "") +
           chip(look.cap, "cap|", "кепка"),
       ) +
+      (look.sex === "m" && look.beard ? list("Стиль бороды", "beardStyle", BEARDS) : "") +
       `</div></div>` +
+      `<div class="kb">Одежда, обувь и аксессуар берутся из «🎒 Жизнь» — смени их там, портрет обновится сам.</div>` +
       `<div class="kb">Внешность сохраняется сама и синхронизируется вместе с прогрессом.</div>` +
       `<button class="sec" id="chClose">Готово</button>`;
 
