@@ -86,6 +86,10 @@ export interface CiRun {
   ok: boolean;
   secretLeak: boolean;
   log: string[];
+  /** деплой ждёт ручного подтверждения (environment: production в workflow) */
+  awaitingApproval?: boolean;
+  /** релиз этого запуска откачен обратно на предыдущую версию */
+  rolledBack?: boolean;
 }
 export interface CiState {
   runs: CiRun[];
