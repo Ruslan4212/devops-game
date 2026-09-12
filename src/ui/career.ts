@@ -121,6 +121,7 @@ function renderList(d: CareerDeps): void {
       const job = JOBS.find((j) => j.id === b.dataset.take);
       if (!job) return;
       d.onSetCurrentJob(job.id);
+      d.currentJob = job.id; // d — снимок на момент открытия экрана, держим его в синхроне для перерисовки
       toast("Теперь ты работаешь в «" + job.name + "» — зарплата " + job.pay + "/мес");
       renderList(d);
     };
@@ -128,6 +129,7 @@ function renderList(d: CareerDeps): void {
   body.querySelectorAll<HTMLButtonElement>("[data-quit]").forEach((b) => {
     b.onclick = () => {
       d.onSetCurrentJob(null);
+      d.currentJob = null;
       toast("Ты уволился. Пока платят только подработки за уроки.");
       renderList(d);
     };
