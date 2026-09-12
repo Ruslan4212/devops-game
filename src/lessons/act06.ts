@@ -1018,14 +1018,410 @@ export const act06: Lesson[] = [
       {
         kind: "say",
         text:
-          "Акт 6 пройден. Ты умеешь:\n\n" +
-          "  • объяснить, зачем нужны контейнеры и чем они отличаются от виртуалок\n" +
-          "  • различать образ и контейнер\n" +
-          "  • писать Dockerfile: FROM, WORKDIR, COPY, CMD\n" +
-          "  • собирать образ и запускать контейнер с портами и именем\n" +
-          "  • разбирать поломки через logs и exec\n" +
-          "  • отправлять образ в реестр\n\n" +
-          "Дальше — CI/CD: робот, который будет делать всё это за тебя после каждого  git push .",
+          "Хороший рубеж. Ты умеешь: объяснять контейнеры и образы, писать Dockerfile\n" +
+          "(FROM/WORKDIR/COPY/CMD), собирать образ, запускать контейнер с портами и именем,\n" +
+          "разбирать поломки через logs и exec, отправлять образ в реестр.\n\n" +
+          "Это база. Дальше в этом же акте — то, без чего Docker в реальной работе\n" +
+          "не используют: настройки без пересборки, данные, которые не пропадают,\n" +
+          "и образы в разы меньше.",
+      },
+    ],
+  },
+  {
+    id: "6.18",
+    act: 6,
+    title: "Настройки без пересборки: docker run -e",
+    xp: 25,
+    intro: "Один и тот же образ должен работать и на тесте, и в проде — просто с разными настройками.",
+    setup: seedWithImage,
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Вспомни переменные окружения из Акта 1 и Акта 3: программе передают настройки\n" +
+          "СНАРУЖИ, а не зашивают в код. С контейнерами это работает точно так же.\n\n" +
+          "Если зашить адрес базы данных прямо в Dockerfile — придётся пересобирать\n" +
+          "образ отдельно для теста и для прода. Это неправильно: образ должен быть\n" +
+          "ОДИН и тот же везде, а разным должно быть только окружение вокруг него.",
+      },
+      {
+        kind: "say",
+        text:
+          "Передать переменную в контейнер — флаг  -e  (environment) у  docker run :\n\n" +
+          "  docker run -e STAGE=prod -e DEBUG=false shop:1.0\n\n" +
+          "Флаг можно повторять сколько угодно раз — по одной переменной на флаг.",
+      },
+      {
+        kind: "watch",
+        run: "docker run -d -e STAGE=prod --name web shop:1.0",
+        note: "Контейнер запущен с переменной STAGE=prod внутри — приложение прочитает её как обычную переменную окружения.",
+      },
+      {
+        kind: "type",
+        text:
+          "Запусти сам с двумя переменными. Набери:\n" +
+          "docker run -d -e STAGE=staging -e DEBUG=true --name web2 shop:1.0",
+        cmd: "docker run -d -e STAGE=staging -e DEBUG=true --name web2 shop:1.0",
+      },
+      {
+        kind: "say",
+        text:
+          "На практике так передают: адрес базы данных, ключи API, включён ли режим\n" +
+          "отладки, окружение (staging/prod). Один и тот же образ  shop:1.0  катают\n" +
+          "куда угодно — меняются только  -e  при запуске.",
+      },
+      {
+        kind: "quiz",
+        text: "Почему настройки (адрес базы, режим отладки) передают через -e, а не зашивают в Dockerfile?",
+        options: [
+          "Тогда один и тот же образ работает и на тесте, и в проде — меняется только окружение, а не сам образ",
+          "-e делает контейнер быстрее",
+          "Так требует Docker Hub",
+        ],
+        answer: 0,
+        explain: "Тот же принцип 12-factor app, что и с обычными переменными окружения из Акта 1 и Акта 3.",
+      },
+    ],
+  },
+  {
+    id: "6.19",
+    act: 6,
+    title: "Данные, которые не пропадают: тома",
+    xp: 25,
+    intro: "Контейнер эфемерен. Всё важное, что должно пережить его удаление, — на томе снаружи.",
+    setup: seedWithImage,
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Вспомни Акт 6.14: всё, что меняешь ВНУТРИ контейнера, исчезает при его\n" +
+          "перезапуске или удалении. Для кода это правильно. Но что делать с базой\n" +
+          "данных — там же реальные заказы клиентов, их нельзя терять при каждом\n" +
+          "docker rm?",
+      },
+      {
+        kind: "say",
+        text:
+          "Решение — том (volume): папка СНАРУЖИ контейнера, подключённая внутрь.\n" +
+          "Контейнер пишет данные как будто в свою собственную папку, а реально\n" +
+          "они лежат на диске хозяина и переживают удаление контейнера.\n\n" +
+          "  docker run -v /data/db:/var/lib/db shop-db:1.0\n\n" +
+          "Тот же формат СНАРУЖИ:ВНУТРИ, что и у портов (-p) — слева хозяин, справа контейнер.",
+      },
+      {
+        kind: "watch",
+        run: "docker run -d -v /data/db:/var/lib/db --name db shop:1.0",
+        note: "Папка /data/db на хозяине теперь видна внутри контейнера как /var/lib/db.",
+      },
+      {
+        kind: "do",
+        text: "Задача: запусти контейнер  cache , примонтировав том  /data/cache  снаружи на  /var/lib/cache  внутри.",
+        check: (w) =>
+          w.docker.containers.some(
+            (c) => c.name === "cache" && c.volumes?.includes("/data/cache:/var/lib/cache"),
+          ),
+        answer: "docker run -d -v /data/cache:/var/lib/cache --name cache shop:1.0",
+        hint: "docker run -d -v /data/cache:/var/lib/cache --name cache shop:1.0",
+      },
+      {
+        kind: "quiz",
+        text: "Зачем базе данных внутри контейнера обязательно нужен том?",
+        options: [
+          "Без тома все данные хранятся ВНУТРИ контейнера и исчезнут при его удалении или пересоздании",
+          "Том нужен только для ускорения записи на диск",
+          "Без тома контейнер вообще не запустится",
+        ],
+        answer: 0,
+        explain:
+          "Это прямое продолжение вопроса из банка собеседований: «данные пропали после docker rm» — решается томом.",
+      },
+    ],
+  },
+  {
+    id: "6.20",
+    act: 6,
+    title: "Multi-stage build: тот же код, в разы меньше",
+    xp: 35,
+    intro: "Компилятор и кэш сборки не нужны в проде — их можно не тащить в финальный образ.",
+    setup: (w) => {
+      mkdirp(w, "/home/devops/app");
+      writeFile(w, "/home/devops/app/index.js", "console.log('магазин слушает порт 80');\n");
+      w.cwd = "/home/devops/app";
+      writeFile(w, "/home/devops/app/Dockerfile", DOCKERFILE);
+    },
+    steps: [
+      {
+        kind: "say",
+        text: "Соберём обычный образ и посмотрим на его размер.",
+      },
+      { kind: "watch", run: "docker build -t shop:single .", note: "Собрали в один этап, как всегда." },
+      {
+        kind: "watch",
+        run: "docker images",
+        note: "Смотри на колонку SIZE у  shop:single . Это база node:20-alpine плюс код — уже не самый маленький образ.",
+      },
+      {
+        kind: "say",
+        text:
+          "Проблема в проектах посерьёзнее: чтобы собрать приложение (скачать\n" +
+          "библиотеки, скомпилировать), внутри образа нужны компилятор, кэш пакетов,\n" +
+          "инструменты сборки. Но ЗАПУСКАТЬ готовое приложение всё это уже не нужно —\n" +
+          "а оно так и остаётся мёртвым грузом в финальном образе.",
+      },
+      {
+        kind: "say",
+        text:
+          "Решение —  multi-stage build : в ОДНОМ Dockerfile несколько инструкций\n" +
+          "FROM подряд, у каждой своя роль:\n\n" +
+          "  FROM node:20-alpine AS builder   ← «стройплощадка»: тут собираем\n" +
+          "  WORKDIR /app\n" +
+          "  COPY . .\n" +
+          "  RUN npm ci\n\n" +
+          "  FROM node:20-alpine              ← ФИНАЛЬНЫЙ образ, снова с нуля\n" +
+          "  WORKDIR /app\n" +
+          "  COPY --from=builder /app .       ← берём только ГОТОВЫЙ результат\n" +
+          '  CMD ["node","index.js"]\n\n' +
+          "AS builder даёт имя первому этапу. COPY --from=builder забирает из него\n" +
+          "только нужные файлы — инструменты сборки в финальный образ не попадают вообще.",
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: перепиши Dockerfile под multi-stage. Набери:\n" +
+          "edit Dockerfile\n" +
+          "Впиши два этапа: первый FROM node:20-alpine AS builder со сборкой, второй —\n" +
+          "снова FROM node:20-alpine с COPY --from=builder и CMD. Сохрани.",
+        check: (w) =>
+          has("Dockerfile", /FROM\s+\S+\s+AS\s+builder/i)(w) &&
+          has("Dockerfile", /COPY\s+--from=builder/i)(w),
+        answer:
+          "FROM node:20-alpine AS builder\n" +
+          "WORKDIR /app\n" +
+          "COPY . .\n" +
+          "RUN npm ci\n" +
+          "\n" +
+          "FROM node:20-alpine\n" +
+          "WORKDIR /app\n" +
+          "COPY --from=builder /app .\n" +
+          'CMD ["node","index.js"]\n',
+        editFile: "/home/devops/app/Dockerfile",
+        hint: "Два блока FROM подряд: первый с AS builder, второй — с COPY --from=builder и CMD.",
+      },
+      {
+        kind: "do",
+        text: "Задача: собери новый образ с именем  shop:multi",
+        check: (w) => w.docker.images.some((i) => i.tag === "shop:multi"),
+        answer: "docker build -t shop:multi .",
+        hint: "docker build -t shop:multi .",
+      },
+      {
+        kind: "watch",
+        run: "docker images",
+        note: "Сравни SIZE у  shop:single  и  shop:multi  — разница заметна невооружённым глазом. Тот же код, тот же CMD, но без лишнего в финальном слое.",
+      },
+      {
+        kind: "quiz",
+        text: "Что даёт multi-stage build?",
+        options: [
+          "Финальный образ содержит только готовый результат сборки, без компиляторов и кэша пакетов — заметно меньше вес",
+          "Ускоряет запуск уже работающего контейнера",
+          "Позволяет использовать сразу два языка программирования одновременно",
+        ],
+        answer: 0,
+        explain:
+          "Инструменты сборки остаются на промежуточном этапе (builder) и не попадают в финальный образ вообще.",
+      },
+    ],
+  },
+  {
+    id: "6.21",
+    act: 6,
+    title: "ENTRYPOINT и CMD: в чём разница",
+    xp: 25,
+    intro: "CMD легко переопределить при запуске. ENTRYPOINT — жёстко зафиксированная команда.",
+    steps: [
+      {
+        kind: "say",
+        text:
+          'Ты уже пишешь  CMD ["node", "index.js"] . Но у CMD есть менее очевидный\n' +
+          "родственник —  ENTRYPOINT . Разница между ними спрашивают почти на\n" +
+          "каждом собеседовании про Docker.",
+      },
+      {
+        kind: "say",
+        text:
+          '  CMD ["node", "index.js"]\n\n' +
+          "CMD — это команда ПО УМОЛЧАНИЮ. Она легко переопределяется прямо при\n" +
+          "запуске:  docker run shop:1.0 node debug.js  — выполнится debug.js вместо\n" +
+          "index.js, CMD из Dockerfile полностью проигнорируется.",
+      },
+      {
+        kind: "say",
+        text:
+          '  ENTRYPOINT ["node"]\n' +
+          '  CMD ["index.js"]\n\n' +
+          "ENTRYPOINT — это ЗАФИКСИРОВАННАЯ команда, её не подменяют просто так.\n" +
+          "Аргументы после образа при запуске ДОБАВЛЯЮТСЯ к ENTRYPOINT, а не заменяют его.\n\n" +
+          "  docker run shop:1.0 debug.js\n" +
+          "  → выполнится: node debug.js\n\n" +
+          "index.js из CMD подменился на debug.js, но node (ENTRYPOINT) остался как есть —\n" +
+          "просто ЗАМЕНИЛИСЬ АРГУМЕНТЫ. Так делают инструменты командной строки в контейнерах —\n" +
+          "не подменить программу, а передать ей свои флаги.",
+      },
+      {
+        kind: "quiz",
+        text: 'docker run shop:1.0 node debug.js. В Dockerfile есть CMD ["node","index.js"] (без ENTRYPOINT). Что выполнится?',
+        options: [
+          "node debug.js — переданная команда полностью заменяет CMD",
+          "node index.js — CMD нельзя переопределить",
+          "Одновременно и index.js, и debug.js",
+        ],
+        answer: 0,
+        explain:
+          "CMD — это только значение по умолчанию. Аргументы после образа при docker run полностью его заменяют.",
+      },
+    ],
+  },
+  {
+    id: "6.22",
+    act: 6,
+    title: "Убрать образ: docker rmi",
+    xp: 20,
+    intro: "Неиспользуемые образы копятся и съедают диск — как и всё в Акте 2 про переполненный диск.",
+    setup: seedWithImage,
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Вспомни Акт 6.15:  docker rm  удаляет КОНТЕЙНЕР.  docker rmi  (remove\n" +
+          "image) удаляет ОБРАЗ. Их путают из-за похожих названий, а разница огромная:\n" +
+          "образ может весить сотни мегабайт, а на сервере их со временем накапливаются десятки.",
+      },
+      {
+        kind: "watch",
+        run: "docker rmi shop:1.0",
+        note:
+          "«Error: образ используется работающим контейнером — сначала останови его».\n\n" +
+          "Docker защищает от удаления образа, который прямо сейчас кто-то использует —\n" +
+          "тот же принцип, что с docker rm у работающего контейнера.",
+      },
+      {
+        kind: "do",
+        text: "Задача: сначала останови контейнер, который использует этот образ.",
+        check: (w) => !w.docker.containers.some((c) => c.image === "shop:1.0" && c.state === "running"),
+        answer: "docker stop web",
+        hint: "docker stop web",
+      },
+      {
+        kind: "do",
+        text: "Задача: теперь удали сам образ  shop:1.0",
+        check: (w) => !w.docker.images.some((i) => i.tag === "shop:1.0"),
+        answer: "docker rmi shop:1.0",
+        hint: "docker rmi shop:1.0",
+      },
+      {
+        kind: "quiz",
+        text: "Чем docker rmi отличается от docker rm?",
+        options: [
+          "rm удаляет контейнер (блюдо), rmi удаляет образ (рецепт)",
+          "Это два названия одной и той же команды",
+          "rmi работает только с работающими контейнерами",
+        ],
+        answer: 0,
+        explain: "Неиспользуемые старые образы — частая причина «на сервере кончилось место» из Акта 2.",
+      },
+    ],
+  },
+  {
+    id: "6.23",
+    act: 6,
+    title: "Финал акта: боевой релиз ⚡⚡",
+    xp: 55,
+    intro: "Собери лёгкий multi-stage образ, настрой окружением, дай постоянные данные и отправь в реестр.",
+    setup: (w) => {
+      mkdirp(w, "/home/devops/api");
+      writeFile(w, "/home/devops/api/index.js", "console.log('API слушает порт 80');\n");
+      w.cwd = "/home/devops/api";
+      w.templates = {
+        "/home/devops/api/Dockerfile":
+          "# Собери MULTI-STAGE рецепт: первый FROM ... AS builder со сборкой,\n" +
+          "# второй FROM с COPY --from=builder и CMD. Сотри этот комментарий.\n",
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Финал Акта 6. Команда просит подготовить  api  к боевому релизу: лёгкий\n" +
+          "образ, настройки через окружение, данные на томе — и всё это в реестре.",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 1. Напиши multi-stage Dockerfile: FROM ... AS builder, потом ещё раз\n" +
+          "FROM с COPY --from=builder и CMD. Набери:  edit Dockerfile",
+        check: (w) =>
+          has("Dockerfile", /FROM\s+\S+\s+AS\s+builder/i)(w) &&
+          has("Dockerfile", /COPY\s+--from=builder/i)(w),
+        answer:
+          "FROM node:20-alpine AS builder\n" +
+          "WORKDIR /app\n" +
+          "COPY . .\n" +
+          "RUN npm ci\n" +
+          "\n" +
+          "FROM node:20-alpine\n" +
+          "WORKDIR /app\n" +
+          "COPY --from=builder /app .\n" +
+          'CMD ["node","index.js"]\n',
+        editFile: "/home/devops/api/Dockerfile",
+        hint: "Два FROM подряд: первый с AS builder, второй — с COPY --from=builder.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Собери образ  api:2.0",
+        check: (w) => w.docker.images.some((i) => i.tag === "api:2.0"),
+        answer: "docker build -t api:2.0 .",
+        hint: "docker build -t api:2.0 .",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 3. Запусти контейнер  api : в фоне, порт 9000 наружу на 80 внутрь,\n" +
+          "переменная STAGE=prod и том /data/api снаружи на /var/lib/api внутри.",
+        check: (w) => {
+          const c = w.docker.containers.find((x) => x.name === "api");
+          return (
+            !!c &&
+            c.hostPort === 9000 &&
+            c.env?.STAGE === "prod" &&
+            !!c.volumes?.includes("/data/api:/var/lib/api")
+          );
+        },
+        answer: "docker run -d -p 9000:80 -e STAGE=prod -v /data/api:/var/lib/api --name api api:2.0",
+        hint: "docker run -d -p 9000:80 -e STAGE=prod -v /data/api:/var/lib/api --name api api:2.0",
+      },
+      {
+        kind: "do",
+        text: "Шаг 4. Убедись, что контейнер работает.",
+        check: ran(/^docker\s+ps/),
+        answer: "docker ps",
+        hint: "docker ps",
+      },
+      {
+        kind: "do",
+        text: "Шаг 5. Дай образу полное имя реестра и отправь его.",
+        check: (w) => w.registry.includes("registry.company.ru/api:2.0"),
+        answer: "docker tag api:2.0 registry.company.ru/api:2.0\ndocker push registry.company.ru/api:2.0",
+        hint: "Сначала docker tag api:2.0 registry.company.ru/api:2.0, потом docker push registry.company.ru/api:2.0",
+      },
+      {
+        kind: "say",
+        text:
+          "Готово: лёгкий образ, настройки снаружи, данные переживут любой перезапуск,\n" +
+          "и всё это доступно любому серверу через реестр. Ровно так выглядит\n" +
+          "production-ready контейнер, а не просто «работающий у меня».\n\n" +
+          "Акт 6 пройден полностью. Дальше — CI/CD: робот, который будет делать всё\n" +
+          "это за тебя после каждого  git push .",
       },
     ],
   },
