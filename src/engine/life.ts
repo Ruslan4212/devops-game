@@ -11,6 +11,7 @@ import {
   COMFORT,
   FOOD,
   HOMES,
+  LESSON_PERIODS_PER_MONTH,
   NO_JOB_FACTOR,
   REWARD_PER_XP,
   TECH,
@@ -39,6 +40,8 @@ export interface Life {
   accessory?: string | null;
   /** купленные предметы интерьера для настроения — всегда «активны», как техника */
   comfort?: string[];
+  /** id вакансии из полученных офферов, которая сейчас считается основной работой */
+  currentJob?: string | null;
 }
 
 export type LifeResult = { ok: true } | { ok: false; error: string };
@@ -65,7 +68,13 @@ export function defaultLife(): Life {
     look: defaultAppearance(),
     accessory: null,
     comfort: [],
+    currentJob: null,
   };
+}
+
+/** Сделать одну из уже полученных вакансий текущим основным местом работы (или снять её — null). */
+export function setCurrentJob(l: Life, jobId: string | null): void {
+  l.currentJob = jobId;
 }
 
 function spend(l: Life, sum: number): boolean {
@@ -97,18 +106,42 @@ export function interviewBonus(l: Life): number {
 }
 
 /**
- * Урок пройден: начисляем «подработку» (× {@link NO_JOB_FACTOR}, если нет оффера),
- * тратим немного сытости и подводим настроение к 50. Возвращаем сумму начисления.
+ * Урок пройден: начисляем доход, тратим немного сытости и подводим настроение
+ * к 50. Возвращаем сумму начисления и списанное обслуживание (машина/аренда).
+ *
+ * `monthlyPay` — месячная зарплата ТЕКУЩЕЙ работы (0, если офиса ещё нет).
+ * Без работы платят «подработку» по старой формуле (× {@link NO_JOB_FACTOR}
+ * от XP урока). С работой реальная зарплата режется на
+ * {@link LESSON_PERIODS_PER_MONTH} уроков — это и есть «месяц» игрового
+ * времени, — и XP урока на сумму уже не влияет: зарплата не зависит от того,
+ * насколько сложным был конкретный урок.
  */
-export function onLessonComplete(l: Life, lessonXp: number, hasJob: boolean): { credited: number } {
-  const gross = Math.round((lessonXp / 15) * REWARD_PER_XP * (hasJob ? 1 : NO_JOB_FACTOR));
+export function onLessonComplete(
+  l: Life,
+  lessonXp: number,
+  monthlyPay: number,
+): { credited: number; upkeep: number } {
+  const gross =
+    monthlyPay > 0
+      ? Math.round(monthlyPay / LESSON_PERIODS_PER_MONTH)
+      : Math.round((lessonXp / 15) * REWARD_PER_XP * NO_JOB_FACTOR);
   l.money += gross;
   l.totalEarned += gross;
+
+  const carUp = l.car ? (CARS.find((c) => c.id === l.car)?.up ?? 0) : 0;
+  const rent = l.home ? (HOMES.find((h) => h.id === l.home)?.rent ?? 0) : 0;
+  const upkeep = Math.round((carUp + rent) / LESSON_PERIODS_PER_MONTH);
+  if (upkeep > 0) {
+    const spent = Math.min(l.money, upkeep);
+    l.money -= spent;
+    l.totalSpent += spent;
+  }
+
   l.hunger = clamp(l.hunger - 6);
   const drift = l.hunger < 25 ? -6 : -1;
   l.mood = clamp(l.mood + (l.mood > 50 ? drift : -drift));
   if (l.hunger < 10) l.health = clamp(l.health - 3);
-  return { credited: gross };
+  return { credited: gross, upkeep };
 }
 
 export function eat(l: Life, id: string): LifeResult {

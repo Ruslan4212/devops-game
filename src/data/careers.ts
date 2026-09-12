@@ -371,6 +371,12 @@ export const ACT_TO_TOPIC: Record<number, string> = {
   14: "python",
 };
 
+/** Месячная зарплата числом из отображаемой строки: "45 000 ₽" -> 45000. */
+export function parseSalary(pay: string): number {
+  const digits = pay.replace(/\D/g, "");
+  return digits ? Number(digits) : 0;
+}
+
 /** Темы технических вопросов, релевантные вакансии (по её требованиям к актам). */
 export function jobTopics(job: Job): string[] {
   const set = new Set<string>();

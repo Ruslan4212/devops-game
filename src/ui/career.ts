@@ -26,8 +26,12 @@ export interface CareerDeps {
   rankName: string;
   /** какие вакансии уже получены */
   jobsGot: Record<string, boolean>;
+  /** id вакансии, которая сейчас является основным местом работы (или null) */
+  currentJob: string | null;
   /** игрок прошёл собеседование в компанию */
   onHire: (jobId: string) => void;
+  /** сделать одну из полученных вакансий текущей работой (или null — уволиться) */
+  onSetCurrentJob: (jobId: string | null) => void;
 }
 
 const GRADE_RU: Record<Job["grade"], string> = {
@@ -59,14 +63,17 @@ function renderList(d: CareerDeps): void {
 
   const jobsHtml = JOBS.map((job) => {
     const got = !!d.jobsGot[job.id];
+    const isCurrent = d.currentJob === job.id;
     const need = blockers(job, d);
     const state = got
-      ? `<span class="cr-got">✓ оффер получен</span>`
+      ? isCurrent
+        ? `<span class="cr-got">✓ текущая работа</span> <button class="cr-quit" data-quit="1">Уволиться</button>`
+        : `<span class="cr-got">✓ оффер получен</span> <button class="cr-go" data-take="${job.id}">Сделать текущей работой</button>`
       : need.length
         ? `<span class="cr-lock">🔒 ${esc(need.join("; "))}</span>`
         : `<button class="cr-go" data-job="${job.id}">Пройти собеседование</button>`;
     return (
-      `<div class="cr-job${got ? " cr-job-done" : ""}">` +
+      `<div class="cr-job${got ? " cr-job-done" : ""}${isCurrent ? " cr-job-current" : ""}">` +
       `<div class="cr-job-h"><b>${esc(job.name)}</b><span>${esc(GRADE_RU[job.grade])} · ${esc(job.pay)}</span></div>` +
       `<div class="cr-job-tag">${esc(job.tag)}</div>` +
       `<div class="cr-job-desc">${esc(job.desc)}</div>` +
@@ -88,20 +95,41 @@ function renderList(d: CareerDeps): void {
     );
   }).join("");
 
+  const current = d.currentJob ? JOBS.find((j) => j.id === d.currentJob) : null;
   body.innerHTML =
     `<h1>💼 Карьера</h1>` +
     `<p>Ранг по курсу: <b>${esc(d.rankName)}</b>. Офферов получено: <b>${hired.length} / ${JOBS.length}</b>` +
     (hired.length ? `, максимальный грейд: <b>${esc(topGrade)}</b>` : "") +
-    `.</p>` +
+    `.<br>` +
+    (current
+      ? `Текущая работа: <b>${esc(current.name)}</b> — ${esc(current.pay)}/мес приходит за пройденные уроки.`
+      : `Текущей работы нет — платят только подработки за уроки. Выбери одну из полученных вакансий ниже.`) +
+    `</p>` +
     `<div class="cr-jobs">${jobsHtml}</div>` +
     `<h2 class="cr-h2">Сюжет</h2>${storyHtml}` +
     `<button class="sec" id="crClose">Закрыть</button>`;
 
   $("#crClose").onclick = () => $("#modOv").classList.add("hide");
-  body.querySelectorAll<HTMLButtonElement>(".cr-go").forEach((b) => {
+  body.querySelectorAll<HTMLButtonElement>("[data-job]").forEach((b) => {
     b.onclick = () => {
       const job = JOBS.find((j) => j.id === b.dataset.job);
       if (job) runInterview(job, d);
+    };
+  });
+  body.querySelectorAll<HTMLButtonElement>("[data-take]").forEach((b) => {
+    b.onclick = () => {
+      const job = JOBS.find((j) => j.id === b.dataset.take);
+      if (!job) return;
+      d.onSetCurrentJob(job.id);
+      toast("Теперь ты работаешь в «" + job.name + "» — зарплата " + job.pay + "/мес");
+      renderList(d);
+    };
+  });
+  body.querySelectorAll<HTMLButtonElement>("[data-quit]").forEach((b) => {
+    b.onclick = () => {
+      d.onSetCurrentJob(null);
+      toast("Ты уволился. Пока платят только подработки за уроки.");
+      renderList(d);
     };
   });
 }

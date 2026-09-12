@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buy, defaultLife, eat, mergeLife, onLessonComplete, xpEarnBonusPct } from "../src/engine/life";
+import {
+  buy,
+  defaultLife,
+  eat,
+  mergeLife,
+  onLessonComplete,
+  setCurrentJob,
+  xpEarnBonusPct,
+} from "../src/engine/life";
 import { mergeProgress } from "../src/sync/merge";
 import type { Progress } from "../src/engine/progress";
 
@@ -56,27 +64,57 @@ describe("жизнь — еда и покупки", () => {
 });
 
 describe("жизнь — начисление за урок", () => {
-  it("без оффера платят меньше, потребности слегка убывают", () => {
+  it("без работы платят подработку, потребности слегка убывают", () => {
     const l = defaultLife();
-    const { credited } = onLessonComplete(l, 30, false);
+    const { credited } = onLessonComplete(l, 30, 0);
     expect(credited).toBeGreaterThan(0);
     expect(l.money).toBe(8000 + credited);
     expect(l.hunger).toBe(64);
   });
 
-  it("с оффером начисление больше", () => {
-    const withJob = onLessonComplete(defaultLife(), 30, true).credited;
-    const noJob = onLessonComplete(defaultLife(), 30, false).credited;
+  it("с работой начисление считается от реальной зарплаты и обычно больше подработки", () => {
+    const withJob = onLessonComplete(defaultLife(), 30, 160000).credited;
+    const noJob = onLessonComplete(defaultLife(), 30, 0).credited;
     expect(withJob).toBeGreaterThan(noJob);
+    expect(withJob).toBe(Math.round(160000 / 10));
   });
 
   it("потребности не уходят ниже нуля", () => {
     const l = defaultLife();
     l.hunger = 2;
-    for (let i = 0; i < 10; i++) onLessonComplete(l, 20, false);
+    for (let i = 0; i < 10; i++) onLessonComplete(l, 20, 0);
     expect(l.hunger).toBeGreaterThanOrEqual(0);
     expect(l.mood).toBeGreaterThanOrEqual(0);
     expect(l.health).toBeGreaterThanOrEqual(0);
+  });
+
+  it("обслуживание машины и аренда списываются с каждым уроком", () => {
+    const l = defaultLife();
+    l.car = "used"; // up: 9000
+    l.home = "room"; // rent: 16000
+    const before = l.money;
+    const { credited, upkeep } = onLessonComplete(l, 30, 0);
+    expect(upkeep).toBe(Math.round((9000 + 16000) / 10));
+    expect(l.money).toBe(before + credited - upkeep);
+  });
+
+  it("обслуживание не уводит деньги в минус", () => {
+    const l = defaultLife();
+    l.money = 5;
+    l.car = "used";
+    onLessonComplete(l, 30, 0);
+    expect(l.money).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("жизнь — текущая работа", () => {
+  it("setCurrentJob назначает и снимает текущую работу", () => {
+    const l = defaultLife();
+    expect(l.currentJob).toBeNull();
+    setCurrentJob(l, "pelmeni");
+    expect(l.currentJob).toBe("pelmeni");
+    setCurrentJob(l, null);
+    expect(l.currentJob).toBeNull();
   });
 });
 

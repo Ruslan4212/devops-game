@@ -35,6 +35,17 @@ function carIcon(body: CarBody): string {
   );
 }
 
+/** Строка обслуживания: сколько в месяц уходит на машину и аренду жилья, если есть. */
+function upkeepLine(l: Life): string {
+  const car = l.car ? CARS.find((c) => c.id === l.car) : null;
+  const home = l.home ? HOMES.find((h) => h.id === l.home) : null;
+  const parts: string[] = [];
+  if (car && car.up) parts.push(`машина ${RUB(car.up)}/мес`);
+  if (home && home.rent) parts.push(`аренда ${RUB(home.rent)}/мес`);
+  if (!parts.length) return "";
+  return "Обслуживание: " + parts.join(" + ") + " — списывается за пройденные уроки, как и зарплата.";
+}
+
 export function openLife(d: LifeDeps): void {
   let tab: Tab = "Еда";
 
@@ -45,6 +56,7 @@ export function openLife(d: LifeDeps): void {
       `<h1>🎒 Жизнь</h1>` +
       `<div class="lf-wallet">${RUB(l.money)}` +
       `<span>+${xpEarnBonusPct(l)}% к XP · заработано ${RUB(l.totalEarned)}</span></div>` +
+      (upkeepLine(l) ? `<div class="lf-upkeep">${upkeepLine(l)}</div>` : "") +
       bar("Сытость", l.hunger) +
       bar("Здоровье", l.health) +
       bar("Настроение", l.mood) +

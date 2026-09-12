@@ -9,7 +9,8 @@ import { applyLegacy, readLegacySave, summarize, worthImporting } from "./sync/l
 import type { LegacySave } from "./sync/legacy-import";
 import { clearTerminal, InputHistory, print, printCommand, setPrompt } from "./ui/terminal";
 import { allLessonsDone, isUnlocked, renderRail } from "./ui/rail";
-import { defaultLife, isDead, onLessonComplete, xpEarnBonusPct } from "./engine/life";
+import { defaultLife, isDead, onLessonComplete, setCurrentJob, xpEarnBonusPct } from "./engine/life";
+import { JOBS, parseSalary } from "./data/careers";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
@@ -198,7 +199,9 @@ function completeLesson(): void {
     const bonus = Math.max(0, Math.round((lesson.xp * xpEarnBonusPct(P.life)) / 100));
     gainedXp = lesson.xp + bonus;
     P.xp += gainedXp;
-    credited = onLessonComplete(P.life, lesson.xp, Object.keys(P.jobs ?? {}).length > 0).credited;
+    const currentJob = P.life.currentJob ? JOBS.find((j) => j.id === P.life!.currentJob) : null;
+    const monthlyPay = currentJob ? parseSalary(currentJob.pay) : 0;
+    credited = onLessonComplete(P.life, lesson.xp, monthlyPay).credited;
     persist();
   }
   print("");
@@ -367,13 +370,19 @@ $("#lifeBtn").onclick = () => {
 $("#careerBtn").onclick = () => {
   void import("./ui/career").then(({ openCareer }) => {
     if (!P.jobs) P.jobs = {};
+    if (!P.life) P.life = defaultLife();
     openCareer({
       actDone: (act) => LESSONS.filter((l) => l.act === act).every((l) => !!P.done[l.id]),
       capstone: !!P.capstone,
       lessonsDone: Object.keys(P.done).length,
       rankName: rankOf(P.xp),
       jobsGot: P.jobs,
+      currentJob: P.life.currentJob ?? null,
       onHire: () => persist(),
+      onSetCurrentJob: (jobId) => {
+        setCurrentJob(P.life!, jobId);
+        persist();
+      },
     });
   });
 };
