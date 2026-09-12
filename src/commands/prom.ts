@@ -128,7 +128,18 @@ def("promql", (a, w, _stdin, raw) => {
   if (/node_load1/.test(expr)) return O('node_load1{instance="localhost:9100"}   2.14');
   if (/node_filesystem_avail_bytes/.test(expr))
     return O('node_filesystem_avail_bytes{mountpoint="/"}   8589934592   (8 ГиБ)');
+  if (/histogram_quantile\s*\(\s*0\.99/.test(expr)) return O('{job="app"}   0.41   (p99 = 410 мс)');
   if (/histogram_quantile\s*\(\s*0\.95/.test(expr)) return O('{job="app"}   0.213   (p95 = 213 мс)');
+  if (/sum\s*\(\s*rate\s*\(\s*http_requests_total/.test(expr)) {
+    // sum() схлопывает лейблы (например instance) — один ряд вместо нескольких
+    if (/status\s*=~?\s*"5/.test(expr)) return O("{}   0.06   (суммарно 0.06 ошибки/с по всем инстансам)");
+    return O("{}   124.8   (суммарно 124.8 запроса/с по всем инстансам)");
+  }
+  if (/increase\s*\(\s*http_requests_total.*\[/.test(expr)) {
+    if (/status\s*=~?\s*"5/.test(expr))
+      return O('{status="500"}   6   (всего 6 ошибок за окно, не в секунду)');
+    return O('{status="200"}   12390   (всего 12390 запросов за окно, не в секунду)');
+  }
   if (/rate\s*\(\s*http_requests_total/.test(expr)) {
     if (/status\s*=\s*"5\d\d"/.test(expr))
       return O('{method="GET", status="500"}   0.02   (0.02 ошибки в секунду)');
