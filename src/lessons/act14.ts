@@ -946,10 +946,504 @@ export const act14: Lesson[] = [
       {
         kind: "say",
         text:
+          "Хороший рубеж — рабочий CLI-инструмент готов. Это база. Дальше в этом же\n" +
+          "акте — то, что отличает скрипт для собеседования от скрипта для прода:\n" +
+          "секреты через переменные окружения, повтор с паузой при сетевых сбоях,\n" +
+          "логи вместо print и инцидент с утёкшим в git токеном.",
+      },
+    ],
+  },
+  {
+    id: "14.13",
+    act: 14,
+    title: "Секреты не в коде: os.environ",
+    xp: 25,
+    intro: "Токен, пароль или ключ API никогда не пишут прямо в .py файле.",
+    setup: (w) => {
+      seedScripts(w);
+      w.templates = {
+        [`${DIR}/notify.py`]:
+          "# ЗАДАЧА: прочитай токен из переменной окружения API_TOKEN через os.environ,\n" +
+          "# напечатай первые 4 символа. Комментарий сотри.\n",
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Ты уже видел переменные окружения в Акте 1 ( export , env ). В Python их\n" +
+          "читают модулем  os :\n\n" +
+          '  import os\n  token = os.environ["API_TOKEN"]     # KeyError, если переменной нет\n' +
+          '  level = os.environ.get("LOG_LEVEL", "info")  # безопасно, есть значение по умолчанию\n',
+      },
+      {
+        kind: "say",
+        text:
+          "Почему не хранить токен строкой в коде:\n\n" +
+          '  ✗  TOKEN = "sk-abc123..."     — попадёт в git, увидят все, у кого есть доступ к репо\n' +
+          '  ✓  TOKEN = os.environ["API_TOKEN"]  — значение живёт вне кода: в CI-секретах,\n' +
+          "     .env-файле (который в .gitignore) или хранилище секретов\n\n" +
+          "Тот же принцип, что переменные CI_TOKEN в Акте 7 и env-переменные Docker в Акте 6.",
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: создай  notify.py . Набери:\n" +
+          "edit notify.py\n" +
+          'Прочитай  os.environ["API_TOKEN"]  и напечатай значение. Сохрани.',
+        check: has(`${DIR}/notify.py`, /os\.environ\[\s*["']API_TOKEN["']\s*\]/),
+        answer:
+          '#!/usr/bin/env python3\nimport os\n\ntoken = os.environ["API_TOKEN"]\nprint("токен:", token)\n',
+        editFile: `${DIR}/notify.py`,
+        hint: 'В edit notify.py: import os, затем  token = os.environ["API_TOKEN"] , затем print(token).',
+      },
+      {
+        kind: "do",
+        text: "Задача: запусти без переменной — увидишь KeyError. Команда:  python3 notify.py",
+        check: (w) => w.log.some((l) => /^python3?\s+notify\.py/.test(l.cmd) && l.code !== 0),
+        answer: "python3 notify.py",
+        hint: "Команда:  python3 notify.py  — переменной нет, ждём KeyError.",
+      },
+      {
+        kind: "do",
+        text: "Задача: задай переменную окружения и запусти снова.",
+        check: (w) => w.log.some((l) => /^python3?\s+notify\.py/.test(l.cmd) && l.code === 0),
+        answer: "export API_TOKEN=demo-token\npython3 notify.py",
+        hint: "Сначала  export API_TOKEN=demo-token , потом  python3 notify.py",
+      },
+      {
+        kind: "quiz",
+        text: "Почему секрет читают через os.environ, а не пишут строкой в коде?",
+        options: [
+          "Код попадает в git и его видят все с доступом к репо; секрет должен жить вне кода",
+          "os.environ работает быстрее, чем обычная переменная",
+          "Python не разрешает присваивать строки напрямую переменным",
+        ],
+        answer: 0,
+        explain:
+          "Тот же принцип, что CI-секреты (Акт 7) и -e в docker run (Акт 6): секрет — не в исходниках.",
+      },
+    ],
+  },
+  {
+    id: "14.14",
+    act: 14,
+    title: "os.environ.get: значение по умолчанию",
+    xp: 20,
+    intro: "Не для всякой переменной нужен обязательный KeyError — иногда достаточно разумного default.",
+    setup: seedScripts,
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Не все переменные окружения одинаково критичны:\n\n" +
+          '  os.environ["API_TOKEN"]                 — без токена работать бессмысленно, пусть упадёт\n' +
+          '  os.environ.get("LOG_LEVEL", "info")     — не задали уровень логов? не страшно, дефолт "info"\n\n' +
+          "Правило: обязательные секреты/адреса — через [], необязательные настройки — через .get().",
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: создай  settings.py . Набери:\n" +
+          "edit settings.py\n" +
+          'Прочитай LOG_LEVEL через os.environ.get с дефолтом "info" и напечатай его.',
+        check: has(`${DIR}/settings.py`, /os\.environ\.get\(\s*["']LOG_LEVEL["']/),
+        answer:
+          '#!/usr/bin/env python3\nimport os\n\nlevel = os.environ.get("LOG_LEVEL", "info")\nprint("уровень логов:", level)\n',
+        editFile: `${DIR}/settings.py`,
+        hint: 'os.environ.get("LOG_LEVEL", "info") — вторым аргументом идёт значение по умолчанию.',
+      },
+      {
+        kind: "do",
+        text: "Задача: запусти без переменной — должно вывести дефолтное значение, без ошибки.",
+        check: ran(/^python3?\s+settings\.py/),
+        answer: "python3 settings.py",
+        hint: "Команда:  python3 settings.py",
+      },
+      {
+        kind: "quiz",
+        text: 'Когда стоит использовать os.environ.get("X", default) вместо os.environ["X"]?',
+        options: [
+          "Когда без переменной скрипт всё ещё может разумно работать — например, необязательные настройки",
+          "Всегда, os.environ[] считается устаревшим",
+          "Только для чисел, для строк не подходит",
+        ],
+        answer: 0,
+        explain:
+          "Обязательное — падает явно ([]). Необязательное — получает дефолт (.get()). Выбор осознанный.",
+      },
+    ],
+  },
+  {
+    id: "14.15",
+    act: 14,
+    title: "Инцидент: токен в git-истории ⚡",
+    xp: 45,
+    intro: "Секьюрити-скан нашёл токен в коммите трёхмесячной давности. Реагируем.",
+    setup: (w) => {
+      seedScripts(w);
+      writeFile(
+        w,
+        `${DIR}/notify.py`,
+        '#!/usr/bin/env python3\nimport requests\n\nTOKEN = "sk-live-9f8a7b6c5d4e"\nrequests.post("https://hooks.example.com/notify", headers={"Authorization": TOKEN}, timeout=5)\n',
+      );
+      w.templates = {
+        [`${DIR}/notify.py`]:
+          '#!/usr/bin/env python3\nimport requests\n\n# TODO: убрать хардкод токена, взять из окружения\nTOKEN = "sk-live-9f8a7b6c5d4e"\nrequests.post("https://hooks.example.com/notify", headers={"Authorization": TOKEN}, timeout=5)\n',
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Жалоба от security-команды: «в файле notify.py в git найден настоящий\n" +
+          "рабочий токен, лежит там три месяца — сколько людей его уже видели,\n" +
+          "неизвестно». Смотрим код.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Посмотри исходник —  cat notify.py",
+        check: ran(/^cat\s+notify\.py/),
+        answer: "cat notify.py",
+        hint: "Команда:  cat notify.py",
+      },
+      {
+        kind: "say",
+        text:
+          'Строка  TOKEN = "sk-live-..."  — секрет прямо в коде, попал в git. Мало\n' +
+          "убрать строку из будущей версии: старый коммит с токеном всё ещё в истории,\n" +
+          "и токен придётся считать скомпрометированным навсегда.\n\n" +
+          "Порядок действий при утечке секрета (спрашивают на собеседовании):\n\n" +
+          "  1) немедленно ОТОЗВАТЬ/перевыпустить сам токен на стороне сервиса —\n" +
+          "     переписывание git-истории эту утечку не отменяет\n" +
+          "  2) убрать секрет из кода, читать из окружения\n" +
+          "  3) при необходимости почистить историю git (отдельная операция,\n" +
+          "     сама по себе секрет не аннулирует)",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 2. Почини код. Набери:\n" +
+          "edit notify.py\n" +
+          'Убери хардкод, читай токен через  os.environ["API_TOKEN"] . Сохрани.',
+        check: (w) =>
+          has(`${DIR}/notify.py`, /os\.environ\[\s*["']API_TOKEN["']\s*\]/)(w) &&
+          !has(`${DIR}/notify.py`, /sk-live/)(w),
+        answer:
+          '#!/usr/bin/env python3\nimport os\nimport requests\n\nTOKEN = os.environ["API_TOKEN"]\nrequests.post("https://hooks.example.com/notify", headers={"Authorization": TOKEN}, timeout=5)\n',
+        editFile: `${DIR}/notify.py`,
+        hint: 'Замени TOKEN = "sk-live-..." на  TOKEN = os.environ["API_TOKEN"]  и import requests не трогай.',
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Задай переменную окружения и убедись, что скрипт работает без хардкода.",
+        check: (w) => w.log.some((l) => /^python3?\s+notify\.py/.test(l.cmd) && l.code === 0),
+        answer: "export API_TOKEN=new-rotated-token\npython3 notify.py",
+        hint: "Сначала  export API_TOKEN=new-rotated-token , потом  python3 notify.py",
+      },
+      {
+        kind: "say",
+        text:
+          "Инцидент закрыт с оговоркой: код исправлен, но реальный токен в проде\n" +
+          "обязаны перевыпустить отдельно — это ответственность владельца сервиса,\n" +
+          "а не результат правки одного файла.",
+      },
+    ],
+  },
+  {
+    id: "14.16",
+    act: 14,
+    title: "Повтор с паузой: retry вместо мгновенного отказа",
+    xp: 30,
+    intro: "Сеть иногда моргает на секунду — падать с первой же попытки не всегда правильно.",
+    setup: (w) => {
+      seedScripts(w);
+      w.templates = {
+        [`${DIR}/notify_retry.py`]:
+          "# ЗАДАЧА: 3 попытки в цикле for с time.sleep(2) между ними,\n" +
+          "# GET http://metrics-nonexistent:9999/export с timeout=5. Комментарий сотри.\n",
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "requests.RequestException — это не всегда «сервис умер навсегда». Иногда\n" +
+          "сеть моргнула на секунду или сервис перезапускается. Разумная реакция —\n" +
+          "повторить попытку с паузой, а не сразу сдаваться:\n\n" +
+          "  import time\n" +
+          "  for attempt in range(3):\n" +
+          "      try:\n" +
+          "          r = requests.get(url, timeout=5)\n" +
+          "          r.raise_for_status()\n" +
+          "          break\n" +
+          "      except requests.RequestException:\n" +
+          '          print("попытка", attempt + 1, "не удалась, ждём")\n' +
+          "          time.sleep(2)\n",
+      },
+      {
+        kind: "say",
+        text:
+          "Важно не переусердствовать:\n\n" +
+          "  • у retry должен быть ПОТОЛОК (3-5 попыток) — иначе это не retry, а завис\n" +
+          "  • пауза между попытками (иначе это DDoS собственного сервиса)\n" +
+          "  • если все попытки провалились — та же обязательная обработка ошибки:\n" +
+          '    понятный лог и sys.exit(1), а не тихое "само пройдёт"',
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: создай  notify_retry.py . Набери:\n" +
+          "edit notify_retry.py\n" +
+          "3 попытки в for с time.sleep(2), GET http://metrics-nonexistent:9999/export,\n" +
+          "timeout=5, в конце sys.exit(1). Сохрани.",
+        check: (w) =>
+          has(`${DIR}/notify_retry.py`, /for\s+\w+\s+in\s+range\(\s*3\s*\)/)(w) &&
+          has(`${DIR}/notify_retry.py`, /time\.sleep\(/)(w),
+        answer:
+          "#!/usr/bin/env python3\nimport sys\nimport time\nimport requests\n\n" +
+          'URL = "http://metrics-nonexistent:9999/export"\n\n' +
+          "for attempt in range(3):\n" +
+          "    r = requests.get(URL, timeout=5)\n" +
+          "    time.sleep(2)\n" +
+          "sys.exit(1)\n",
+        editFile: `${DIR}/notify_retry.py`,
+        hint: "for attempt in range(3):  с  time.sleep(2)  внутри цикла вокруг requests.get(URL, timeout=5).",
+      },
+      {
+        kind: "do",
+        text: "Задача: запусти —  python3 notify_retry.py . Смотри, как выглядят три попытки подряд.",
+        check: ranAny(/^python3?\s+notify_retry\.py/),
+        answer: "python3 notify_retry.py",
+        hint: "Команда:  python3 notify_retry.py",
+      },
+      {
+        kind: "quiz",
+        text: "Почему у retry обязательно должен быть потолок попыток (например, 3)?",
+        options: [
+          "Без потолка при постоянной недоступности сервиса скрипт будет пытаться бесконечно — тот же зависший процесс, что и без timeout",
+          "Python не разрешает больше 3 повторов в цикле",
+          "Это только для красоты в логах",
+        ],
+        answer: 0,
+        explain:
+          "Retry без потолка — это отложенное зависание. Ограничение попыток обязательно, как и timeout.",
+      },
+    ],
+  },
+  {
+    id: "14.17",
+    act: 14,
+    title: "logging вместо print",
+    xp: 25,
+    intro: "print() удобен для тренировки, но у прод-скрипта должны быть уровни и время в логах.",
+    steps: [
+      {
+        kind: "say",
+        text:
+          "print() ничего не знает об уровне важности и не пишет время. В проде\n" +
+          "используют модуль  logging :\n\n" +
+          "  import logging\n" +
+          "  logging.basicConfig(level=logging.INFO)\n" +
+          "  logger = logging.getLogger(__name__)\n\n" +
+          '  logger.info("сервис проверен, статус 200")\n' +
+          '  logger.warning("ответ медленный: 4.8s")\n' +
+          '  logger.error("сервис недоступен: %s", err)\n',
+      },
+      {
+        kind: "say",
+        text:
+          "Что это даёт по сравнению с print:\n\n" +
+          "  • у каждой строки уровень (DEBUG/INFO/WARNING/ERROR) — можно фильтровать\n" +
+          "    без изменения кода: включить DEBUG для отладки, в проде оставить INFO+\n" +
+          "  • автоматически пишется время и имя модуля — не нужно добавлять руками\n" +
+          "  • логи легко перенаправить в файл или систему сбора логов (тот же путь,\n" +
+          "    что journalctl в Акте 2 и логи контейнера в Акте 6)\n\n" +
+          "print() оставляют для мелких одноразовых скриптов и вывода результата пользователю.",
+      },
+      {
+        kind: "quiz",
+        text: "Чем logging.error(...) лучше print(...) для прод-скрипта?",
+        options: [
+          "Есть уровни важности, время и источник записи; можно менять детальность без правки кода и слать в общий сборщик логов",
+          "logging работает быстрее print в несколько раз",
+          "print вообще не выводит текст в консоль",
+        ],
+        answer: 0,
+        explain:
+          "logging — это структурированный, управляемый по уровню вывод. print — просто текст в stdout.",
+      },
+    ],
+  },
+  {
+    id: "14.18",
+    act: 14,
+    title: "Мини-тест для скрипта",
+    xp: 20,
+    intro: "Даже маленький скрипт можно проверить автоматически, не запуская его руками.",
+    steps: [
+      {
+        kind: "say",
+        text:
+          "У тебя есть функция для повторного использования — например, разбор\n" +
+          'порога из конфига. Такую логику стоит вынести из "голого" тела скрипта\n' +
+          "в функцию и написать для неё тест:\n\n" +
+          "  def is_disk_low(percent_free: float, threshold: float = 10.0) -> bool:\n" +
+          "      return percent_free < threshold\n\n" +
+          "  def test_is_disk_low():\n" +
+          "      assert is_disk_low(5.0) is True\n" +
+          "      assert is_disk_low(50.0) is False\n",
+      },
+      {
+        kind: "say",
+        text:
+          "Такие тесты запускают библиотекой  pytest :\n\n" +
+          "  pytest test_disk.py -v\n\n" +
+          "pytest сам находит функции  test_*  и показывает, какие assert прошли,\n" +
+          "какие — нет. В CI (Акт 7) это отдельный шаг pipeline, который должен быть\n" +
+          "зелёным перед merge — тот же принцип, что unit-тесты в любом другом языке.",
+      },
+      {
+        kind: "quiz",
+        text: "Зачем логику из скрипта выносят в отдельную функцию вроде is_disk_low()?",
+        options: [
+          "Функцию можно протестировать напрямую (assert) без запуска всего скрипта и без реального диска",
+          "Функции выполняются быстрее, чем код в теле скрипта",
+          "Без функций pytest вообще не работает",
+        ],
+        answer: 0,
+        explain: "Тестируемость — это в первую очередь маленькие чистые функции без побочных эффектов.",
+      },
+    ],
+  },
+  {
+    id: "14.19",
+    act: 14,
+    title: "Ревью прод-скрипта",
+    xp: 25,
+    intro: "Собери воедино все признаки скрипта, который не стыдно отдать в прод.",
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Чек-лист прод-готовности python-скрипта для автоматизации (пройдись по\n" +
+          "каждому пункту и вспомни, в каком уроке акта он разбирался):\n\n" +
+          "  ☐ секреты — через os.environ, не в коде (14.13, 14.15)\n" +
+          "  ☐ сетевые вызовы — с timeout= (14.5)\n" +
+          "  ☐ конкретные исключения пойманы, ошибка не глушится (14.6)\n" +
+          "  ☐ временный сбой сети — retry с потолком и паузой (14.16)\n" +
+          "  ☐ аргументы — через argparse, не sys.argv[1] (14.7)\n" +
+          "  ☐ внешние команды — subprocess со списком, без shell=True (14.8)\n" +
+          "  ☐ логи — logging, а не голый print (14.17)\n" +
+          "  ☐ зависимости зафиксированы в requirements.txt (14.10)\n" +
+          "  ☐ код возврата осмысленный: 0 — ок, не 0 — реальная проблема (14.3)",
+      },
+      {
+        kind: "say",
+        text:
+          "Это не формальность ради галочек — каждый пункт закрывает конкретный\n" +
+          "инцидент, который ты уже разбирал в этом акте: зависший крон, тихий сбой,\n" +
+          "утекший токен. Хороший скрипт — это накопленный опыт чужих 3 часов ночи.",
+      },
+      {
+        kind: "quiz",
+        text: "В скрипте нашли: нет timeout, print вместо logging, но зато отличный argparse. Что чинить первым?",
+        options: [
+          "timeout — его отсутствие может подвесить процесс насовсем, это выше по риску, чем стиль логов",
+          "Ничего чинить не надо, раз argparse хороший",
+          "logging — это самое важное во всех случаях",
+        ],
+        answer: 0,
+        explain: "Приоритет — по риску инцидента. Зависший процесс намного хуже, чем print вместо logging.",
+      },
+    ],
+  },
+  {
+    id: "14.20",
+    act: 14,
+    title: "Капстоун 2: прод-версия healthcheck-CLI",
+    xp: 50,
+    intro: "Тот же monitor.py, но теперь с секретом из окружения и повтором при сбое.",
+    setup: (w) => {
+      seedScripts(w);
+      w.templates = {
+        [`${DIR}/monitor2.py`]:
+          "# ЗАДАЧА: прод-версия healthcheck.\n" +
+          "#  argparse: обязательный --url\n" +
+          '#  токен из os.environ.get("API_TOKEN", "") — не обязателен\n' +
+          "#  3 попытки в for с time.sleep(2), requests.get(args.url, timeout=5)\n" +
+          "#  после всех попыток -> sys.exit(1)\n" +
+          "# Комментарий сотри.\n",
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Финал акта. Улучши свой healthcheck-инструмент до прод-версии: токен из\n" +
+          "окружения (необязательный) и устойчивость к разовому сетевому сбою через\n" +
+          "retry. Ошибёшься — подсказка, ещё раз — готовый ответ.",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 1. Напиши  monitor2.py . Набери:\n" +
+          "edit monitor2.py\n" +
+          'argparse с обязательным --url; токен через os.environ.get("API_TOKEN", "");\n' +
+          "3 попытки в for с time.sleep(2) вокруг requests.get(args.url, timeout=5);\n" +
+          "sys.exit(1) после цикла. Сохрани.",
+        check: (w) =>
+          has(`${DIR}/monitor2.py`, /add_argument\(\s*["']--url["'][^\n]*required\s*=\s*True/)(w) &&
+          has(`${DIR}/monitor2.py`, /os\.environ\.get\(\s*["']API_TOKEN["']/)(w) &&
+          has(`${DIR}/monitor2.py`, /for\s+\w+\s+in\s+range\(\s*3\s*\)/)(w) &&
+          has(`${DIR}/monitor2.py`, /time\.sleep\(/)(w),
+        answer:
+          "#!/usr/bin/env python3\n" +
+          "import argparse\n" +
+          "import os\n" +
+          "import sys\n" +
+          "import time\n" +
+          "import requests\n" +
+          "\n" +
+          'parser = argparse.ArgumentParser(description="прод healthcheck")\n' +
+          'parser.add_argument("--url", required=True)\n' +
+          "args = parser.parse_args()\n" +
+          "\n" +
+          'token = os.environ.get("API_TOKEN", "")\n' +
+          "\n" +
+          "for attempt in range(3):\n" +
+          "    r = requests.get(args.url, timeout=5)\n" +
+          "    time.sleep(2)\n" +
+          "sys.exit(1)\n",
+        editFile: `${DIR}/monitor2.py`,
+        hint:
+          'Нужны: add_argument("--url", required=True), os.environ.get("API_TOKEN", ""), ' +
+          "for attempt in range(3): с time.sleep(2) вокруг requests.get(args.url, timeout=5).",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Запусти на недоступном адресе, чтобы увидеть все попытки.",
+        check: ranAny(/^python3?\s+monitor2\.py\s+--url\s+http:\/\/metrics-nonexistent/),
+        answer: "python3 monitor2.py --url http://metrics-nonexistent:9999/export",
+        hint: "Команда:  python3 monitor2.py --url http://metrics-nonexistent:9999/export",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Теперь запусти на живом адресе, задав токен через окружение.",
+        check: (w) =>
+          w.log.some(
+            (l) => /^python3?\s+monitor2\.py\s+--url\s+http:\/\/localhost/.test(l.cmd) && l.code === 0,
+          ),
+        answer: "export API_TOKEN=demo-token\npython3 monitor2.py --url http://localhost:8080/health",
+        hint: "Сначала  export API_TOKEN=demo-token , потом  python3 monitor2.py --url http://localhost:8080/health",
+      },
+      {
+        kind: "say",
+        text:
           "Курс пройден. Ты прошёл путь от  pwd  до полноценного DevOps-набора:\n\n" +
           "  Linux и процессы · bash · сети · git · Docker · CI/CD · Terraform ·\n" +
           "  Kubernetes · дежурство и надёжность · Prometheus · Grafana · Zabbix ·\n" +
-          "  Python для автоматизации.\n\n" +
+          "  Python для автоматизации, включая секреты, retry и прод-чеклист.\n\n" +
           "Что дальше:\n" +
           "  • финальное задание на реальном сервере (capstone) — кнопка «Финал»\n" +
           "  • разделы «Собеседование» и «Карьера» — прогони вопросы вслух\n" +
