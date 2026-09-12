@@ -722,14 +722,354 @@ export const act08: Lesson[] = [
       {
         kind: "say",
         text:
-          "Акт 8 пройден. Ты умеешь:\n\n" +
-          "  • объяснить, зачем инфраструктура как код и что такое «снежинка»\n" +
-          "  • понимать декларативный подход и идемпотентность\n" +
-          "  • писать main.tf: блоки resource, variable, output\n" +
-          "  • цикл init → plan → apply, и почему plan нельзя пропускать\n" +
-          "  • читать план: знаки + ~ -, и не давать удалить нужное\n" +
-          "  • зачем нужен удалённый state и как Terraform живёт в CI/CD\n\n" +
-          "Дальше — Kubernetes: как запускать десятки контейнеров и держать сервис живым.",
+          "Хороший рубеж. Ты умеешь: объяснять IaC и «снежинки», декларативный подход\n" +
+          "и идемпотентность, писать main.tf, цикл init → plan → apply, читать план\n" +
+          "(+ ~ -) и не давать удалить нужное, понимать удалённый state и CI/CD.\n\n" +
+          "Это база. Дальше в этом же акте — то, с чем реально сталкиваются: дрейф\n" +
+          "конфигурации, принудительное пересоздание, аккуратная передача ресурса\n" +
+          "и снос целого окружения.",
+      },
+    ],
+  },
+  {
+    id: "8.13",
+    act: 8,
+    title: "Дрейф конфигурации: кто-то поменял руками ⚡",
+    xp: 35,
+    intro: "Реальность разошлась с state. Terraform это заметит — если ты спросишь plan.",
+    setup: (w) => {
+      seedInfra(w);
+      writeFile(w, "/home/devops/infra/main.tf", TF_CONFIG);
+      w.tf = { inited: true, plan: null, applied: ["local_file.config"], tainted: ["local_file.config"] };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Утро. Коллега пишет: «приложение почему-то читает не тот конфиг, хотя\n" +
+          "main.tf никто не трогал». Проверяешь план — Terraform думает, что всё в\n" +
+          "порядке. Но кто-то, судя по всему, поправил файл на сервере руками, в\n" +
+          "обход Terraform. Это и называется  дрейф конфигурации (configuration drift) :\n" +
+          "реальность разошлась с тем, что Terraform считает реальностью.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Посмотри план.",
+        check: ran(/^terraform\s+plan/),
+        answer: "terraform plan",
+        hint: "terraform plan",
+      },
+      {
+        kind: "say",
+        text:
+          "  ~ local_file.config (будет пересоздан: помечен как изменённый вне Terraform)\n" +
+          "  ⚠ Обнаружен дрейф\n\n" +
+          "Значок  ~  — «изменить», не «создать» и не «удалить». В настоящем Terraform\n" +
+          "такую метку ставит либо ручной  terraform taint , либо провайдер сам,\n" +
+          "заметив при  refresh , что реальный ресурс отличается от записанного в state.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Приведи ресурс в соответствие с main.tf.",
+        check: (w) => (w.tf.tainted || []).length === 0 && w.tf.applied.includes("local_file.config"),
+        answer: "terraform apply",
+        hint: "terraform apply",
+      },
+      {
+        kind: "say",
+        text:
+          "Готово: ресурс пересоздан строго по main.tf, дрейф устранён.\n\n" +
+          "Профилактика на будущее: чем меньше людей правят инфраструктуру руками в\n" +
+          "обход Terraform, тем реже случается дрейф. Отсюда и Акт 8.11 — apply только\n" +
+          "через CI/CD, а не с чьего-то ноутбука.",
+      },
+      {
+        kind: "quiz",
+        text: "Что означает строка  ~ TYPE.NAME  в плане Terraform?",
+        options: [
+          "Ресурс будет пересоздан — обнаружено расхождение между тем, что есть на самом деле, и тем, что описано",
+          "Ресурс будет удалён навсегда, без замены",
+          "В файле main.tf синтаксическая ошибка",
+        ],
+        answer: 0,
+        explain: "+ создать, ~ изменить/пересоздать, - удалить. ~ — сигнал дрейфа или намеренного taint.",
+      },
+    ],
+  },
+  {
+    id: "8.14",
+    act: 8,
+    title: "terraform taint: заставить пересоздать",
+    xp: 25,
+    intro: "Иногда ты сам знаешь, что ресурс сломан, хотя Terraform уверен в обратном.",
+    setup: (w) => {
+      seedInfra(w);
+      writeFile(w, "/home/devops/infra/main.tf", TF_CONFIG);
+      w.tf = { inited: true, plan: null, applied: ["local_file.config"] };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "В прошлом уроке дрейф обнаружился сам. Но бывает наоборот: ты ЗНАЕШЬ, что\n" +
+          "с ресурсом что-то не так (повреждённый диск, неудачно накатившееся\n" +
+          "обновление образа), а Terraform считает, что всё штатно — main.tf не\n" +
+          "менялся, значит и менять нечего.",
+      },
+      {
+        kind: "say",
+        text:
+          "Команда  terraform taint  вручную помечает ресурс на пересоздание, не\n" +
+          "трогая main.tf:\n\n" +
+          "  terraform taint local_file.config\n\n" +
+          "При следующем apply Terraform уничтожит этот ресурс и создаст заново с\n" +
+          "теми же параметрами — как переустановка одной сломанной детали.",
+      },
+      {
+        kind: "do",
+        text: "Задача: пометь ресурс  local_file.config  на пересоздание.",
+        check: (w) => (w.tf.tainted || []).includes("local_file.config"),
+        answer: "terraform taint local_file.config",
+        hint: "terraform taint local_file.config",
+      },
+      {
+        kind: "do",
+        text: "Задача: посмотри план — убедись, что ресурс пойдёт на пересоздание.",
+        check: (w) => !!w.tf.plan && (w.tf.plan.change || []).includes("local_file.config"),
+        answer: "terraform plan",
+        hint: "terraform plan",
+      },
+      {
+        kind: "do",
+        text: "Задача: примени план.",
+        check: (w) => (w.tf.tainted || []).length === 0,
+        answer: "terraform apply",
+        hint: "terraform apply",
+      },
+      {
+        kind: "quiz",
+        text: "Чем terraform taint лучше, чем просто удалить ресурс руками и запустить apply заново?",
+        options: [
+          "taint работает через сам Terraform — пересоздание учтено в state; ручное удаление создаёт дрейф, который потом придётся ловить планом",
+          "taint работает быстрее физически",
+          "Разницы никакой, это два названия одной команды",
+        ],
+        answer: 0,
+        explain: "taint — управляемый, предсказуемый способ то же самое, что случайно получается при дрейфе.",
+      },
+    ],
+  },
+  {
+    id: "8.15",
+    act: 8,
+    title: "terraform state rm: передать ресурс, не разрушив",
+    xp: 30,
+    intro: "Иногда ресурс должен выйти из-под контроля ЭТОГО Terraform, оставшись в живых.",
+    setup: (w) => {
+      seedInfra(w);
+      writeFile(w, "/home/devops/infra/main.tf", TF_TWO);
+      w.tf = { inited: true, plan: null, applied: ["local_file.config", "local_file.database"] };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Компания растёт: базой данных теперь будет управлять отдельная команда со\n" +
+          "своим собственным Terraform-проектом. Ресурс  local_file.database  должен\n" +
+          "перестать быть ТВОИМ — но удалять сам ресурс нельзя, он продолжает работать.",
+      },
+      {
+        kind: "say",
+        text:
+          "Для этого — «хирургия состояния»:  terraform state rm .\n\n" +
+          "  terraform state rm local_file.database\n\n" +
+          "Она убирает запись из СОСТОЯНИЯ (state), а сам ресурс не трогает вообще.\n" +
+          "После этого твой Terraform «забывает» про database — как будто никогда им\n" +
+          "не управлял.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Убери database из состояния.",
+        check: (w) => !w.tf.applied.includes("local_file.database"),
+        answer: "terraform state rm local_file.database",
+        hint: "terraform state rm local_file.database",
+      },
+      {
+        kind: "say",
+        text:
+          'Ловушка: блок  resource "local_file" "database"  всё ещё лежит в твоём\n' +
+          "main.tf. Раз состояние про него забыло, а описание осталось — Terraform\n" +
+          "решит, что его нужно СОЗДАТЬ ЗАНОВО. Уберём блок из файла.",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 2. Убери блок database из main.tf. Набери:\n" +
+          "edit main.tf\n" +
+          "Оставь только блок  config , блок  database  удали целиком. Сохрани.",
+        check: (w) => !has("/home/devops/infra/main.tf", /"database"/)(w),
+        answer: TF_CONFIG,
+        editFile: "/home/devops/infra/main.tf",
+        hint: 'В  edit main.tf  оставь только блок resource "local_file" "config", блок database убери целиком.',
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Проверь план — изменений быть не должно.",
+        check: (w) => !!w.tf.plan && w.tf.plan.add.length === 0 && w.tf.plan.del.length === 0,
+        answer: "terraform plan",
+        hint: "terraform plan — итог должен быть 0 создать, 0 изменить, 0 удалить",
+      },
+      {
+        kind: "quiz",
+        text: "После terraform state rm ресурс всё ещё существует физически. Что случится, если оставить его блок в main.tf?",
+        options: [
+          "Terraform захочет создать его заново — состояние про него «забыло», как будто ресурса никогда не было",
+          "Ничего, Terraform сам поймёт, что ресурс уже есть",
+          "main.tf автоматически обновится и уберёт лишний блок",
+        ],
+        answer: 0,
+        explain: "state rm и правка main.tf идут парой — иначе получишь дубль или неожиданное создание.",
+      },
+    ],
+  },
+  {
+    id: "8.16",
+    act: 8,
+    title: "terraform destroy: снести временное окружение",
+    xp: 25,
+    intro: "Такая же необратимая команда, как rm -rf. Только для одноразовых стендов.",
+    setup: (w) => {
+      seedInfra(w);
+      writeFile(w, "/home/devops/infra/main.tf", TF_TWO);
+      w.tf = { inited: true, plan: null, applied: ["local_file.config", "local_file.database"] };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Тестовый стенд для проверки перед релизом больше не нужен — задача закрыта,\n" +
+          "пора убрать за собой всё, что он занимал: диски, виртуалки, записи в DNS.\n" +
+          "Уничтожить сразу ВСЁ, что описано в этом Terraform-проекте — команда\n" +
+          "  terraform destroy .",
+      },
+      {
+        kind: "watch",
+        run: "terraform state list",
+        note: "Пока в состоянии два ресурса — то, что предстоит уничтожить.",
+      },
+      {
+        kind: "do",
+        text: "Задача: снеси всё окружение.",
+        check: (w) => w.tf.applied.length === 0,
+        answer: "terraform destroy",
+        hint: "terraform destroy",
+      },
+      {
+        kind: "do",
+        text: "Задача: убедись, что состояние действительно пусто.",
+        check: ran(/^terraform\s+state\s+list/),
+        answer: "terraform state list",
+        hint: "terraform state list",
+      },
+      {
+        kind: "say",
+        text:
+          "destroy — по разрушительности ровно как  rm -rf  из Акта 1: без корзины,\n" +
+          "без «ты уверен?» по умолчанию. На временных тестовых стендах это удобно.\n" +
+          "На прод-инфраструктуре destroy запускают в исключительных случаях и с\n" +
+          "лишними подтверждениями — одна опечатка в имени проекта, и снесено не то.",
+      },
+      {
+        kind: "quiz",
+        text: "Почему terraform destroy почти никогда не запускают на боевой (prod) инфраструктуре без крайней нужды?",
+        options: [
+          "Он безвозвратно удаляет всё, что Terraform считает своим, — как rm -rf, без корзины",
+          "destroy физически не работает на prod-аккаунтах",
+          "destroy требует отдельной лицензии для prod",
+        ],
+        answer: 0,
+        explain:
+          "Разрушительная мощь destroy та же, что у rm -rf. Инструмент правильный, дисциплина обязательна.",
+      },
+    ],
+  },
+  {
+    id: "8.17",
+    act: 8,
+    title: "Финал акта: наведи порядок перед закрытием стенда ⚡⚡",
+    xp: 55,
+    intro: "Дрейф, передача ресурса другой команде и полный снос — всё в одном порядке действий.",
+    setup: (w) => {
+      seedInfra(w);
+      writeFile(w, "/home/devops/infra/main.tf", TF_TWO);
+      w.tf = {
+        inited: true,
+        plan: null,
+        applied: ["local_file.config", "local_file.database"],
+        tainted: ["local_file.config"],
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Тестовый стенд закрывают. Перед этим тимлид просит навести порядок по\n" +
+          "списку: 1) починить обнаруженный дрейф на config, 2) передать database\n" +
+          "другой команде без разрушения, 3) снести всё, что осталось твоим.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Посмотри план — там должен быть виден дрейф.",
+        check: ran(/^terraform\s+plan/),
+        answer: "terraform plan",
+        hint: "terraform plan",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Почини дрейф — примени план.",
+        check: (w) => (w.tf.tainted || []).length === 0,
+        answer: "terraform apply",
+        hint: "terraform apply",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Убери database из состояния — дальше им управляет другая команда.",
+        check: (w) => !w.tf.applied.includes("local_file.database"),
+        answer: "terraform state rm local_file.database",
+        hint: "terraform state rm local_file.database",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 4. Убери блок database из main.tf, чтобы Terraform не попытался создать\n" +
+          "его заново. Набери:  edit main.tf",
+        check: (w) => !has("/home/devops/infra/main.tf", /"database"/)(w),
+        answer: TF_CONFIG,
+        editFile: "/home/devops/infra/main.tf",
+        hint: "Оставь только блок config, блок database убери целиком.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 5. Проверь, что после передачи план чист.",
+        check: (w) => !!w.tf.plan && w.tf.plan.add.length === 0 && w.tf.plan.del.length === 0,
+        answer: "terraform plan",
+        hint: "terraform plan — 0 создать, 0 изменить, 0 удалить",
+      },
+      {
+        kind: "do",
+        text: "Шаг 6. Стенд больше не нужен — снеси всё, что осталось твоим.",
+        check: (w) => w.tf.applied.length === 0,
+        answer: "terraform destroy",
+        hint: "terraform destroy",
+      },
+      {
+        kind: "say",
+        text:
+          "Порядок наведён: дрейф устранён до того, как он кого-то запутал, database\n" +
+          "аккуратно передан без единой секунды простоя, а лишнее окружение снесено\n" +
+          "полностью, ничего не оставив висеть и не расходовать бюджет впустую.\n\n" +
+          "Акт 8 пройден полностью. Дальше — Kubernetes: как запускать десятки\n" +
+          "контейнеров и держать сервис живым.",
       },
     ],
   },
