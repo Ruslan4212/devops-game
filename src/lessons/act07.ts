@@ -750,14 +750,368 @@ export const act07: Lesson[] = [
       {
         kind: "say",
         text:
-          "Акт 7 пройден. Ты умеешь:\n\n" +
-          "  • объяснить, зачем нужен CI/CD и что такое пайплайн-конвейер\n" +
-          "  • писать workflow-файл: триггер on: push, шаги, тесты\n" +
-          "  • запускать пайплайн через git push и читать его статус и логи\n" +
-          "  • чинить красный билд по алгоритму статус → логи → фикс → push\n" +
-          "  • держать секреты в хранилище, а не в файле\n" +
-          "  • понимать артефакты, кэш, окружения staging/prod и откат релиза\n\n" +
-          "Дальше — Terraform: описывать серверы и облако кодом, а не кликами.",
+          "Хороший рубеж. Ты умеешь: объяснять CI/CD и пайплайн-конвейер, писать\n" +
+          "workflow-файл, запускать его через push, читать статус и логи, чинить\n" +
+          "красный билд, держать секреты в хранилище, а не в файле.\n\n" +
+          "Это база. Дальше в этом же акте — то, что делает пайплайн ВЗРОСЛЫМ:\n" +
+          "линтер до тестов, защита ветки, ручное подтверждение прод-релиза и\n" +
+          "настоящий откат.",
+      },
+    ],
+  },
+  {
+    id: "7.13",
+    act: 7,
+    title: "Линтер: ловим ошибки до тестов",
+    xp: 30,
+    intro: "Проверка стиля кода — самый дешёвый и самый ранний барьер в пайплайне.",
+    setup: (w) => {
+      seedRepo(w);
+      writeFile(w, "/home/devops/app/index.js", "var count = 0;\nconsole.log('магазин', count);\n");
+      const workflow =
+        "name: CI\non: push\njobs:\n  build:\n    steps:\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n";
+      writeFile(w, "/home/devops/app/.github/workflows/ci.yml", workflow);
+      w.ci.workflow = workflow;
+      runPipeline(w);
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Тимлид добавил в пайплайн проверку стиля кода — линтер. Идея: находить\n" +
+          "мелкие, но реальные проблемы ДО того, как до них дойдёт тест или ревьюер.\n" +
+          "Твой последний push внезапно покраснел — но не на тестах.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Посмотри, на каком этапе упал пайплайн.",
+        check: ran(/^ci\s+status/),
+        answer: "ci status",
+        hint: "ci status",
+      },
+      {
+        kind: "say",
+        text: "Упал этап  lint , а не  test  — до тестов дело даже не дошло. Смотрим причину.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Прочитай логи.",
+        check: ran(/^ci\s+logs/),
+        answer: "ci logs",
+        hint: "ci logs",
+      },
+      {
+        kind: "say",
+        text:
+          "«index.js: 'var' объявления запрещены (no-var)».\n\n" +
+          "Дело не в капризе — у  var  старое и опасное поведение: переменная видна\n" +
+          "за пределами блока, где её объявили, и её можно случайно переобъявить\n" +
+          "второй раз без единой ошибки. Современный стиль использует  let  (значение\n" +
+          "меняется) или  const  (не меняется) — они безопаснее по умолчанию.",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 3. Почини код. Набери:\n" +
+          "edit index.js\n" +
+          "Замени  var count  на  const count . Сохрани.",
+        check: (w) =>
+          has("/home/devops/app/index.js", /const\s+count/)(w) &&
+          !has("/home/devops/app/index.js", /var\s+count/)(w),
+        answer: "const count = 0;\nconsole.log('магазин', count);\n",
+        editFile: "/home/devops/app/index.js",
+        hint: "Замени var на const:  const count = 0;",
+      },
+      {
+        kind: "do",
+        text: "Шаг 4. Закоммить и запушь исправление.",
+        check: (w) => w.ci.runs.length > 1 && w.ci.runs[w.ci.runs.length - 1].ok,
+        answer: 'git add .\ngit commit -m "lint: заменить var на const"\ngit push',
+        hint: 'По очереди: git add .  потом  git commit -m "fix lint"  потом  git push',
+      },
+      {
+        kind: "quiz",
+        text: "Зачем проверять стиль кода линтером ДО тестов, а не полагаться только на тесты и ревью?",
+        options: [
+          "Линтер ловит проблему за секунды и бесплатно — тест или ревьюер нашли бы её же, но дороже и позже",
+          "Линтер вообще ничего не проверяет, это формальность",
+          "Тесты не могут запускаться без линтера технически",
+        ],
+        answer: 0,
+        explain:
+          "Это и есть «shift left» из банка собеседований: чем раньше поймал проблему, тем дешевле её починить.",
+      },
+    ],
+  },
+  {
+    id: "7.14",
+    act: 7,
+    title: "Защита ветки: красный не вливают",
+    xp: 20,
+    intro: "Последняя линия защиты main — не пропустить, даже если человек забыл проверить сам.",
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Вспомни Pull Request из Акта 5.13: коллега открывает его, чтобы влить\n" +
+          "ветку в main. В реальных репозиториях на main настраивают  branch\n" +
+          "protection rules  (правила защиты ветки).",
+      },
+      {
+        kind: "say",
+        text:
+          "Самое частое правило — «обязательная проверка» (required status check):\n" +
+          "GitHub физически не даст нажать «Merge», пока пайплайн для этого PR не\n" +
+          "станет зелёным. Кнопка серая, сколько ни жми.\n\n" +
+          "Это работает, даже если автор PR забыл прогнать тесты локально или очень\n" +
+          "торопится. Машина не забывает и не торопится.",
+      },
+      {
+        kind: "say",
+        text:
+          "Часто добавляют и второе правило — обязательное ревью хотя бы одним\n" +
+          "человеком перед слиянием. Вместе с зелёным пайплайном это и есть та самая\n" +
+          "«последняя линия защиты», о которой говорили в Акте 5: в main напрямую не\n" +
+          "коммитят, а через PR, который не пропустит ни сломанный код, ни код без\n" +
+          "чужого взгляда.",
+      },
+      {
+        kind: "quiz",
+        text: "Зачем в настройках репозитория включают «обязательный статус-чек» для ветки main?",
+        options: [
+          "Физически не даёт влить или запушить код, если пайплайн для него красный",
+          "Это чисто декоративная настройка, ни на что не влияет",
+          "Ускоряет сборку пайплайна",
+        ],
+        answer: 0,
+        explain: "Человек может забыть проверить сам. Правило на стороне репозитория не забывает никогда.",
+      },
+    ],
+  },
+  {
+    id: "7.15",
+    act: 7,
+    title: "Деплой в production ждёт подтверждения",
+    xp: 30,
+    intro: "Тесты зелёные — не значит «катить прямо сейчас». Это решает человек.",
+    setup: (w) => {
+      seedRepo(w);
+      const workflow =
+        "name: CI\non: push\nenvironment: production\njobs:\n  build:\n    steps:\n      - run: npm ci\n      - run: npm test\n";
+      writeFile(w, "/home/devops/app/.github/workflows/ci.yml", workflow);
+      w.ci.workflow = workflow;
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Вспомни Акт 7.10: деплой в prod иногда ждёт «ручного подтверждения» —\n" +
+          "кнопки, которую жмёт ответственный человек. Настраивается это строкой\n" +
+          "  environment: production  в workflow. Сейчас пройдёшь это руками.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Закоммить workflow и запушь его.",
+        check: (w) => w.ci.runs.length > 0,
+        answer: 'git add .\ngit commit -m "ci: деплой в production с подтверждением"\ngit push',
+        hint: 'git add .  →  git commit -m "..."  →  git push',
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Проверь статус пайплайна.",
+        check: ran(/^ci\s+status/),
+        answer: "ci status",
+        hint: "ci status",
+      },
+      {
+        kind: "say",
+        text:
+          "Все стадии зелёные, а деплой висит в статусе  ⏸ ждёт подтверждения .\n" +
+          "Тесты прошли — это ловит баги В КОДЕ. А решение «выкатывать прямо сейчас»\n" +
+          "тесты не принимают, это отдельный, человеческий вопрос: сейчас ночь и\n" +
+          "некому смотреть на метрики, или маркетинг ещё не готов объявить фичу.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Подтверди деплой.",
+        check: (w) => !!w.ci.runs.length && w.ci.runs[w.ci.runs.length - 1].ok,
+        answer: "ci approve",
+        hint: "ci approve",
+      },
+      {
+        kind: "quiz",
+        text: "Зачем нужен ручной approval перед деплоем в prod, если пайплайн и так зелёный?",
+        options: [
+          "Зелёный пайплайн подтверждает только КОД. Момент и обстоятельства выкатки — отдельное решение человека",
+          "Approval нужен, потому что тестам нельзя доверять вообще",
+          "Это просто лишний шаг без смысла, оставшийся по традиции",
+        ],
+        answer: 0,
+        explain: "Тесты и approval отвечают на разные вопросы: «код рабочий?» и «сейчас подходящий момент?».",
+      },
+    ],
+  },
+  {
+    id: "7.16",
+    act: 7,
+    title: "Инцидент: плохой релиз, откатываемся ⚡",
+    xp: 40,
+    intro: "Пайплайн зелёный, но пользователям хуже. Сначала откат, потом разбор.",
+    setup: (w) => {
+      seedRepo(w);
+      const workflow =
+        "name: CI\non: push\njobs:\n  build:\n    steps:\n      - run: npm ci\n      - run: npm test\n";
+      writeFile(w, "/home/devops/app/.github/workflows/ci.yml", workflow);
+      w.ci.workflow = workflow;
+      runPipeline(w); // релиз #1 — стабильный
+      runPipeline(w); // релиз #2 — «зелёный», но именно он всё сломал по факту
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "10 минут назад коллега выкатил релиз. Пайплайн был зелёным — тесты не\n" +
+          "поймали проблему. Но алерты сыплются: у части пользователей всё ломается.\n\n" +
+          "Вспомни правило Акта 7.11: сначала возвращаем рабочую версию, разбор — потом.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Проверь статус — формально всё ещё зелено.",
+        check: ran(/^ci\s+status/),
+        answer: "ci status",
+        hint: "ci status",
+      },
+      {
+        kind: "say",
+        text:
+          "Именно в этом и ловушка: «зелёный пайплайн» ≠ «всё точно хорошо в проде».\n" +
+          "Тесты проверяют то, что в них написано, а не всё возможное поведение.\n" +
+          "Не тратим время на споры — откатываемся немедленно.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Откатись на предыдущий стабильный релиз.",
+        check: (w) => !!w.ci.runs.length && !!w.ci.runs[w.ci.runs.length - 1].rolledBack,
+        answer: "ci rollback",
+        hint: "ci rollback",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Убедись, что откат отражён в статусе.",
+        check: ran(/^ci\s+status/),
+        answer: "ci status",
+        hint: "ci status",
+      },
+      {
+        kind: "say",
+        text:
+          "Прод снова стабилен — секунды, а не часы. Дальше, уже без давления:\n" +
+          "разобраться, какой сценарий не покрыли тестом, добавить его и только\n" +
+          "потом катить фикс вперёд.",
+      },
+      {
+        kind: "quiz",
+        text: "Почему откат — это секунды, а починка кода на проде под давлением — плохая идея?",
+        options: [
+          "Откат — это просто вернуться к уже проверенной версии; правка кода на живую вслепую рискует сломать что-то ещё",
+          "Откат вообще невозможен в реальных системах",
+          "Чинить на проде быстрее, чем откатываться",
+        ],
+        answer: 0,
+        explain:
+          "Откат снимает боль немедленно и без риска. Разбор причины делают уже спокойно, не под тикающими алертами.",
+      },
+    ],
+  },
+  {
+    id: "7.17",
+    act: 7,
+    title: "Финал акта: взрослый пайплайн ⚡⚡",
+    xp: 55,
+    intro: "Собери пайплайн со всем, что узнал: линт, тесты, ручное подтверждение прода.",
+    setup: (w) => {
+      seedRepo(w);
+      writeFile(w, "/home/devops/app/index.js", "var ready = true;\nconsole.log('готово', ready);\n");
+      w.templates = {
+        "/home/devops/app/.github/workflows/ci.yml":
+          "# Собери взрослый пайплайн:\n" +
+          "#   on: push, environment: production\n" +
+          "#   шаги: npm ci, npm run lint, npm test\n" +
+          "# Сотри этот комментарий.\n",
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Финал Акта 7. Собери пайплайн, который используют по-настоящему: линтер\n" +
+          "ловит стиль, тесты ловят логику, деплой в prod ждёт живого человека.",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 1. Напиши workflow с on: push, environment: production и тремя шагами:\n" +
+          "npm ci, npm run lint, npm test. Набери:  edit .github/workflows/ci.yml",
+        check: (w) =>
+          has("/home/devops/app/.github/workflows/ci.yml", /on:\s*push/)(w) &&
+          has("/home/devops/app/.github/workflows/ci.yml", /environment:\s*production/)(w) &&
+          has("/home/devops/app/.github/workflows/ci.yml", /npm run lint/)(w) &&
+          has("/home/devops/app/.github/workflows/ci.yml", /npm test/)(w),
+        answer:
+          "name: CI\n" +
+          "on: push\n" +
+          "environment: production\n" +
+          "jobs:\n" +
+          "  build:\n" +
+          "    steps:\n" +
+          "      - run: npm ci\n" +
+          "      - run: npm run lint\n" +
+          "      - run: npm test\n",
+        editFile: "/home/devops/app/.github/workflows/ci.yml",
+        hint: "on: push, environment: production, и три шага steps: npm ci / npm run lint / npm test.",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 2. Линтер не пропустит var. Почини index.js. Набери:\n" +
+          "edit index.js\n" +
+          "Замени var на const. Сохрани.",
+        check: (w) =>
+          has("/home/devops/app/index.js", /const\s+ready/)(w) &&
+          !has("/home/devops/app/index.js", /var\s+ready/)(w),
+        answer: "const ready = true;\nconsole.log('готово', ready);\n",
+        editFile: "/home/devops/app/index.js",
+        hint: "const ready = true;",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Закоммить и запушь — это запустит пайплайн.",
+        check: (w) => w.ci.runs.length > 0,
+        answer: 'git add .\ngit commit -m "ci: линт, тесты, approval"\ngit push',
+        hint: 'git add .  →  git commit -m "..."  →  git push',
+      },
+      {
+        kind: "do",
+        text: "Шаг 4. Убедись, что линт и тесты прошли, а деплой ждёт тебя.",
+        check: (w) => !!w.ci.runs.length && !!w.ci.runs[w.ci.runs.length - 1].awaitingApproval,
+        answer: "ci status",
+        hint: "ci status",
+      },
+      {
+        kind: "do",
+        text: "Шаг 5. Подтверди деплой в production.",
+        check: (w) => !!w.ci.runs.length && w.ci.runs[w.ci.runs.length - 1].ok,
+        answer: "ci approve",
+        hint: "ci approve",
+      },
+      {
+        kind: "say",
+        text:
+          "Пайплайн взрослый: ловит плохой стиль до тестов, ловит логику тестами,\n" +
+          "а решение «катить прямо сейчас» оставляет человеку. Плюс ты знаешь, как\n" +
+          "откатиться, если что-то всё равно проскочит.\n\n" +
+          "Акт 7 пройден полностью. Дальше — Terraform: описывать серверы и облако\n" +
+          "кодом, а не кликами.",
       },
     ],
   },
