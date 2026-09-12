@@ -792,6 +792,54 @@ button {
   margin-bottom: 14px;
 }
 
+.iv-chat {
+  display: grid;
+  gap: 10px;
+  max-height: 44vh;
+  overflow-y: auto;
+  margin: 10px 0 14px;
+  padding-right: 4px;
+}
+.iv-msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.iv-msg-me {
+  flex-direction: row-reverse;
+}
+.iv-avatar {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--panel2, #1c222d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.iv-bubble {
+  background: var(--panel2, #1c222d);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 82%;
+}
+.iv-msg-me .iv-bubble {
+  background: var(--amber);
+  color: #12140f;
+  border-color: transparent;
+}
+.iv-msg-lead .iv-bubble b {
+  color: var(--amber);
+}
+.iv-msg-me .iv-bubble b {
+  color: #12140f;
+}
+
 .iv-topics {
   display: grid;
   gap: 8px;

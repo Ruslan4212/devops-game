@@ -106,14 +106,48 @@ function renderList(d: CareerDeps): void {
   });
 }
 
+/** Имена тех-лидов/интервьюеров по вакансии — для ощущения живого диалога. */
+const INTERVIEWERS: Record<string, string> = {
+  pelmeni: "Марат, основатель",
+  bait: "Игорь, техдиректор",
+  pixel: "Аня, тимлид",
+  dovoz: "Слава, CTO",
+  stavka: "Дежурный инженер",
+  oblako: "Панель из двух интервьюеров",
+  polka: "Тимлид платформы",
+  granit: "Лид SRE-команды",
+  stream: "Архитектор платформы",
+};
+
+/** Один пузырь чата: кто говорит и что. */
+function bubble(who: "lead" | "me", html: string): string {
+  return (
+    `<div class="iv-msg iv-msg-${who}">` +
+    `<div class="iv-avatar">${who === "lead" ? "🧑‍💻" : "🙂"}</div>` +
+    `<div class="iv-bubble">${html}</div>` +
+    `</div>`
+  );
+}
+
+function scrollChatToEnd(): void {
+  const el = document.querySelector(".iv-chat");
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
 function runInterview(job: Job, d: CareerDeps): void {
-  // ~60% технических вопросов по темам вакансии + ~40% поведенческих
+  // ~60% технических вопросов по темам вакансии + ~40% поведенческих —
+  // это ровно тот набор тем, который спрашивают на реальном собеседовании на эту роль
   const nTech = Math.max(1, Math.round(job.questions * 0.6));
   const tech = pickTechQuestions(jobTopics(job), nTech);
   const soft = pickQuestions(job.questions - tech.length);
   const qs: IvQuestion[] = shuffled([...tech, ...soft]).slice(0, job.questions);
+  const interviewer = INTERVIEWERS[job.id] ?? "Тех-лид";
   let i = 0;
   let correct = 0;
+  const transcript: string[] = [bubble("lead", esc(job.intro))];
+
+  const header = (): string =>
+    `<h1>${esc(job.name)}</h1><div class="cr-progress">Собеседует: ${esc(interviewer)} · вопрос ${Math.min(i + 1, qs.length)} из ${qs.length}</div>`;
 
   const finish = (): void => {
     const ratio = correct / qs.length;
@@ -122,25 +156,31 @@ function runInterview(job: Job, d: CareerDeps): void {
       d.jobsGot[job.id] = true;
       d.onHire(job.id);
     }
+    transcript.push(
+      bubble(
+        "lead",
+        `<b>${passed ? "Оффер!" : "Не в этот раз."}</b> ${correct} из ${qs.length} верно (нужно ${Math.ceil(job.pass * qs.length)}).<br>` +
+          (passed
+            ? "Поздравляем — тебя берут."
+            : "Пройди недостающие акты и вернись увереннее — расскажу, что смотрели."),
+      ),
+    );
     $("#modBody").innerHTML =
-      `<h1>${esc(job.name)}</h1>` +
-      `<div class="cr-verdict ${passed ? "cr-ok" : "cr-no"}">` +
-      `${passed ? "Оффер!" : "Не в этот раз"} — ${correct} из ${qs.length} верно ` +
-      `(нужно ${Math.ceil(job.pass * qs.length)})</div>` +
-      `<p>${passed ? "Поздравляем — тебя берут." : "Пройди недостающие акты и вернись увереннее."}</p>` +
+      header() +
+      `<div class="iv-chat">${transcript.join("")}</div>` +
       `<button class="sec" id="crBack">К списку вакансий</button>`;
     if (passed) toast("Оффер: " + job.name + " ✓");
     $("#crBack").onclick = () => renderList(d);
+    scrollChatToEnd();
   };
 
   const step = (): void => {
     if (i >= qs.length) return finish();
     const q: IvQuestion = qs[i];
+    transcript.push(bubble("lead", esc(q.q)));
     $("#modBody").innerHTML =
-      `<h1>${esc(job.name)}</h1>` +
-      `<p class="cr-intro">${esc(job.intro)}</p>` +
-      `<div class="cr-progress">Вопрос ${i + 1} из ${qs.length}</div>` +
-      `<div class="cr-q">${esc(q.q)}</div>` +
+      header() +
+      `<div class="iv-chat">${transcript.join("")}</div>` +
       `<div class="cr-opts">` +
       q.options.map((o, k) => `<button class="lp-opt" data-k="${k}">${esc(o)}</button>`).join("") +
       `</div>`;
@@ -148,19 +188,23 @@ function runInterview(job: Job, d: CareerDeps): void {
       .querySelectorAll<HTMLButtonElement>(".lp-opt")
       .forEach((btn) => {
         btn.onclick = () => {
-          const ok = Number(btn.dataset.k) === q.answer;
+          const k = Number(btn.dataset.k);
+          const ok = k === q.answer;
           if (ok) correct++;
+          transcript.push(bubble("me", esc(q.options[k])));
+          transcript.push(bubble("lead", `<b>${ok ? "Верно." : "Не совсем."}</b> ${esc(q.why)}`));
           $("#modBody").innerHTML =
-            `<h1>${esc(job.name)}</h1>` +
-            `<div class="cr-verdict ${ok ? "cr-ok" : "cr-no"}">${ok ? "Верно" : "Не тот ответ"}</div>` +
-            `<div class="cr-why">${esc(q.why)}</div>` +
+            header() +
+            `<div class="iv-chat">${transcript.join("")}</div>` +
             `<button class="prim" id="crNext">${i + 1 < qs.length ? "Дальше →" : "Итог"}</button>`;
           $("#crNext").onclick = () => {
             i++;
             step();
           };
+          scrollChatToEnd();
         };
       });
+    scrollChatToEnd();
   };
 
   step();

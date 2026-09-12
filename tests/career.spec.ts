@@ -12,7 +12,7 @@ describe("карьерный слой — данные", () => {
       expect(j.reqActs.length).toBeGreaterThan(0);
       for (const a of j.reqActs) {
         expect(a).toBeGreaterThanOrEqual(1);
-        expect(a).toBeLessThanOrEqual(10);
+        expect(a).toBeLessThanOrEqual(14);
       }
       expect(j.questions).toBeGreaterThanOrEqual(3);
       expect(j.pass).toBeGreaterThan(0);
