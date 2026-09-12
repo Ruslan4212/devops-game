@@ -4,7 +4,18 @@
  * потребности убывают на каждом пройденном уроке, а не по календарю —
  * так поведение детерминировано и не зависит от того, когда игрок заходил.
  */
-import { CARS, CLOTHES, FOOD, HOMES, NO_JOB_FACTOR, REWARD_PER_XP, TECH, TRIPS } from "../data/shop";
+import {
+  ACCESSORIES,
+  CARS,
+  CLOTHES,
+  COMFORT,
+  FOOD,
+  HOMES,
+  NO_JOB_FACTOR,
+  REWARD_PER_XP,
+  TECH,
+  TRIPS,
+} from "../data/shop";
 import { defaultAppearance } from "../data/avatar";
 import type { Appearance } from "../data/avatar";
 
@@ -24,6 +35,10 @@ export interface Life {
   totalSpent: number;
   /** внешность персонажа (портрет) */
   look?: Appearance;
+  /** надетый аксессуар (один слот поверх одежды): "watch", "backpack", ... */
+  accessory?: string | null;
+  /** купленные предметы интерьера для настроения — всегда «активны», как техника */
+  comfort?: string[];
 }
 
 export type LifeResult = { ok: true } | { ok: false; error: string };
@@ -45,6 +60,8 @@ export function defaultLife(): Life {
     totalEarned: 0,
     totalSpent: 0,
     look: defaultAppearance(),
+    accessory: null,
+    comfort: [],
   };
 }
 
@@ -69,6 +86,7 @@ export function interviewBonus(l: Life): number {
   for (const slot of ["top", "shoes"] as const) {
     b += CLOTHES.find((c) => c.id === l.wear[slot])?.iv ?? 0;
   }
+  if (l.accessory) b += ACCESSORIES.find((a) => a.id === l.accessory)?.iv ?? 0;
   if (l.mood >= 70) b += 3;
   if (l.mood < 25) b -= 5;
   if (l.hunger < 20) b -= 5;
@@ -100,7 +118,7 @@ export function eat(l: Life, id: string): LifeResult {
   return OK;
 }
 
-export type BuyKind = "clothes" | "tech" | "car" | "rent" | "buyHome" | "trip";
+export type BuyKind = "clothes" | "tech" | "car" | "rent" | "buyHome" | "trip" | "accessory" | "comfort";
 
 export function buy(l: Life, kind: BuyKind, id: string): LifeResult {
   switch (kind) {
@@ -158,7 +176,35 @@ export function buy(l: Life, kind: BuyKind, id: string): LifeResult {
       l.mood = clamp(l.mood + it.m);
       return OK;
     }
+    case "accessory": {
+      const it = ACCESSORIES.find((x) => x.id === id);
+      if (!it) return { ok: false, error: "нет такого аксессуара" };
+      const owned = l.own.includes("acc:" + id);
+      if (!owned) {
+        if (!spend(l, it.p)) return { ok: false, error: "не хватает денег" };
+        l.own.push("acc:" + id);
+      }
+      l.accessory = id;
+      l.mood = clamp(l.mood + it.m);
+      return OK;
+    }
+    case "comfort": {
+      const it = COMFORT.find((x) => x.id === id);
+      if (!it) return { ok: false, error: "нет такой вещи" };
+      const owned = (l.comfort ?? []).includes(id);
+      if (owned) return { ok: false, error: "уже куплено" };
+      if (!spend(l, it.p)) return { ok: false, error: "не хватает денег" };
+      if (!l.comfort) l.comfort = [];
+      l.comfort.push(id);
+      l.mood = clamp(l.mood + it.m);
+      return OK;
+    }
   }
+}
+
+/** Снять аксессуар (пустой слот). Отдельно от buy(), т.к. это не покупка. */
+export function unequipAccessory(l: Life): void {
+  l.accessory = null;
 }
 
 /**
