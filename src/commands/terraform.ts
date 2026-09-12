@@ -23,17 +23,30 @@ def("terraform", (a, w) => {
     const names = [...src.matchAll(/resource\s+"([^"]+)"\s+"([^"]+)"/g)].map((m) => m[1] + "." + m[2]);
     const add = names.filter((n) => !tf.applied.includes(n));
     const del = tf.applied.filter((n) => !names.includes(n));
-    tf.plan = { add, del };
+    // дрейф конфигурации: ресурс помечен на пересоздание (taint или ручное изменение вне Terraform)
+    const change = (tf.tainted || []).filter((n) => tf.applied.includes(n) && names.includes(n));
+    tf.plan = { add, del, change };
     return O(
       "Terraform построит следующий план:\n\n" +
         add.map((n) => "  + " + n + " (создать)").join("\n") +
+        (change.length
+          ? "\n" +
+            change
+              .map((n) => "  ~ " + n + " (будет пересоздан: помечен как изменённый вне Terraform)")
+              .join("\n")
+          : "") +
         (del.length ? "\n" + del.map((n) => "  - " + n + " (УДАЛИТЬ)").join("\n") : "") +
         "\n\nПлан: " +
         add.length +
-        " создать, 0 изменить, " +
+        " создать, " +
+        change.length +
+        " изменить, " +
         del.length +
         " удалить." +
-        (del.length ? "\n\n⚠ ВНИМАНИЕ: план удаляет существующий ресурс. Это разрушающее изменение." : ""),
+        (del.length ? "\n\n⚠ ВНИМАНИЕ: план удаляет существующий ресурс. Это разрушающее изменение." : "") +
+        (change.length
+          ? "\n\n⚠ Обнаружен дрейф: состояние Terraform разошлось с реальностью для " + change.join(", ")
+          : ""),
     );
   }
 
@@ -44,20 +57,51 @@ def("terraform", (a, w) => {
         "Отменено: план содержит удаление ресурса. Если это осознанно — исправь main.tf или подтверди -auto-approve",
       );
     const r = tf.plan;
+    const changed = r.change || [];
     tf.applied = [...r.add, ...tf.applied.filter((n) => !r.del.includes(n))];
+    tf.tainted = (tf.tainted || []).filter((n) => !changed.includes(n));
     tf.plan = null;
     return O(
-      "Применение...\nApply complete! Ресурсов: " + r.add.length + " создано, " + r.del.length + " удалено.",
+      "Применение...\nApply complete! Ресурсов: " +
+        r.add.length +
+        " создано, " +
+        changed.length +
+        " изменено, " +
+        r.del.length +
+        " удалено.",
     );
+  }
+
+  if (sub === "taint") {
+    const nm = rest.filter((x) => !x.startsWith("-"))[0];
+    if (!nm) return E("terraform taint: укажи ресурс, например  terraform taint local_file.config");
+    if (!tf.applied.includes(nm)) return E("terraform taint: ресурс " + nm + " не найден в состоянии");
+    tf.tainted = [...new Set([...(tf.tainted || []), nm])];
+    return O("Ресурс " + nm + " помечен tainted — при следующем apply будет уничтожен и создан заново.");
   }
 
   if (sub === "state") {
     if (rest[0] === "list") return O(tf.applied.length ? tf.applied.join("\n") : "(состояние пусто)");
+    if (rest[0] === "rm") {
+      const nm = rest[1];
+      if (!nm || !tf.applied.includes(nm))
+        return E("terraform state rm: ресурс " + nm + " не найден в состоянии");
+      tf.applied = tf.applied.filter((n) => n !== nm);
+      tf.tainted = (tf.tainted || []).filter((n) => n !== nm);
+      return O(
+        "Removed " +
+          nm +
+          " from state.\n\nРесурс убран из-под управления Terraform, но САМ РЕСУРС не тронут и не удалён.",
+      );
+    }
     return O("Файл состояния хранит, что Terraform реально создал.");
   }
   if (sub === "destroy") {
+    const n = tf.applied.length;
     tf.applied = [];
-    return O("Destroy complete!");
+    tf.tainted = [];
+    tf.plan = null;
+    return O("Destroy complete! Ресурсов уничтожено: " + n + ".");
   }
-  return E("terraform: init | validate | plan | apply | state list | destroy");
+  return E("terraform: init | validate | plan | apply | taint | state list|rm | destroy");
 });

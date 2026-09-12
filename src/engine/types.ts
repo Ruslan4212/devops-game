@@ -99,8 +99,10 @@ export interface CiState {
 
 export interface TfState {
   inited: boolean;
-  plan: { add: string[]; del: string[] } | null;
+  plan: { add: string[]; del: string[]; change?: string[] } | null;
   applied: string[];
+  /** ресурсы, помеченные на пересоздание: дрейф конфигурации или ручной terraform taint */
+  tainted?: string[];
 }
 
 export interface K8sDeploy {
