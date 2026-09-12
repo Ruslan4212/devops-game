@@ -121,6 +121,8 @@ export interface K8sState {
   deploys: K8sDeploy[];
   pods: K8sPod[];
   svcs: { name: string; port: number }[];
+  /** сколько подов кластер физически способен разместить (учебный лимит узлов) */
+  nodeCapacity?: number;
 }
 
 export interface Alert {

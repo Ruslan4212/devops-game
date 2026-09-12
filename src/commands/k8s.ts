@@ -11,13 +11,17 @@ export function k8sInit(w: World): K8sState {
 export function syncPods(w: World): void {
   const k = k8sInit(w);
   k.pods = [];
+  let scheduled = 0;
   for (const d of k.deploys) {
     for (let i = 0; i < d.replicas; i++) {
+      // узлам не хватает места — планировщик не находит, куда поставить под
+      const noRoom = k.nodeCapacity != null && scheduled >= k.nodeCapacity;
+      scheduled++;
       k.pods.push({
         name: d.name + "-" + Math.random().toString(36).slice(2, 7),
         deploy: d.name,
-        status: d.crash ? "CrashLoopBackOff" : "Running",
-        restarts: d.crash ? 7 : 0,
+        status: noRoom ? "Pending" : d.crash ? "CrashLoopBackOff" : "Running",
+        restarts: noRoom ? 0 : d.crash ? 7 : 0,
       });
     }
   }
@@ -104,7 +108,9 @@ def("kubectl", (a, w) => {
         "\n\nEvents:\n" +
         (p.status === "Running"
           ? "  Normal  Started   контейнер запущен"
-          : "  Warning BackOff   перезапуск контейнера\n  Warning Failed    контейнер завершился с кодом 1"),
+          : p.status === "Pending"
+            ? "  Warning FailedScheduling   0/1 nodes are available: insufficient cpu/memory на узлах кластера"
+            : "  Warning BackOff   перезапуск контейнера\n  Warning Failed    контейнер завершился с кодом 1"),
     );
   }
 
