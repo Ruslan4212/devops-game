@@ -77,6 +77,89 @@ def("zabbix_agentd", (a, w) => {
   return E("zabbix_agentd: поддерживается  -c ФАЙЛ [-p]  и  -t КЛЮЧ");
 });
 
+/** Численное значение ключа для оценки триггера (только встроенные ключи). */
+function numericValue(key: string): number | null {
+  const v = BUILTIN[key];
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+}
+
+const CMP: Record<string, (a: number, b: number) => boolean> = {
+  ">": (a, b) => a > b,
+  "<": (a, b) => a < b,
+  ">=": (a, b) => a >= b,
+  "<=": (a, b) => a <= b,
+  "=": (a, b) => a === b,
+};
+
+/** Разбор выражения триггера вида  last(KEY)>ЧИСЛО . */
+function parseTriggerExpr(expr: string): { key: string; op: string; threshold: number } | null {
+  const m = expr.match(/^last\(([\w.[\],-]+)\)\s*(>=|<=|>|<|=)\s*(-?[\d.]+)$/);
+  if (!m) return null;
+  return { key: m[1], op: m[2], threshold: Number(m[3]) };
+}
+
+def("zabbix", (a, w) => {
+  const z = zabbixInit(w);
+  const [sub, verb] = a;
+
+  if (sub === "trigger" && verb === "add") {
+    const name = a[2];
+    const expr = a[3];
+    const severity = a[4];
+    if (!name || !expr || !severity)
+      return E('zabbix trigger add: нужно  zabbix trigger add "ИМЯ" "last(КЛЮЧ)>ЧИСЛО" СЕРЬЁЗНОСТЬ');
+    if (!parseTriggerExpr(expr))
+      return E(
+        "  FAILED: непонятное выражение. Поддерживается только форма  last(КЛЮЧ)>ЧИСЛО  (>, <, >=, <=, =)",
+      );
+    z.triggers.push({ name, expr, severity });
+    return O("  SUCCESS: триггер добавлен\n  " + name + "  [" + severity + "]  " + expr);
+  }
+
+  if (sub === "trigger" && verb === "list") {
+    if (!z.triggers.length)
+      return O('Триггеров нет. Добавь:  zabbix trigger add "ИМЯ" "last(КЛЮЧ)>N" СЕРЬЁЗНОСТЬ');
+    return O(z.triggers.map((t) => "  " + t.name + "  [" + t.severity + "]  " + t.expr).join("\n"));
+  }
+
+  if (sub === "problems") {
+    if (!z.triggers.length) return O("Триггеров нет — нечего оценивать.");
+    if (!z.serverReaches)
+      return O(
+        z.triggers
+          .map((t) => "  " + t.name + "  [" + t.severity + "]  NODATA (сервер не собирает метрики с хоста)")
+          .join("\n"),
+      );
+    const lines = z.triggers.map((t) => {
+      const parsed = parseTriggerExpr(t.expr);
+      if (!parsed) return "  " + t.name + "  UNKNOWN (не распознано выражение)";
+      const val = numericValue(parsed.key);
+      if (val == null) return "  " + t.name + "  NODATA (ключ " + parsed.key + " не собирает число)";
+      const fired = CMP[parsed.op](val, parsed.threshold);
+      return (
+        "  " +
+        t.name +
+        "  [" +
+        t.severity +
+        "]  " +
+        (fired ? "PROBLEM" : "OK") +
+        "  (" +
+        parsed.key +
+        "=" +
+        val +
+        ", условие " +
+        t.expr +
+        ")"
+      );
+    });
+    return O(lines.join("\n"));
+  }
+
+  return E("zabbix: поддерживается  zabbix trigger add|list  и  zabbix problems");
+});
+
 def("zabbix_get", (a, w) => {
   const z = zabbixInit(w);
   const si = a.indexOf("-s");
