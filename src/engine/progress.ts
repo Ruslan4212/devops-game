@@ -17,6 +17,10 @@ export interface Progress {
   legacyImported?: boolean;
   /** строгий режим: задачи не подсказывают ответ, пока сам не попросишь */
   strict?: boolean;
+  /** здоровье дошло до нуля — нужно пройти экзамен на выживание, прежде чем продолжить */
+  deathPending?: boolean;
+  /** сколько раз персонаж «падал» (для статистики/флейвора) */
+  deaths?: number;
 }
 
 const KEY = "devops_terminal_rpg_v1";

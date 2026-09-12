@@ -45,6 +45,9 @@ export type LifeResult = { ok: true } | { ok: false; error: string };
 const OK: LifeResult = { ok: true };
 const clamp = (v: number): number => Math.max(0, Math.min(100, v));
 
+/** Здоровье кончилось — персонаж «падает», прогресс под угрозой (см. engine/progress.ts). */
+export const isDead = (l: Life): boolean => l.health <= 0;
+
 export function defaultLife(): Life {
   return {
     money: 8000,

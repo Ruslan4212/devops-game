@@ -354,7 +354,7 @@ export const STORY: StoryBeat[] = [
 ];
 
 /** Акт курса -> тема технического банка (interview.ts). */
-const ACT_TO_TOPIC: Record<number, string> = {
+export const ACT_TO_TOPIC: Record<number, string> = {
   1: "linux",
   2: "linux",
   3: "linux",

@@ -9,7 +9,7 @@ import { applyLegacy, readLegacySave, summarize, worthImporting } from "./sync/l
 import type { LegacySave } from "./sync/legacy-import";
 import { clearTerminal, InputHistory, print, printCommand, setPrompt } from "./ui/terminal";
 import { allLessonsDone, isUnlocked, renderRail } from "./ui/rail";
-import { defaultLife, onLessonComplete, xpEarnBonusPct } from "./engine/life";
+import { defaultLife, isDead, onLessonComplete, xpEarnBonusPct } from "./engine/life";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
@@ -26,6 +26,48 @@ const history = new InputHistory();
 function persist(): void {
   saveProgress(P);
   sync?.schedulePush();
+  checkDeath();
+}
+
+let examOpen = false;
+
+/**
+ * Здоровье персонажа дошло до нуля (или экзамен уже был назначен, но не пройден
+ * до перезагрузки страницы) — блокируем ввод и открываем экзамен на выживание.
+ * Прогресс либо сохраняется (сдал), либо сбрасывается полностью (провалил).
+ */
+function checkDeath(): void {
+  if (examOpen || !P.life) return;
+  if (!isDead(P.life) && !P.deathPending) return;
+  P.deathPending = true;
+  P.deaths = (P.deaths ?? 0) + 1;
+  examOpen = true;
+  saveProgress(P);
+  lockInput(true);
+  const doneActs = [...new Set(LESSONS.filter((l) => P.done[l.id]).map((l) => l.act))];
+  void import("./ui/revival").then(({ openRevivalExam }) => {
+    openRevivalExam({
+      doneActs,
+      onPass: () => {
+        P.life!.health = 50;
+        P.life!.mood = Math.max(P.life!.mood, 40);
+        P.deathPending = false;
+        examOpen = false;
+        persist();
+        toast("Ты выкарабкался — здоровье восстановлено.");
+        if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) {
+          lockInput(false);
+        }
+      },
+      onFail: () => {
+        clearProgress();
+        P = { xp: 0, done: {}, cur: null, hints: {} };
+        examOpen = false;
+        toast("Прогресс сброшен — начинаем с чистого листа.");
+        startLesson(LESSONS[0].id);
+      },
+    });
+  });
 }
 
 /* ------------------------------- HUD / карта ------------------------------- */
@@ -419,6 +461,7 @@ function showLegacyImport(save: LegacySave): void {
 
 startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
 if (!Object.keys(P.done).length) showHow();
+checkDeath();
 
 if (!P.legacyImported) {
   const legacy = readLegacySave();
