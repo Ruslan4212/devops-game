@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Progress } from "../engine/progress";
-import type { PublicStats } from "./merge";
 
 /**
  * Тонкая типизированная обёртка над Supabase.
@@ -212,12 +211,14 @@ export async function fetchLeaderboard(
   }
 }
 
-/** Записать облачный профиль и публичную витрину для лидерборда. */
-export async function pushProfile(
-  username: string,
-  state: Progress,
-  publicStats: PublicStats,
-): Promise<Result<void>> {
+/**
+ * Записать облачный профиль. Публичная витрина (public_stats) для лидерборда
+ * больше не пишется отсюда напрямую — её пересчитывает серверный триггер
+ * (см. supabase_schema.sql, sync_public_stats) из только что записанного
+ * profiles.state. Так клиент не может отправить в лидерборд xp/ранг, не
+ * совпадающий с тем, что реально сохранено в его собственном профиле.
+ */
+export async function pushProfile(username: string, state: Progress): Promise<Result<void>> {
   try {
     const sb = await client();
     const { data: u } = await sb.auth.getUser();
@@ -227,9 +228,6 @@ export async function pushProfile(
 
     const p1 = await sb.from("profiles").upsert({ id, username, state, updated_at: now });
     if (p1.error) return { ok: false, error: p1.error.message };
-
-    const p2 = await sb.from("public_stats").upsert({ id, username, ...publicStats, updated_at: now });
-    if (p2.error) return { ok: false, error: p2.error.message };
 
     return { ok: true, value: undefined };
   } catch (e) {

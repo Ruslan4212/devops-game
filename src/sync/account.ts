@@ -1,5 +1,5 @@
 import type { Progress } from "../engine/progress";
-import { mergeProgress, publicStatsOf } from "./merge";
+import { mergeProgress } from "./merge";
 import * as cloud from "./cloud";
 import type { Account } from "./cloud";
 
@@ -126,7 +126,7 @@ export function initAccount(deps: Deps): AccountApi {
       const merged = pulled.ok && pulled.value ? mergeProgress(local, pulled.value.state) : local;
       if (pulled.ok && pulled.value) deps.applyMerged(merged);
       const username = pulled.ok && pulled.value ? pulled.value.username : usernameFromEmail(acc.email);
-      const push = await cloud.pushProfile(username, merged, publicStatsOf(merged, deps.rankOf));
+      const push = await cloud.pushProfile(username, merged);
       deps.toast(push.ok ? "Прогресс синхронизирован" : "Синхронизация: " + push.error);
     } finally {
       syncing = false;
@@ -158,7 +158,7 @@ export function initAccount(deps: Deps): AccountApi {
     pushTimer = window.setTimeout(async () => {
       if (!account) return;
       const p = deps.getProgress();
-      await cloud.pushProfile(usernameFromEmail(account.email), p, publicStatsOf(p, deps.rankOf));
+      await cloud.pushProfile(usernameFromEmail(account.email), p);
     }, 2500);
   }
 

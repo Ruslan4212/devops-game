@@ -58,18 +58,3 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     strict: (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a.strict : b.strict,
   };
 }
-
-/** Публичная витрина для лидерборда — только то, что не жалко показать всем. */
-export interface PublicStats {
-  xp: number;
-  rank_name: string;
-  missions_done: number;
-}
-
-export function publicStatsOf(p: Progress, rankOf: (xp: number) => string): PublicStats {
-  return {
-    xp: p.xp,
-    rank_name: rankOf(p.xp),
-    missions_done: Object.keys(p.done).length,
-  };
-}

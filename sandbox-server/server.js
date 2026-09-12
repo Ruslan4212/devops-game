@@ -163,8 +163,11 @@ const wss = new WebSocketServer({
   maxPayload: 64 * 1024,
   verifyClient: ({ origin, req }, done) => {
     const ip = req.socket.remoteAddress || "?";
-    if (ALLOWED_ORIGINS.length && origin && !ALLOWED_ORIGINS.includes(origin)) {
-      log("warn", "origin rejected", { origin, ip });
+    // origin отсутствует у не-браузерных клиентов (wscat, скрипты) — раньше это
+    // тихо обходило allowlist; теперь отсутствие origin тоже считается отказом,
+    // когда allowlist вообще задан.
+    if (ALLOWED_ORIGINS.length && (!origin || !ALLOWED_ORIGINS.includes(origin))) {
+      log("warn", "origin rejected", { origin: origin || "(none)", ip });
       return done(false, 403, "origin not allowed");
     }
     if (rateLimited(ip)) {
