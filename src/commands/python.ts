@@ -166,8 +166,17 @@ function analyze(src: string, args: string[], w: World): { out: string; code: nu
       out.push(
         "⚠  запрос без timeout= — если сервис зависнет, скрипт будет ждать вечно (крон не завершится)",
       );
+    /* повтор с паузой: for ... in range(N) + time.sleep(...) вокруг вызова */
+    const retryMatch = src.match(/for\s+\w+\s+in\s+range\(\s*(\d+)\s*\)/);
+    const isRetry = !!retryMatch && /time\.sleep\(/.test(src);
+    const attempts = isRetry ? Number(retryMatch![1]) : 1;
     if (DOWN.test(url)) {
       const exitLine = (src.match(/sys\.exit\(\s*(\d+)\s*\)/) || [])[1];
+      if (isRetry) {
+        for (let i = 1; i <= attempts; i++)
+          out.push(`попытка ${i}/${attempts}: ${url} недоступен, ждём и повторяем`);
+        out.push("все попытки исчерпаны");
+      }
       if (guarded || /except\s+[\w.]*(RequestException|ConnectionError|Timeout)/.test(src)) {
         out.push(`сервис ${url} недоступен: Connection refused — исключение поймано`);
         out.push("выходим с кодом " + (exitLine || "1"));
@@ -177,8 +186,35 @@ function analyze(src: string, args: string[], w: World): { out: string; code: nu
       out.push("requests.exceptions.ConnectionError: не удалось подключиться к " + url);
       return { out: out.join("\n"), code: 1 };
     }
+    if (isRetry) out.push(`попытка 1/${attempts}: ${url} отвечает`);
     out.push("GET " + url + " -> 200 OK");
     if (/raise_for_status\(\)/.test(src)) out.push("raise_for_status(): статус 2xx, всё в порядке");
+  }
+
+  /* os.environ / os.getenv: конфигурация и секреты через переменные окружения */
+  for (const m of src.matchAll(
+    /os\.(?:environ\.get|getenv)\(\s*["'](\w+)["']\s*(?:,\s*["']?([\w./:-]*)["']?)?\)/g,
+  )) {
+    const key = m[1];
+    const def = m[2];
+    const val = w.env[key];
+    if (val != null) out.push(`os.environ.get("${key}") -> "${val}"`);
+    else if (def != null)
+      out.push(`os.environ.get("${key}") -> значения нет, используем значение по умолчанию "${def}"`);
+    else out.push(`os.environ.get("${key}") -> None`);
+  }
+  for (const m of src.matchAll(/os\.environ\[\s*["'](\w+)["']\s*\]/g)) {
+    const key = m[1];
+    const val = w.env[key];
+    if (val != null) {
+      out.push(`os.environ["${key}"] = "${val}"`);
+      continue;
+    }
+    if (guarded || /except\s+KeyError/.test(src)) {
+      out.push(`os.environ["${key}"]: переменная не задана — исключение поймано`);
+    } else {
+      return { out: "Traceback (most recent call last):\nKeyError: '" + key + "'", code: 1 };
+    }
   }
 
   /* subprocess: вызов внешних команд */
