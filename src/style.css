@@ -18,6 +18,11 @@
   --blue: #6ba6f5;
   --violet: #7c6bf2;
   --r: 10px;
+  /* шкала отступов/радиусов для карточек списков (вакансии, товары магазина) —
+     раньше .cr-job и .lf-card были на два разных значения, из-за чего экраны
+     карьеры и магазина ощущались слегка по-разному собранными */
+  --card-radius: 10px;
+  --card-pad: 11px 13px;
   --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
   --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
   --disp: "Archivo", "Manrope", system-ui, sans-serif;
@@ -711,9 +716,15 @@ button {
 }
 .cr-job {
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 11px 13px;
+  border-radius: var(--card-radius);
+  padding: var(--card-pad);
   font-size: 12.5px;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+.cr-job:hover {
+  border-color: var(--faint);
 }
 .cr-job-done {
   border-color: var(--ok, #6bd08a);
@@ -1109,9 +1120,13 @@ button {
 }
 .lf-card {
   border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 9px 11px;
+  border-radius: var(--card-radius);
+  padding: var(--card-pad);
   font-size: 12.5px;
+  transition: border-color 0.15s;
+}
+.lf-card:hover {
+  border-color: var(--faint);
 }
 .lf-card-icon {
   float: right;
