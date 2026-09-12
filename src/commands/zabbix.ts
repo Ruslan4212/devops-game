@@ -95,7 +95,7 @@ const CMP: Record<string, (a: number, b: number) => boolean> = {
 
 /** Разбор выражения триггера вида  last(KEY)>ЧИСЛО . */
 function parseTriggerExpr(expr: string): { key: string; op: string; threshold: number } | null {
-  const m = expr.match(/^last\(([\w.[\],-]+)\)\s*(>=|<=|>|<|=)\s*(-?[\d.]+)$/);
+  const m = expr.match(/^last\(([\w.[\]/,-]+)\)\s*(>=|<=|>|<|=)\s*(-?[\d.]+)$/);
   if (!m) return null;
   return { key: m[1], op: m[2], threshold: Number(m[3]) };
 }

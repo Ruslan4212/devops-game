@@ -759,13 +759,474 @@ export const act13: Lesson[] = [
       {
         kind: "say",
         text:
+          "Хороший рубеж. Хост подключён, метрики идут, ты умеешь чинить «нет данных».\n" +
+          "Это база. Дальше в этом же акте — настоящие триггеры: заведём их руками,\n" +
+          "разберём инцидент с ложной тревогой и соберём полноценный мониторинг хоста\n" +
+          "с CPU- и диск-триггерами, как это делает дежурный инженер на проде.",
+      },
+    ],
+  },
+  {
+    id: "13.13",
+    act: 13,
+    title: "Заводим триггер руками",
+    xp: 25,
+    intro: "От «просто собираем метрику» к «система сама говорит, когда плохо».",
+    setup: seedConfigured,
+    steps: [
+      {
+        kind: "say",
+        text:
+          "В интерфейсе триггер заводят мышкой, но суть та же, что мы уже разобрали\n" +
+          "в 13.7. В этом симуляторе триггер заводится командой:\n\n" +
+          '  zabbix trigger add "Имя" "last(КЛЮЧ)>ЧИСЛО" СЕРЬЁЗНОСТЬ\n\n' +
+          "Поддерживаются операторы  >  <  >=  <=  = . Функция всегда  last(...) —\n" +
+          "это самый частый и самый простой вид условия.",
+      },
+      {
+        kind: "watch",
+        run: 'zabbix trigger add "CPU перегружен" "last(system.cpu.load[all,avg1])>5" high',
+        note:
+          "Триггер сохранён: если последнее значение system.cpu.load[all,avg1]\n" +
+          "превысит 5 — сработает тревога уровня high.",
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: заведи триггер на нехватку места на диске — сработает, если\n" +
+          "vfs.fs.size[/,pfree] (процент свободного места) станет меньше 10. Важность average.",
+        check: (w) => !!w.zabbix?.triggers.some((t) => /vfs\.fs\.size/.test(t.expr) && /<\s*10/.test(t.expr)),
+        answer: 'zabbix trigger add "Диск заполнен" "last(vfs.fs.size[/,pfree])<10" average',
+        hint: 'Команда  zabbix trigger add "Диск заполнен" "last(vfs.fs.size[/,pfree])<10" average',
+      },
+      {
+        kind: "do",
+        text: "Задача: посмотри список заведённых триггеров.",
+        check: ran(/^zabbix\s+trigger\s+list/),
+        answer: "zabbix trigger list",
+        hint: "Команда  zabbix trigger list",
+      },
+      {
+        kind: "quiz",
+        text: 'Что вернёт  zabbix trigger add "X" "cpu больше 5" high  (без функции last и без хоста в скобках)?',
+        options: [
+          "Ошибку: выражение не в поддерживаемом формате last(КЛЮЧ)>ЧИСЛО",
+          "Триггер добавится, но никогда не сработает",
+          "Триггер добавится и сразу сработает",
+        ],
+        answer: 0,
+        explain:
+          "Выражение обязано выглядеть как last(КЛЮЧ) и оператор сравнения с числом — иначе это не распознать.",
+      },
+    ],
+  },
+  {
+    id: "13.14",
+    act: 13,
+    title: "problems: что видит дежурный",
+    xp: 25,
+    intro: "Триггеры сами по себе ничего не показывают — их состояние смотрят через problems.",
+    setup: (w) => {
+      seedConfigured(w);
+      w.zabbix!.triggers = [
+        { name: "CPU перегружен", expr: "last(system.cpu.load[all,avg1])>5", severity: "high" },
+        { name: "Диск заполнен", expr: "last(vfs.fs.size[/,pfree])<10", severity: "average" },
+      ];
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "В веб-интерфейсе Zabbix есть раздел  Problems  — там дежурный видит все\n" +
+          "сработавшие триггеры в одном месте, отсортированные по важности.\n" +
+          "В симуляторе то же самое делает команда  zabbix problems .",
+      },
+      {
+        kind: "do",
+        text: "Задача: посмотри текущие проблемы по заведённым триггерам.",
+        check: ran(/^zabbix\s+problems/),
+        answer: "zabbix problems",
+        hint: "Команда  zabbix problems",
+      },
+      {
+        kind: "say",
+        text:
+          "Оба триггера показали  OK : CPU сейчас 2.14 (порог 5), свободного места\n" +
+          "63.4% (порог меньше 10%). Тревога появится, только когда условие станет\n" +
+          "истинным — ровно как строка ALERT в Prometheus (Акт 11).",
+      },
+      {
+        kind: "quiz",
+        text: "Чем problems в Zabbix концептуально похож на алерты Prometheus?",
+        options: [
+          "Оба показывают только то, что СЕЙЧАС нарушает заданное условие, а не все метрики подряд",
+          "Оба хранят историю метрик за год",
+          "Оба требуют Grafana для отображения",
+        ],
+        answer: 0,
+        explain:
+          "И Zabbix problems, и Prometheus alerts — это фильтр «условие истинно прямо сейчас», а не сырые данные.",
+      },
+    ],
+  },
+  {
+    id: "13.15",
+    act: 13,
+    title: "Инцидент: триггеры молчат ⚡",
+    xp: 45,
+    intro: "Дежурный заводит триггеры, а problems стабильно показывает NODATA.",
+    setup: (w) => {
+      seedZabbix(w);
+      writeFile(
+        w,
+        "/etc/zabbix/zabbix_agentd.conf",
+        "Server=127.0.0.1\nServerActive=127.0.0.1\nHostname=web-01\n",
+      );
+      w.zabbix!.agentConfigured = true;
+      w.zabbix!.serverAddr = "127.0.0.1";
+      w.zabbix!.serverReaches = false;
+      w.zabbix!.triggers = [
+        { name: "CPU перегружен", expr: "last(system.cpu.load[all,avg1])>5", severity: "high" },
+      ];
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Жалоба: «завели триггер на CPU, а Problems всегда пустой либо NODATA,\n" +
+          "хотя нагрузка точно скачет». Начинаем с того же алгоритма, что в 13.8.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Посмотри текущее состояние триггеров.",
+        check: ran(/^zabbix\s+problems/),
+        answer: "zabbix problems",
+        hint: "Команда  zabbix problems",
+      },
+      {
+        kind: "say",
+        text:
+          "NODATA — «сервер не собирает метрики с хоста». Это не проблема триггера,\n" +
+          "это ровно тот же симптом, что в 13.8: сервер не может достучаться до агента.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Проверь сеть между сервером и агентом.",
+        check: (w) => w.log.some((l) => /^zabbix_get\s+-s/.test(l.cmd)),
+        answer: "zabbix_get -s 10.0.1.20 -k agent.ping",
+        hint: "Команда  zabbix_get -s 10.0.1.20 -k agent.ping",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 3. Почини конфиг агента. Набери:\n" +
+          "edit zabbix_agentd.conf\n" +
+          "Замени 127.0.0.1 на 10.0.1.10 в Server= и ServerActive=.",
+        check: (w) =>
+          has("/etc/zabbix/zabbix_agentd.conf", /Server\s*=\s*10\.0\.1\.10/)(w) &&
+          !has("/etc/zabbix/zabbix_agentd.conf", /127\.0\.0\.1/)(w),
+        answer: "Server=10.0.1.10\nServerActive=10.0.1.10\nHostname=web-01\n",
+        editFile: "/etc/zabbix/zabbix_agentd.conf",
+        hint: "В  edit zabbix_agentd.conf  замени 127.0.0.1 на 10.0.1.10.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 4. Перечитай конфиг агента.",
+        check: (w) => !!w.zabbix?.serverReaches,
+        answer: "zabbix_agentd -c zabbix_agentd.conf",
+        hint: "Команда  zabbix_agentd -c zabbix_agentd.conf",
+      },
+      {
+        kind: "do",
+        text: "Шаг 5. Убедись, что триггер теперь оценивается по-настоящему (не NODATA).",
+        check: (w) => {
+          const i = w.log.findIndex((l) => /^zabbix_agentd\s+-c/.test(l.cmd));
+          return i >= 0 && w.log.slice(i).some((l) => /^zabbix\s+problems/.test(l.cmd) && l.code === 0);
+        },
+        answer: "zabbix problems",
+        hint: "Команда  zabbix problems — теперь должно быть OK или PROBLEM, а не NODATA",
+      },
+      {
+        kind: "say",
+        text:
+          "Важный вывод на собеседование: NODATA у триггера почти никогда не значит\n" +
+          "«триггер неправильный». Это значит «до сервера не долетают метрики» —\n" +
+          "чинить нужно путь агент -> сервер, а не выражение триггера.",
+      },
+    ],
+  },
+  {
+    id: "13.16",
+    act: 13,
+    title: "Триггер сработал: что дальше",
+    xp: 30,
+    intro: "PROBLEM появился в списке — дальше решает важность, а не сам факт срабатывания.",
+    setup: (w) => {
+      seedConfigured(w);
+      w.zabbix!.triggers = [
+        { name: "CPU перегружен", expr: "last(system.cpu.load[all,avg1])>1", severity: "disaster" },
+      ];
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Порог поставили с запасом (>1, а реальная загрузка 2.14) — специально,\n" +
+          "чтобы увидеть, как выглядит настоящий PROBLEM.",
+      },
+      {
+        kind: "do",
+        text: "Задача: посмотри текущие проблемы.",
+        check: ran(/^zabbix\s+problems/),
+        answer: "zabbix problems",
+        hint: "Команда  zabbix problems",
+      },
+      {
+        kind: "say",
+        text:
+          "PROBLEM с важностью disaster — это то же самое, что critical-алерт в Акте 10:\n" +
+          "будят дежурного, даже ночью. Именно поэтому важность выбирают ОСОЗНАННО,\n" +
+          "а не ставят везде disaster «на всякий случай» — иначе дежурный перестанет\n" +
+          "доверять алертам (тот же fatigue из Акта 10).",
+      },
+      {
+        kind: "quiz",
+        text: "Триггер с порогом «впритык» к обычным значениям постоянно шлёт disaster ночью. Что не так?",
+        options: [
+          "Порог или важность выбраны неверно — триггер слишком чувствителен для своей важности, это alert fatigue",
+          "Zabbix сломан и триггеры вообще не должны срабатывать",
+          "Нужно просто удалить весь мониторинг хоста",
+        ],
+        answer: 0,
+        explain:
+          "Чувствительный порог — не проблема сам по себе, но давать ему высшую важность нельзя: это будит зря.",
+      },
+    ],
+  },
+  {
+    id: "13.17",
+    act: 13,
+    title: "Ошибка в выражении триггера",
+    xp: 20,
+    intro: "Опечатка в выражении — и триггер либо не создастся, либо будет молчать вечно.",
+    setup: seedConfigured,
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Частые ошибки в выражениях триггеров:\n\n" +
+          "  • ключ написан не так, как в item (лишний пробел, другой регистр)\n" +
+          "  • забыли функцию: написали  vfs.fs.size[/,pfree] < 10  без  last(...)\n" +
+          "  • перепутали оператор: > вместо < для «мало места» — триггер молчит вечно\n\n" +
+          "Симулятор ловит только грубые из них — например, отсутствие  last(...) .",
+      },
+      {
+        kind: "do",
+        text: 'Задача: попробуй добавить триггер без функции last —  zabbix trigger add "Диск" "vfs.fs.size[/,pfree]<10" high',
+        check: (w) => w.log.some((l) => /^zabbix\s+trigger\s+add/.test(l.cmd) && l.code === 1),
+        answer: 'zabbix trigger add "Диск" "vfs.fs.size[/,pfree]<10" high',
+        hint: 'Команда  zabbix trigger add "Диск" "vfs.fs.size[/,pfree]<10" high',
+      },
+      {
+        kind: "say",
+        text:
+          "Отказ сразу — это лучше, чем в реальном Zabbix: там такое выражение\n" +
+          "тоже не пройдёт валидацию формы, но текст ошибки менее очевиден.",
+      },
+      {
+        kind: "do",
+        text: "Задача: исправь выражение и добавь триггер правильно (напоминание — используй last()).",
+        check: (w) => !!w.zabbix?.triggers.some((t) => /^last\(vfs\.fs\.size/.test(t.expr)),
+        answer: 'zabbix trigger add "Диск" "last(vfs.fs.size[/,pfree])<10" high',
+        hint: 'Команда  zabbix trigger add "Диск" "last(vfs.fs.size[/,pfree])<10" high',
+      },
+      {
+        kind: "quiz",
+        text: "Триггер на «мало места» написан как  last(vfs.fs.size[/,pfree]) > 10 . В чём беда?",
+        options: [
+          "Оператор перепутан: > вместо < — сработает, когда места МНОГО, а не мало, и будет ложно тревожить всегда",
+          "Ничего, всё верно",
+          "Нельзя использовать pfree в выражениях",
+        ],
+        answer: 0,
+        explain:
+          "pfree — процент свободного. «Мало места» — это меньше порога, значит нужен оператор <, а не >.",
+      },
+    ],
+  },
+  {
+    id: "13.18",
+    act: 13,
+    title: "Ревью триггеров перед продом",
+    xp: 25,
+    intro: "Несколько триггеров разной важности — учимся читать список целиком, как на код-ревью.",
+    setup: (w) => {
+      seedConfigured(w);
+      w.zabbix!.triggers = [
+        { name: "Агент недоступен", expr: "last(agent.ping)=0", severity: "disaster" },
+        { name: "CPU высокий", expr: "last(system.cpu.load[all,avg1])>5", severity: "warning" },
+        { name: "Диск почти полон", expr: "last(vfs.fs.size[/,pfree])<10", severity: "high" },
+        { name: "Диск совсем полон", expr: "last(vfs.fs.size[/,pfree])<3", severity: "disaster" },
+      ];
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Перед тем как включать триггеры на проде, их читают все разом — это\n" +
+          "аналог код-ревью для алертов (тот же принцип, что и в Акте 11 для\n" +
+          "правил Prometheus).",
+      },
+      {
+        kind: "do",
+        text: "Задача: выведи список всех триггеров хоста.",
+        check: ran(/^zabbix\s+trigger\s+list/),
+        answer: "zabbix trigger list",
+        hint: "Команда  zabbix trigger list",
+      },
+      {
+        kind: "say",
+        text:
+          "Обрати внимание на пару «Диск почти полон» (<10, high) и «Диск совсем\n" +
+          "полон» (<3, disaster) — это ЭСКАЛАЦИЯ: сначала предупредили в чат (high),\n" +
+          "и только если стало по-настоящему плохо — разбудили дежурного (disaster).\n" +
+          "Это грамотная практика, а не дублирование.",
+      },
+      {
+        kind: "quiz",
+        text: "Зачем заводить два триггера на диск (<10% и <3%) вместо одного?",
+        options: [
+          "Это эскалация: слабый сигнал уходит в чат заранее, а критичный будит дежурного, когда стало реально плохо",
+          "Это ошибка конфигурации, нужно оставить только один",
+          "Zabbix требует минимум два триггера на каждый item",
+        ],
+        answer: 0,
+        explain:
+          "Постепенная эскалация по важности — стандартный паттерн, снижает и пропуски, и усталость от алертов.",
+      },
+    ],
+  },
+  {
+    id: "13.19",
+    act: 13,
+    title: "LLD и триггер-прототип вместе",
+    xp: 25,
+    intro: "Возвращаемся к автообнаружению — теперь с точки зрения триггеров.",
+    steps: [
+      {
+        kind: "say",
+        text:
+          "В 13.10 LLD создавал item на каждую файловую систему. Идея идёт дальше:\n" +
+          "к правилу обнаружения привязывают не только прототип item, но и\n" +
+          "  прототип триггера :\n\n" +
+          "  last(/host/vfs.fs.size[{#FSNAME},pfree])<10\n\n" +
+          "Для каждой найденной ФС Zabbix создаст СВОЙ item И свой триггер по этому\n" +
+          "шаблону — вручную писать triggers под каждый диск не нужно.",
+      },
+      {
+        kind: "say",
+        text:
+          "Это то же самое, что делает шаблон записи алертов в Prometheus, когда\n" +
+          "выражение параметризовано лейблом ($labels.mountpoint) — один текст\n" +
+          "правила покрывает произвольное число реальных объектов.",
+      },
+      {
+        kind: "quiz",
+        text: "На сервере появилась новая файловая система /backup. Что произойдёт с мониторингом при настроенном LLD с триггер-прототипом?",
+        options: [
+          "Автоматически появятся и item, и триггер на /backup — без ручного вмешательства",
+          "Ничего, /backup придётся заводить руками",
+          "LLD работает только для item, триггер обязательно пишут отдельно",
+        ],
+        answer: 0,
+        explain:
+          "Прототип триггера, как и прототип item, подставляет макрос {#FSNAME} для каждой найденной сущности.",
+      },
+    ],
+  },
+  {
+    id: "13.20",
+    act: 13,
+    title: "Капстоун: мониторинг хоста с нуля до триггеров",
+    xp: 50,
+    intro: "Полный путь: агент -> метрики -> триггеры -> problems, как в первый рабочий день.",
+    setup: (w) => {
+      seedZabbix(w);
+      w.templates = {
+        "/etc/zabbix/zabbix_agentd.conf":
+          "# Настрой агент: Server= и ServerActive= на 10.0.1.10, Hostname=web-01,\n" +
+          "# и UserParameter=nginx.workers,pgrep -c nginx . Комментарий сотри.\n",
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Финальная задача акта: подключи web-01 к Zabbix и заведи для него два\n" +
+          "триггера — на CPU и на диск. Ошибёшься — подсказка, ещё раз — готовый ответ.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Настрой конфиг агента. Набери:  edit zabbix_agentd.conf",
+        check: (w) =>
+          has("/etc/zabbix/zabbix_agentd.conf", /Server\s*=\s*10\.0\.1\.10/)(w) &&
+          has("/etc/zabbix/zabbix_agentd.conf", /Hostname\s*=\s*web-01/)(w) &&
+          has("/etc/zabbix/zabbix_agentd.conf", /UserParameter\s*=\s*nginx\.workers/)(w),
+        answer: CONF_OK,
+        editFile: "/etc/zabbix/zabbix_agentd.conf",
+        hint: "Открой  edit zabbix_agentd.conf  и впиши Server, ServerActive, Hostname и строку UserParameter.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Проверь конфиг агента.",
+        check: (w) => !!w.zabbix?.agentConfigured,
+        answer: "zabbix_agentd -c zabbix_agentd.conf",
+        hint: "Команда  zabbix_agentd -c zabbix_agentd.conf",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Убедись, что сервер достаёт метрику по сети.",
+        check: (w) => w.log.some((l) => /^zabbix_get\s+-s/.test(l.cmd) && l.code === 0),
+        answer: "zabbix_get -s 10.0.1.20 -k agent.ping",
+        hint: "Команда  zabbix_get -s 10.0.1.20 -k agent.ping",
+      },
+      {
+        kind: "do",
+        text: "Шаг 4. Заведи триггер на CPU: сработает, если system.cpu.load[all,avg1] больше 5, важность warning.",
+        check: (w) =>
+          !!w.zabbix?.triggers.some((t) => /system\.cpu\.load/.test(t.expr) && t.severity === "warning"),
+        answer: 'zabbix trigger add "CPU высокий" "last(system.cpu.load[all,avg1])>5" warning',
+        hint: 'Команда  zabbix trigger add "CPU высокий" "last(system.cpu.load[all,avg1])>5" warning',
+      },
+      {
+        kind: "do",
+        text: "Шаг 5. Заведи триггер на диск: сработает, если vfs.fs.size[/,pfree] меньше 10, важность high.",
+        check: (w) => !!w.zabbix?.triggers.some((t) => /vfs\.fs\.size/.test(t.expr) && t.severity === "high"),
+        answer: 'zabbix trigger add "Диск заполнен" "last(vfs.fs.size[/,pfree])<10" high',
+        hint: 'Команда  zabbix trigger add "Диск заполнен" "last(vfs.fs.size[/,pfree])<10" high',
+      },
+      {
+        kind: "do",
+        text: "Шаг 6. Проверь, что оба триггера реально оцениваются (не NODATA).",
+        check: (w) => {
+          const r = w.log.filter((l) => /^zabbix\s+problems/.test(l.cmd));
+          return r.length > 0 && r[r.length - 1].code === 0;
+        },
+        answer: "zabbix problems",
+        hint: "Команда  zabbix problems",
+      },
+      {
+        kind: "say",
+        text:
           "Акт 13 пройден. Ты умеешь:\n\n" +
           "  • объяснить, чем Zabbix отличается от Prometheus и когда что выбирать\n" +
           "  • назвать части: server / БД / frontend / agent и путь метрики\n" +
           "  • настроить агент: Server=, ServerActive=, Hostname=\n" +
           "  • проверить ключ item локально (zabbix_agentd -t) и по сети (zabbix_get)\n" +
           "  • добавить свою метрику через UserParameter и знать про её риски\n" +
-          "  • понимать триггеры, шаблоны и автообнаружение (LLD)\n" +
+          "  • завести триггер, прочитать problems и понять NODATA / OK / PROBLEM\n" +
+          "  • выстроить эскалацию по важности и не спалить дежурного ложными тревогами\n" +
+          "  • понимать шаблоны и автообнаружение (LLD), в том числе с триггер-прототипом\n" +
           "  • чинить «в Zabbix нет данных» по алгоритму локально -> по сети -> конфиг\n\n" +
           "Дальше — последний акт: Python для DevOps, чтобы автоматизировать то,\n" +
           "что не ложится в bash.",
