@@ -64,6 +64,8 @@ export interface GitState {
 export interface DockerImage {
   tag: string;
   layers: number;
+  /** приблизительный размер образа в МБ (зависит от базового образа и multi-stage) */
+  sizeMb?: number;
 }
 export interface Container {
   name: string;
@@ -72,6 +74,10 @@ export interface Container {
   hostPort: number | null;
   cPort: number | null;
   logs: string[];
+  /** переменные окружения, заданные через -e при запуске */
+  env?: Record<string, string>;
+  /** тома, примонтированные через -v (host:container) */
+  volumes?: string[];
 }
 
 export interface CiRun {
