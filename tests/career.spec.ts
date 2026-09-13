@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { JOBS, SOFT_QUESTIONS, STORY, pickQuestions } from "../src/data/careers";
 import { mergeProgress } from "../src/sync/merge";
 import type { Progress } from "../src/engine/progress";
+import { LESSONS } from "../src/lessons";
 
 const P = (o: Partial<Progress> = {}): Progress => ({ xp: 0, done: {}, cur: null, hints: {}, ...o });
 
@@ -45,6 +46,18 @@ describe("карьерный слой — данные", () => {
     const need = STORY.map((s) => s.needLessons);
     expect(need).toEqual([...need].sort((a, b) => a - b));
     expect(STORY[0].needLessons).toBe(0);
+  });
+
+  it("сюжет покрывает весь курс — одна веха на акт, последняя доходит до конца", () => {
+    // пролог + 14 актов; последняя веха обязана совпадать с реальным числом
+    // уроков курса — иначе сюжет молча обрывается раньше конца, как уже
+    // однажды случилось (вехи стояли на 118 при курсе на 265 уроков)
+    expect(STORY).toHaveLength(15);
+    expect(STORY[STORY.length - 1].needLessons).toBe(LESSONS.length);
+    for (const s of STORY) {
+      expect(s.body.length).toBeGreaterThan(20);
+      expect(s.title.length).toBeGreaterThan(3);
+    }
   });
 
   it("pickQuestions даёт запрошенное число разных вопросов", () => {
