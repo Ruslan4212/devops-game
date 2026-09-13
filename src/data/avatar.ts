@@ -133,17 +133,43 @@ export interface AvatarOptions {
   bg?: string;
 }
 
+/** Затемняет hex-цвет на заданную долю (0..1); отрицательное значение — осветляет. */
+function shade(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v: number): number =>
+    Math.max(0, Math.min(255, Math.round(v + (255 - v) * -amount - v * amount)));
+  const r = f((n >> 16) & 255);
+  const g = f((n >> 8) & 255);
+  const b = f(n & 255);
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
 /** Рисует персонажа в полный рост. Возвращает строку SVG. */
 export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
   const s = o.size ?? 200;
   const h = Math.round(s * 2);
   const sk = SKIN[a.skin] ?? SKIN[1];
+  const skDark = shade(sk, 0.18);
   const hc = HAIRC[a.hairc] ?? HAIRC[0];
+  const hcLight = shade(hc, -0.35);
   const ec = EYESC[a.eyes] ?? EYESC[0];
   const oc = outfitColor(o.top);
+  const ocDark = shade(oc, 0.22);
   const sc = shoeColor(o.shoes);
   const bg = o.bg ?? "#141922";
   const id = "av" + s + a.skin + a.hair + a.hairc;
+
+  const eyebrows =
+    '<path d="M80 80q6-4 12 0" stroke="' +
+    hc +
+    '" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M108 80q6-4 12 0" stroke="' +
+    hc +
+    '" stroke-width="2.2" fill="none" stroke-linecap="round"/>';
+
+  const nose =
+    '<path d="M99 92q-2 6 0 10" stroke="' +
+    skDark +
+    '" stroke-width="2" fill="none" stroke-linecap="round"/>';
 
   const mouth =
     a.face === 1
@@ -155,9 +181,9 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
   const eyes =
     '<g><ellipse cx="88" cy="88" rx="5" ry="6" fill="#fff"/><circle cx="89" cy="89" r="3" fill="' +
     ec +
-    '"/><ellipse cx="112" cy="88" rx="5" ry="6" fill="#fff"/><circle cx="113" cy="89" r="3" fill="' +
+    '"/><circle cx="90" cy="87.5" r=".9" fill="#fff"/><ellipse cx="112" cy="88" rx="5" ry="6" fill="#fff"/><circle cx="113" cy="89" r="3" fill="' +
     ec +
-    '"/></g>';
+    '"/><circle cx="114" cy="87.5" r=".9" fill="#fff"/></g>';
 
   const beard =
     a.beard && a.sex === "m"
@@ -169,10 +195,10 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     : "";
 
   const cap = a.cap
-    ? '<g><path d="M58 60c0-24 18-38 42-38s42 14 42 38z" fill="#2E8B7A"/><path d="M142 60c14 0 22 4 26 10-12 4-40 4-68 4z" fill="#25705F"/></g>'
+    ? '<g><path d="M58 60c0-24 18-38 42-38s42 14 42 38z" fill="#2E8B7A"/><path d="M142 60c14 0 22 4 26 10-12 4-40 4-68 4z" fill="#25705F"/><path d="M66 58c4-16 16-26 30-28" stroke="#25705F" stroke-width="2" fill="none" opacity=".6"/></g>'
     : "";
 
-  /* полный рост: шея, торс, руки, ноги, обувь */
+  /* полный рост: шея, торс, руки, ноги, обувь — с лёгкой светотенью вместо плоской заливки */
   const torsoAccent =
     o.top === "suit"
       ? '<path d="M78 168l22 22 22-22-8-14h-28z" fill="#E8E4DA"/><path d="M96 170l4 8 4-8-4-6z" fill="#8C2F39"/>'
@@ -186,33 +212,60 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     '<rect x="88" y="126" width="24" height="20" rx="8" fill="' +
     sk +
     '"/>' +
-    /* руки */
+    /* руки — тень на внутренней стороне для объёма */
     '<rect x="52" y="152" width="18" height="86" rx="9" fill="' +
     oc +
-    '"/><rect x="130" y="152" width="18" height="86" rx="9" fill="' +
+    '"/><rect x="63" y="152" width="7" height="86" rx="3" fill="' +
+    ocDark +
+    '" opacity=".45"/>' +
+    '<rect x="130" y="152" width="18" height="86" rx="9" fill="' +
     oc +
-    '"/>' +
+    '"/><rect x="130" y="152" width="7" height="86" rx="3" fill="' +
+    ocDark +
+    '" opacity=".45"/>' +
     '<ellipse cx="61" cy="240" rx="9" ry="10" fill="' +
     sk +
     '"/><ellipse cx="139" cy="240" rx="9" ry="10" fill="' +
     sk +
     '"/>' +
-    /* торс */
+    /* торс — вертикальный шов и тень по краю для объёма */
     '<path d="M64 168q6-16 36-16t36 16l6 76q-42 12-84 0z" fill="' +
     oc +
     '"/>' +
+    '<path d="M66 172q4-12 12-16l-8 84q-6-2-10-4z" fill="' +
+    ocDark +
+    '" opacity=".3"/>' +
+    '<path d="M100 156v88" stroke="' +
+    ocDark +
+    '" stroke-width="1.5" opacity=".4"/>' +
     torsoAccent +
-    /* ноги */
+    /* ноги — внутренний шов и колено */
     '<rect x="72" y="246" width="22" height="92" rx="8" fill="#3A3F4B"/>' +
     '<rect x="106" y="246" width="22" height="92" rx="8" fill="#3A3F4B"/>' +
-    /* обувь */
+    '<rect x="87" y="246" width="6" height="92" fill="#2E323C" opacity=".5"/>' +
+    '<rect x="107" y="246" width="6" height="92" fill="#464C59" opacity=".5"/>' +
+    '<ellipse cx="83" cy="296" rx="9" ry="5" fill="#2E323C" opacity=".35"/>' +
+    '<ellipse cx="117" cy="296" rx="9" ry="5" fill="#2E323C" opacity=".35"/>' +
+    /* обувь — подошва отдельным тоном */
     '<ellipse cx="83" cy="342" rx="16" ry="9" fill="' +
     sc +
     '"/><ellipse cx="117" cy="342" rx="16" ry="9" fill="' +
     sc +
-    '"/>';
+    '"/>' +
+    '<path d="M68 346a16 5 0 0 0 30 0z" fill="#20242E" opacity=".55"/>' +
+    '<path d="M102 346a16 5 0 0 0 30 0z" fill="#20242E" opacity=".55"/>';
 
   const accessory = accessoryOverlay(o.accessory);
+
+  /* волосы — базовый силуэт плюс блик у пробора для объёма */
+  const hair =
+    '<g fill="' +
+    hc +
+    '">' +
+    hairPath(a.sex, a.hair) +
+    '</g><path d="M82 48q18-10 36 0" stroke="' +
+    hcLight +
+    '" stroke-width="3" fill="none" opacity=".5" stroke-linecap="round"/>';
 
   return (
     '<svg viewBox="0 0 200 360" width="' +
@@ -233,19 +286,20 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     '<ellipse cx="100" cy="84" rx="40" ry="44" fill="' +
     sk +
     '"/>' +
+    '<path d="M64 92c4 20 14 34 36 34s32-14 36-34" fill="none" stroke="' +
+    skDark +
+    '" stroke-width="1.2" opacity=".35"/>' +
     '<ellipse cx="61" cy="86" rx="6" ry="9" fill="' +
     sk +
     '"/><ellipse cx="139" cy="86" rx="6" ry="9" fill="' +
     sk +
     '"/>' +
     beard +
+    eyebrows +
     eyes +
+    nose +
     mouth +
-    '<g fill="' +
-    hc +
-    '">' +
-    hairPath(a.sex, a.hair) +
-    "</g>" +
+    hair +
     glasses +
     cap +
     accessory +
