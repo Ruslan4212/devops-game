@@ -1,6 +1,9 @@
 -- =====================================================================
 -- Pipeline: путь до Middle DevOps — схема базы данных (Supabase/Postgres)
 -- Выполнить целиком в Supabase Dashboard → SQL Editor → New query → Run
+-- Скрипт идемпотентный: весь файл можно запускать повторно поверх уже
+-- применённой схемы (например, чтобы подтянуть более новую версию) —
+-- все create policy/table/index защищены if exists/drop policy if exists.
 -- =====================================================================
 
 -- Приватный профиль: полный слепок игрового состояния (S), читает и
@@ -13,10 +16,13 @@ create table if not exists public.profiles (
 );
 alter table public.profiles enable row level security;
 
+drop policy if exists "profiles: select own" on public.profiles;
 create policy "profiles: select own" on public.profiles
   for select using (auth.uid() = id);
+drop policy if exists "profiles: insert own" on public.profiles;
 create policy "profiles: insert own" on public.profiles
   for insert with check (auth.uid() = id);
+drop policy if exists "profiles: update own" on public.profiles;
 create policy "profiles: update own" on public.profiles
   for update using (auth.uid() = id);
 
@@ -36,6 +42,7 @@ create table if not exists public.public_stats (
 );
 alter table public.public_stats enable row level security;
 
+drop policy if exists "public_stats: select all" on public.public_stats;
 create policy "public_stats: select all" on public.public_stats
   for select using (true);
 
@@ -130,10 +137,13 @@ create table if not exists public.comments (
 );
 alter table public.comments enable row level security;
 
+drop policy if exists "comments: select all" on public.comments;
 create policy "comments: select all" on public.comments
   for select using (true);
+drop policy if exists "comments: insert own" on public.comments;
 create policy "comments: insert own" on public.comments
   for insert with check (auth.uid() = user_id);
+drop policy if exists "comments: delete own" on public.comments;
 create policy "comments: delete own" on public.comments
   for delete using (auth.uid() = user_id);
 
