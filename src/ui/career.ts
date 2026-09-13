@@ -211,29 +211,31 @@ function runInterview(job: Job, d: CareerDeps): void {
     $("#modBody").innerHTML =
       header() +
       `<div class="iv-chat">${transcript.join("")}</div>` +
-      `<div class="cr-opts">` +
-      q.options.map((o, k) => `<button class="lp-opt" data-k="${k}">${esc(o)}</button>`).join("") +
-      `</div>`;
-    $("#modBody")
-      .querySelectorAll<HTMLButtonElement>(".lp-opt")
-      .forEach((btn) => {
-        btn.onclick = () => {
-          const k = Number(btn.dataset.k);
-          const ok = k === q.answer;
-          if (ok) correct++;
-          transcript.push(bubble("me", esc(q.options[k])));
-          transcript.push(bubble("lead", `<b>${ok ? "Верно." : "Не совсем."}</b> ${esc(q.why)}`));
-          $("#modBody").innerHTML =
-            header() +
-            `<div class="iv-chat">${transcript.join("")}</div>` +
-            `<button class="prim" id="crNext">${i + 1 < qs.length ? "Дальше →" : "Итог"}</button>`;
-          $("#crNext").onclick = () => {
-            i++;
-            step();
-          };
-          scrollChatToEnd();
-        };
-      });
+      `<textarea class="lp-quiz-input" id="crAnswerInput" rows="3" placeholder="Ответь своими словами вслух — как на реальном собеседовании…" autofocus></textarea>` +
+      `<button class="prim" id="crAnswerSend">Ответил — узнать, что ждали услышать</button>`;
+    $("#crAnswerSend").onclick = () => {
+      const ta = document.getElementById("crAnswerInput") as HTMLTextAreaElement | null;
+      const mine = (ta?.value ?? "").trim();
+      transcript.push(bubble("me", esc(mine || "(промолчал)")));
+      transcript.push(
+        bubble("lead", `<b>Ожидали услышать:</b> ${esc(q.options[q.answer])}<br>${esc(q.why)}`),
+      );
+      $("#modBody").innerHTML =
+        header() +
+        `<div class="iv-chat">${transcript.join("")}</div>` +
+        `<div class="lp-selfgrade">` +
+        `<button class="prim" id="crRight">✅ У меня было по сути так</button>` +
+        `<button class="sec" id="crWrong">❌ Не угадал</button>` +
+        `</div>`;
+      const advance = (ok: boolean): void => {
+        if (ok) correct++;
+        i++;
+        step();
+      };
+      $("#crRight").onclick = () => advance(true);
+      $("#crWrong").onclick = () => advance(false);
+      scrollChatToEnd();
+    };
     scrollChatToEnd();
   };
 

@@ -10,6 +10,15 @@ export interface PanelHandlers {
 }
 
 /**
+ * Свободный ответ по памяти вместо выбора из вариантов: игрок печатает
+ * свою версию сам, потом видит правильный ответ и сам решает, совпало ли —
+ * единственный честный способ проверить чужой текст без сервера с ИИ,
+ * и он тренирует активное вспоминание лучше, чем узнавание в списке.
+ * Состояние — какой шаг сейчас раскрыт — локально для этого модуля.
+ */
+let revealedQuiz: { key: string; myAnswer: string } | null = null;
+
+/**
  * Правая колонка: ОДИН текущий шаг урока, крупно.
  * Никаких списков из шести пунктов — только то, что делать прямо сейчас.
  */
@@ -65,6 +74,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
     }
   }
 
+  const quizKey = lesson.id + ":" + i;
   if (step.kind === "quiz") {
     const grade =
       typeof step.d === "number"
@@ -73,13 +83,26 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
           "○".repeat(7 - Math.max(1, Math.min(7, step.d))) +
           `<span style="letter-spacing:0"> · сложность ${step.d}/7</span></div>`
         : "";
-    body =
-      `<div class="lp-badge">🤔 вопрос — выбери ответ</div>` +
-      grade +
-      `<div class="lp-say">${esc(step.text)}</div>` +
-      `<div class="lp-opts">` +
-      step.options.map((o, k) => `<button class="lp-opt" data-k="${k}">${esc(o)}</button>`).join("") +
-      `</div>`;
+    if (!revealedQuiz || revealedQuiz.key !== quizKey) {
+      body =
+        `<div class="lp-badge">🤔 вопрос — ответь своими словами</div>` +
+        grade +
+        `<div class="lp-say">${esc(step.text)}</div>` +
+        `<textarea class="lp-quiz-input" id="lpQuizInput" rows="3" placeholder="Напиши ответ сам, своими словами…" autofocus></textarea>` +
+        `<button class="lp-next" id="lpQuizReveal">Ответил — показать правильный вариант</button>`;
+    } else {
+      body =
+        `<div class="lp-badge">🤔 ${esc(step.text)}</div>` +
+        grade +
+        `<div class="lp-answer"><b>Ты ответил:</b> ${esc(revealedQuiz.myAnswer || "(ничего не написал)")}</div>` +
+        `<div class="lp-cmd">${esc(step.options[step.answer])}</div>` +
+        `<div class="lp-note">${esc(step.explain)}</div>` +
+        `<div class="lp-tip" style="margin-bottom:10px">Сравни со своим ответом и оцени себя честно — это работает только если не жульничать.</div>` +
+        `<div class="lp-selfgrade">` +
+        `<button class="lp-next" id="lpQuizRight">✅ У меня было по сути верно</button>` +
+        `<button class="lp-reveal" id="lpQuizWrong">❌ Я ошибся, повторить вопрос</button>` +
+        `</div>`;
+    }
   }
 
   el.innerHTML = head + body;
@@ -96,7 +119,25 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   const reveal = document.getElementById("lpReveal");
   if (reveal) reveal.onclick = h.onReveal;
 
-  el.querySelectorAll<HTMLButtonElement>(".lp-opt").forEach((b) => {
-    b.onclick = () => h.onQuiz(Number(b.dataset.k));
-  });
+  const quizReveal = document.getElementById("lpQuizReveal");
+  if (quizReveal) {
+    quizReveal.onclick = () => {
+      const ta = document.getElementById("lpQuizInput") as HTMLTextAreaElement | null;
+      revealedQuiz = { key: quizKey, myAnswer: (ta?.value ?? "").trim() };
+      renderLessonPanel(run, h);
+    };
+  }
+  const quizRight = document.getElementById("lpQuizRight");
+  if (quizRight)
+    quizRight.onclick = () => {
+      revealedQuiz = null;
+      h.onQuiz((step as { answer: number }).answer);
+    };
+  const quizWrong = document.getElementById("lpQuizWrong");
+  if (quizWrong)
+    quizWrong.onclick = () => {
+      revealedQuiz = null;
+      const wrongAnswer = (step as { answer: number }).answer;
+      h.onQuiz(wrongAnswer === 0 ? -1 : 0);
+    };
 }

@@ -95,37 +95,34 @@ export function openRevivalExam(d: RevivalDeps): void {
   const step = (): void => {
     if (i >= qs.length) return finish();
     const q = qs[i];
-    const order = q.options.map((_, k) => k);
-    for (let a = order.length - 1; a > 0; a--) {
-      const b = Math.floor(Math.random() * (a + 1));
-      [order[a], order[b]] = [order[b], order[a]];
-    }
     transcript.push(bubble("sys", esc(q.q)));
     $("#modBody").innerHTML =
       header() +
       `<div class="iv-chat">${transcript.join("")}</div>` +
-      `<div class="cr-opts">` +
-      order.map((oi, k) => `<button class="lp-opt" data-k="${k}">${esc(q.options[oi])}</button>`).join("") +
-      `</div>`;
-    $("#modBody")
-      .querySelectorAll<HTMLButtonElement>(".lp-opt")
-      .forEach((btn) => {
-        btn.onclick = () => {
-          const chosen = order[Number(btn.dataset.k)];
-          const ok = chosen === q.answer;
-          if (ok) correct++;
-          transcript.push(bubble("me", esc(q.options[chosen])));
-          transcript.push(bubble("sys", `<b>${ok ? "Верно." : "Неверно."}</b> ${esc(q.why)}`));
-          $("#modBody").innerHTML =
-            header() +
-            `<div class="iv-chat">${transcript.join("")}</div>` +
-            `<button class="prim" id="rvNext">${i + 1 < qs.length ? "Дальше →" : "Итог"}</button>`;
-          $("#rvNext").onclick = () => {
-            i++;
-            step();
-          };
-        };
-      });
+      `<textarea class="lp-quiz-input" id="rvAnswerInput" rows="3" placeholder="Ответь сам, своими словами…" autofocus></textarea>` +
+      `<button class="prim" id="rvAnswerSend">Ответил — показать правильный вариант</button>`;
+    $("#rvAnswerSend").onclick = () => {
+      const ta = document.getElementById("rvAnswerInput") as HTMLTextAreaElement | null;
+      const mine = (ta?.value ?? "").trim();
+      transcript.push(bubble("me", esc(mine || "(ничего не написал)")));
+      transcript.push(
+        bubble("sys", `<b>Правильный вариант:</b> ${esc(q.options[q.answer])}<br>${esc(q.why)}`),
+      );
+      $("#modBody").innerHTML =
+        header() +
+        `<div class="iv-chat">${transcript.join("")}</div>` +
+        `<div class="lp-selfgrade">` +
+        `<button class="prim" id="rvRight">✅ У меня было верно</button>` +
+        `<button class="sec" id="rvWrong">❌ Ошибся</button>` +
+        `</div>`;
+      const advance = (ok: boolean): void => {
+        if (ok) correct++;
+        i++;
+        step();
+      };
+      $("#rvRight").onclick = () => advance(true);
+      $("#rvWrong").onclick = () => advance(false);
+    };
   };
 
   step();

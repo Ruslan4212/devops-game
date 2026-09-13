@@ -57,40 +57,30 @@ function run(title: string, questions: TechQuestion[]): void {
   const step = (): void => {
     if (i >= questions.length) return finish();
     const q = questions[i];
-    // варианты в банке всегда лежат правильным первым — перемешиваем, чтобы
-    // самопроверка не превращалась в «жми первую кнопку».
-    const order = q.options.map((_, k) => k);
-    for (let a = order.length - 1; a > 0; a--) {
-      const b = Math.floor(Math.random() * (a + 1));
-      [order[a], order[b]] = [order[b], order[a]];
-    }
     $("#modBody").innerHTML =
       `<h1>${esc(title)}</h1>` +
       `<div class="cr-progress">Вопрос ${i + 1} из ${questions.length}</div>` +
       `<div class="cr-q">${esc(q.q)}</div>` +
-      `<div class="cr-opts">` +
-      order.map((oi, k) => `<button class="lp-opt" data-k="${k}">${esc(q.options[oi])}</button>`).join("") +
-      `</div>`;
-    $("#modBody")
-      .querySelectorAll<HTMLButtonElement>(".lp-opt")
-      .forEach((btn) => {
-        btn.onclick = () => {
-          const ok = order[Number(btn.dataset.k)] === q.answer;
-          if (ok) correct++;
-          $("#modBody").innerHTML =
-            `<h1>${esc(title)}</h1>` +
-            `<div class="cr-verdict ${ok ? "cr-ok" : "cr-no"}">${
-              ok ? "Верно" : "Неверно — правильный ответ ниже"
-            }</div>` +
-            `<div class="cr-q">${esc(q.options[q.answer])}</div>` +
-            `<div class="cr-why">${esc(q.why)}</div>` +
-            `<button class="prim" id="ivNext">${i + 1 < questions.length ? "Дальше →" : "Итог"}</button>`;
-          $("#ivNext").onclick = () => {
-            i++;
-            step();
-          };
-        };
-      });
+      `<textarea class="lp-quiz-input" id="ivAnswerInput" rows="3" placeholder="Ответь сам, своими словами…" autofocus></textarea>` +
+      `<button class="prim" id="ivAnswerSend">Ответил — показать правильный вариант</button>`;
+    $("#ivAnswerSend").onclick = () => {
+      $("#modBody").innerHTML =
+        `<h1>${esc(title)}</h1>` +
+        `<div class="cr-q">${esc(q.options[q.answer])}</div>` +
+        `<div class="cr-why">${esc(q.why)}</div>` +
+        `<div class="lp-tip" style="margin-bottom:10px">Сравни со своим ответом и оцени себя честно.</div>` +
+        `<div class="lp-selfgrade">` +
+        `<button class="prim" id="ivRight">✅ У меня было верно</button>` +
+        `<button class="sec" id="ivWrong">❌ Ошибся</button>` +
+        `</div>`;
+      const advance = (ok: boolean): void => {
+        if (ok) correct++;
+        i++;
+        step();
+      };
+      $("#ivRight").onclick = () => advance(true);
+      $("#ivWrong").onclick = () => advance(false);
+    };
   };
 
   step();
