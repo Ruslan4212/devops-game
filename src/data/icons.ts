@@ -57,6 +57,10 @@ const CLOTHES_ICONS: Record<string, string> = {
     '<path d="M16 14h10v14l6 2 8 4v3H16z" fill="#4B3621"/><path d="M16 30h32v4H16z" fill="#2E2317"/><path d="M16 14h10v4H16z" fill="#6B4A2E"/>',
   loafers:
     '<path d="M12 30h30l6 4v3H12z" fill="#2E2317"/><path d="M12 30c2-6 8-9 14-9h4l8 7 6 2v3z" fill="#4B3621"/><rect x="24" y="26" width="6" height="3" rx="1" fill="#D9B36B"/>',
+  cardigan:
+    '<path d="M19 13l7-4 4 4 4-4 7 4 5 7-5 4-2-2v15H21V22l-2 2-5-4z" fill="#8A6A3C"/><path d="M30 13v24" stroke="#6B4423" stroke-width="1.5"/><circle cx="30" cy="20" r="1.2" fill="#6B4423"/><circle cx="30" cy="27" r="1.2" fill="#6B4423"/><circle cx="30" cy="34" r="1.2" fill="#6B4423"/>',
+  chelsea:
+    '<path d="M16 14h10v16l6 1 8 5v3H16z" fill="#2E2317"/><path d="M16 34h32v3H16z" fill="#1A130D"/><path d="M26 24h4v6h-4z" fill="#4B3621"/>',
 };
 
 const ACCESSORY_ICONS: Record<string, string> = {
@@ -70,6 +74,11 @@ const ACCESSORY_ICONS: Record<string, string> = {
     '<rect x="14" y="18" width="14" height="10" rx="4" fill="#1A1F29"/><rect x="32" y="18" width="14" height="10" rx="4" fill="#1A1F29"/><rect x="28" y="21" width="4" height="3" fill="#1A1F29"/><path d="M12 20l-4-2M48 20l4-2" stroke="#1A1F29" stroke-width="2"/>',
   tote_bag:
     '<path d="M18 18h24l3 18H15z" fill="#D9B36B"/><path d="M24 18v-5a6 6 0 0 1 12 0v5" fill="none" stroke="#8E6B33" stroke-width="2.5"/><path d="M18 18h24l1 4H17z" fill="#C29A50"/>',
+  necklace:
+    '<path d="M20 12a10 8 0 0 0 20 0" fill="none" stroke="#D9B36B" stroke-width="2"/><circle cx="30" cy="24" r="4" fill="#E8C572"/>',
+  ring: '<circle cx="30" cy="26" r="10" fill="none" stroke="#D9B36B" stroke-width="4"/><path d="M25 16l5-6 5 6z" fill="#4A7FB5"/>',
+  earbuds:
+    '<rect x="16" y="14" width="12" height="18" rx="4" fill="#E8E4DA"/><rect x="32" y="14" width="12" height="18" rx="4" fill="#E8E4DA"/><circle cx="22" cy="20" r="2" fill="#8892A6"/><circle cx="38" cy="20" r="2" fill="#8892A6"/>',
 };
 
 const HOME_ICONS: Record<string, string> = {
@@ -140,6 +149,10 @@ const COMFORT_ICONS: Record<string, string> = {
     '<rect x="18" y="8" width="10" height="28" rx="2" fill="#2A3342"/><circle cx="23" cy="16" r="3" fill="#4A5568"/><circle cx="23" cy="27" r="4" fill="#4A5568"/><rect x="32" y="8" width="10" height="28" rx="2" fill="#2A3342"/><circle cx="37" cy="16" r="3" fill="#4A5568"/><circle cx="37" cy="27" r="4" fill="#4A5568"/>',
   coffee_machine:
     '<rect x="18" y="10" width="20" height="18" rx="2" fill="#2A3342"/><rect x="22" y="28" width="12" height="6" fill="#8892A6"/><rect x="25" y="34" width="6" height="2" fill="#D9B36B"/><circle cx="34" cy="15" r="1.5" fill="#C7452F"/>',
+  lamp: '<path d="M20 12h20l-6 12H26z" fill="#E8C36A"/><rect x="29" y="24" width="2" height="10" fill="#4A4F5C"/><rect x="22" y="34" width="16" height="3" rx="1.5" fill="#2A3342"/>',
+  rug: '<ellipse cx="30" cy="26" rx="22" ry="9" fill="#C7452F"/><ellipse cx="30" cy="26" rx="16" ry="6" fill="#D9B36B"/><ellipse cx="30" cy="26" rx="9" ry="3.5" fill="#C7452F"/>',
+  bookshelf:
+    '<rect x="14" y="10" width="32" height="26" fill="#8A6A3C"/><rect x="17" y="13" width="4" height="20" fill="#4A7FB5"/><rect x="22" y="13" width="3" height="20" fill="#C7452F"/><rect x="26" y="13" width="5" height="20" fill="#6BAA5C"/><rect x="32" y="13" width="3" height="20" fill="#E8C36A"/><rect x="36" y="13" width="6" height="20" fill="#7C6BF2"/>',
 };
 
 const CATEGORY_ICONS: Record<string, Record<string, string>> = {
