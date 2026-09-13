@@ -37,6 +37,17 @@ def("edit", (a, w) => {
   return { out: "", code: 0, edit: resolvePath(w, a[0]) };
 });
 
+// nano/vim в тренажёре открывают тот же редактор, что и edit: настоящих
+// модальных клавиш vim здесь нет, но название команды — то же, что в реальном терминале.
+def("nano", (a, w) => {
+  if (!a[0]) return E("nano: укажи файл, например: nano app.conf");
+  return { out: "", code: 0, edit: resolvePath(w, a[0]) };
+});
+def("vim", (a, w) => {
+  if (!a[0]) return E("vim: укажи файл, например: vim app.conf");
+  return { out: "", code: 0, edit: resolvePath(w, a[0]) };
+});
+
 def("man", (a) => {
   const m: Record<string, string> = {
     ls: "ls — список файлов. -l подробно, -a со скрытыми.",

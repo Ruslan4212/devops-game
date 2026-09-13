@@ -5,6 +5,7 @@ import "./fs2";
 import "./text";
 import "./system";
 import "./net";
+import "./pkg";
 import "./git";
 import "./docker";
 import "./ci";

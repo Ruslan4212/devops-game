@@ -273,8 +273,8 @@ function handleInput(line: string): void {
     return;
   }
 
-  // edit открывает редактор, а не выполняется как обычная команда
-  if (step.kind === "do" && /^edit\s+\S/.test(trimmed)) {
+  // edit/nano/vim открывают редактор, а не выполняются как обычная команда
+  if (step.kind === "do" && /^(edit|nano|vim)\s+\S/.test(trimmed)) {
     const r = execLine(run.world, trimmed);
     if (r.edit) {
       lockInput(true);

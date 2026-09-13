@@ -172,5 +172,58 @@ def("git", (a, w) => {
   }
 
   if (sub === "diff") return O(g.staged.length ? "diff --git — изменения проиндексированы" : "");
+
+  if (sub === "stash") {
+    g.stash = g.stash || [];
+    if (rest[0] === "pop") {
+      const top = g.stash.pop();
+      if (!top) return E("stash: нечего доставать — стек пуст");
+      g.staged = [...new Set([...g.staged, ...top.files])];
+      return O("On branch " + g.branch + "\nChanges restored from stash");
+    }
+    if (rest[0] === "list") {
+      return O(
+        g.stash
+          .map((s, i) => "stash@{" + i + "}: WIP on " + g.branch + " — " + s.files.join(", "))
+          .join("\n"),
+      );
+    }
+    if (!g.staged.length) return E("stash: нечего откладывать — нет изменений в индексе");
+    g.stash.push({ files: [...g.staged] });
+    g.staged = [];
+    return O("Saved working directory and index state WIP on " + g.branch);
+  }
+
+  if (sub === "reset") {
+    const mode = rest.includes("--hard") ? "hard" : rest.includes("--soft") ? "soft" : "mixed";
+    const target = rest.filter((x) => !x.startsWith("-")).pop();
+    if (target !== "HEAD~1")
+      return E("reset: в тренажёре поддерживается только git reset --soft|--mixed|--hard HEAD~1");
+    const idx = [...g.commits].reverse().findIndex((c) => c.branch === g.branch);
+    if (idx < 0) return E("fatal: у текущей ветки нет коммитов, откатывать нечего");
+    const real = g.commits.length - 1 - idx;
+    const [removed] = g.commits.splice(real, 1);
+    if (mode === "hard") g.staged = [];
+    else if (mode === "mixed") g.staged = g.staged.filter((f) => !removed.files.includes(f));
+    else g.staged = [...new Set([...g.staged, ...removed.files])];
+    return O("HEAD откатился на один коммит назад (" + mode + "): " + removed.msg);
+  }
+
+  if (sub === "revert") {
+    const last = [...g.commits].reverse().find((c) => c.branch === g.branch);
+    if (!last) return E("fatal: у текущей ветки нет коммитов");
+    g.commits.push({ msg: 'Revert "' + last.msg + '"', files: last.files, branch: g.branch, hash: hash() });
+    return O("[" + g.branch + " " + g.commits[g.commits.length - 1].hash + '] Revert "' + last.msg + '"');
+  }
+
+  if (sub === "cherry-pick") {
+    const h = rest.filter((x) => !x.startsWith("-"))[0];
+    if (!h) return E("cherry-pick: укажи хеш коммита");
+    const src = g.commits.find((c) => c.hash === h);
+    if (!src) return E("cherry-pick: коммит " + h + " не найден — сначала git log в нужной ветке");
+    g.commits.push({ msg: src.msg, files: src.files, branch: g.branch, hash: hash() });
+    return O("[" + g.branch + " " + g.commits[g.commits.length - 1].hash + "] " + src.msg);
+  }
+
   return E("git: неизвестная подкоманда '" + sub + "'");
 });

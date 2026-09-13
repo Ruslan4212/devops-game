@@ -59,6 +59,8 @@ export interface GitState {
   conflictFile?: string | null;
   /** метки релизов (git tag) */
   tags?: string[];
+  /** git stash: отложенные незакоммиченные изменения (последний элемент — верх стека) */
+  stash?: { files: string[] }[];
 }
 
 export interface DockerImage {
@@ -237,6 +239,8 @@ export interface World {
   disk?: number;
   /** заготовленные ответы curl на конкретный URL (акт «Сети») — 404/500/TLS и т.п. сценарии */
   httpMocks?: Record<string, HttpMock>;
+  /** установленные пакеты (apt install / dpkg) — акт «Bash-скрипты» */
+  packages: Record<string, boolean>;
 }
 
 /** Заготовленный ответ curl на конкретный URL: код, заголовки и тело. */

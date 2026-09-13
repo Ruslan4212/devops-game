@@ -33,6 +33,7 @@ export function newWorld(): World {
     services: {},
     ports: { 22: "sshd" },
     firewall: { 22: true, 80: true },
+    packages: {},
     git: null,
     docker: { images: [], containers: [] },
     registry: [],
