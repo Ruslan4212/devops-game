@@ -139,6 +139,8 @@ export interface K8sState {
   pvcs?: { name: string; size: string; bound: boolean }[];
   /** автомасштабирование по нагрузке — следит за Deployment из deployment */
   hpas?: { name: string; deployment: string; minReplicas: number; maxReplicas: number; targetCpu: number }[];
+  /** установленные Helm-релизы — какой чарт и какие ресурсы из него применены (для helm uninstall) */
+  helmReleases?: { name: string; chart: string; resources: { kind: string; name: string }[] }[];
 }
 
 export interface Alert {

@@ -1703,4 +1703,112 @@ export const act09: Lesson[] = [
       },
     ],
   },
+  {
+    id: "9.24",
+    act: 9,
+    title: "Пакет манифестов: Helm",
+    xp: 30,
+    intro:
+      "Один и тот же сервис катят в dev, staging и prod — с разным числом реплик и версией образа. Три копии YAML — плохая идея.",
+    setup: (w) => {
+      mkdirp(w, "/home/devops/charts/shop/templates");
+      writeFile(w, "/home/devops/charts/shop/Chart.yaml", "apiVersion: v2\nname: shop\nversion: 0.1.0\n");
+      writeFile(w, "/home/devops/charts/shop/values.yaml", "replicas: 3\nimage: shop:1.0\n");
+      writeFile(
+        w,
+        "/home/devops/charts/shop/templates/deployment.yaml",
+        "apiVersion: apps/v1\n" +
+          "kind: Deployment\n" +
+          "metadata:\n" +
+          "  name: shop\n" +
+          "spec:\n" +
+          "  replicas: {{ .Values.replicas }}\n" +
+          "  template:\n" +
+          "    spec:\n" +
+          "      containers:\n" +
+          "        - name: shop\n" +
+          "          image: {{ .Values.image }}\n" +
+          "          env:\n" +
+          "            - name: DB_URL\n" +
+          "              value: postgres://db-main/shop\n",
+      );
+      w.cwd = "/home/devops/charts";
+      w.k8s = { deploys: [], pods: [], svcs: [] };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Сейчас манифест пишут руками под каждое окружение: в dev — 1 реплика и образ :dev,\n" +
+          "в prod — 5 реплик и образ :stable. Три копии одного и того же YAML с парой других чисел —\n" +
+          "рецепт рассинхронизации: кто-то поправит в одном месте и забудет про остальные.",
+      },
+      {
+        kind: "say",
+        text:
+          "Helm решает это через «чарт» — папку с шаблоном и отдельным файлом значений:\n\n" +
+          "  shop/\n" +
+          "    Chart.yaml           — имя и версия чарта\n" +
+          "    values.yaml          — значения по умолчанию (replicas: 3, image: shop:1.0)\n" +
+          "    templates/\n" +
+          "      deployment.yaml    — тот же манифест, но вместо чисел — {{ .Values.replicas }}\n\n" +
+          "Один шаблон, а конкретные цифры каждый раз подставляются из values.yaml.",
+      },
+      {
+        kind: "watch",
+        run: "helm install shop-release ./shop",
+        note:
+          "Helm взял шаблон, подставил вместо {{ .Values.replicas }} и {{ .Values.image }} значения\n" +
+          "из values.yaml и применил получившийся манифест — ровно как kubectl apply, но без\n" +
+          "необходимости писать готовый YAML руками.",
+      },
+      {
+        kind: "type",
+        text: "Установи релиз сам. Набери:  helm install shop-release ./shop",
+        cmd: "helm install shop-release ./shop",
+      },
+      {
+        kind: "do",
+        text: "Задача: убедись, что Deployment создался с ПРАВИЛЬНЫМИ значениями из values.yaml (3 реплики, shop:1.0).",
+        check: (w) =>
+          !!w.k8s?.deploys.some((d) => d.name === "shop" && d.replicas === 3 && d.image === "shop:1.0"),
+        answer: "kubectl get deployments",
+        hint: "kubectl get deployments — сравни replicas и image со значениями из values.yaml",
+      },
+      {
+        kind: "do",
+        text: "Задача: посмотри список установленных релизов.",
+        check: ran(/^helm\s+list/),
+        answer: "helm list",
+        hint: "helm list",
+      },
+      {
+        kind: "say",
+        text:
+          "Понадобится другое окружение — не переписывают шаблон, а подставляют свой values.yaml\n" +
+          "(например, values-prod.yaml с replicas: 5). Шаблон в templates/ остаётся один и тот же.",
+      },
+      {
+        kind: "do",
+        text: "Задача: релиз больше не нужен — удали его вместе со всеми его ресурсами одной командой.",
+        check: (w) => !w.k8s?.deploys.some((d) => d.name === "shop"),
+        answer: "helm uninstall shop-release",
+        hint: "helm uninstall shop-release",
+      },
+      {
+        kind: "quiz",
+        text: "В чём главное преимущество Helm-чарта перед копией одного и того же YAML для каждого окружения?",
+        options: [
+          "Helm делает манифесты быстрее применяющимися",
+          "Один шаблон переиспользуется для всех окружений — меняются только значения в values.yaml, а не сам манифест",
+          "Helm — обязательное требование для запуска Kubernetes",
+          "Разницы нет, это просто более длинная команда",
+        ],
+        answer: 1,
+        explain:
+          "Шаблон один — источник правды один. Разное поведение по окружениям достигается разными " +
+          "values-файлами, а не редактированием копий манифеста в трёх местах.",
+      },
+    ],
+  },
 ];

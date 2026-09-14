@@ -14,6 +14,7 @@ import "./compose";
 import "./ci";
 import "./terraform";
 import "./k8s";
+import "./helm";
 import "./monitoring";
 import "./prom";
 import "./grafana";

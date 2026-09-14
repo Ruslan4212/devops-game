@@ -1,6 +1,6 @@
 import { def, E, O } from "./registry";
 import { readFile, resolvePath } from "../engine/vfs";
-import type { K8sState, World } from "../engine/types";
+import type { CmdResult, K8sState, World } from "../engine/types";
 
 export function k8sInit(w: World): K8sState {
   if (!w.k8s) w.k8s = { deploys: [], pods: [], svcs: [] };
@@ -27,6 +27,104 @@ export function syncPods(w: World): void {
   }
 }
 
+/**
+ * Разбор и применение одного YAML-манифеста по полю kind — общее ядро для
+ * kubectl apply -f и для helm install/upgrade (шаблон Helm рендерится в такой
+ * же текст манифеста и применяется тем же способом).
+ */
+export function applyManifest(y: string, k: K8sState, w: World): CmdResult {
+  if (!/kind:\s*\w+/.test(y))
+    return E("error: в манифесте нет поля kind — Kubernetes не понимает, что создавать");
+  const kind = (y.match(/kind:\s*(\w+)/) || [])[1];
+  const name = (y.match(/name:\s*([\w-]+)/) || [])[1] || "app";
+
+  if (kind === "Deployment") {
+    const reps = Number((y.match(/replicas:\s*(\d+)/) || [])[1] || 1);
+    const hasEnvDb = /DB_URL/.test(y);
+    const existing = k.deploys.find((x) => x.name === name);
+    if (!existing)
+      k.deploys.push({
+        name,
+        replicas: reps,
+        image: (y.match(/image:\s*(\S+)/) || [])[1] || "app",
+        crash: !hasEnvDb,
+      });
+    else {
+      existing.replicas = reps;
+      existing.crash = !hasEnvDb;
+    }
+    syncPods(w);
+    return O("deployment.apps/" + name + (existing ? " configured" : " created"));
+  }
+  if (kind === "Service") {
+    k.svcs.push({ name, port: Number((y.match(/port:\s*(\d+)/) || [])[1] || 80) });
+    return O("service/" + name + " created");
+  }
+  if (kind === "Job") {
+    k.jobs = k.jobs || [];
+    const image = (y.match(/image:\s*(\S+)/) || [])[1] || "app";
+    k.jobs.push({ name, image, completed: true });
+    return O("job.batch/" + name + " created");
+  }
+  if (kind === "Ingress") {
+    const host = (y.match(/host:\s*(\S+)/) || [])[1] || "app.local";
+    const svcMatch = y.match(/service:\s*\n\s*name:\s*(\S+)/);
+    const service = svcMatch ? svcMatch[1] : "";
+    const port = Number((y.match(/number:\s*(\d+)/) || [])[1] || 80);
+    k.ingresses = k.ingresses || [];
+    k.ingresses.push({ name, host, service, port });
+    return O("ingress.networking.k8s.io/" + name + " created");
+  }
+  if (kind === "PersistentVolumeClaim") {
+    k.pvcs = k.pvcs || [];
+    const size = (y.match(/storage:\s*(\S+)/) || [])[1] || "1Gi";
+    k.pvcs.push({ name, size, bound: true });
+    return O("persistentvolumeclaim/" + name + " created");
+  }
+  if (kind === "HorizontalPodAutoscaler") {
+    k.hpas = k.hpas || [];
+    const targetMatch = y.match(/scaleTargetRef:[\s\S]*?name:\s*(\S+)/);
+    k.hpas.push({
+      name,
+      deployment: targetMatch ? targetMatch[1] : "",
+      minReplicas: Number((y.match(/minReplicas:\s*(\d+)/) || [])[1] || 1),
+      maxReplicas: Number((y.match(/maxReplicas:\s*(\d+)/) || [])[1] || 1),
+      targetCpu: Number((y.match(/averageUtilization:\s*(\d+)/) || [])[1] || 80),
+    });
+    return O("horizontalpodautoscaler.autoscaling/" + name + " created");
+  }
+  if (kind === "ServiceAccount") {
+    k.serviceAccounts = k.serviceAccounts || [];
+    if (!k.serviceAccounts.includes(name)) k.serviceAccounts.push(name);
+    return O("serviceaccount/" + name + " created");
+  }
+  if (kind === "Role") {
+    k.roles = k.roles || [];
+    const list = (re: RegExp): string[] => {
+      const m = y.match(re);
+      return m ? m[1].split(",").map((s) => s.trim().replace(/['"]/g, "")) : [];
+    };
+    k.roles.push({
+      name,
+      verbs: list(/verbs:\s*\[([^\]]*)\]/),
+      resources: list(/resources:\s*\[([^\]]*)\]/),
+    });
+    return O("role.rbac.authorization.k8s.io/" + name + " created");
+  }
+  if (kind === "RoleBinding") {
+    k.roleBindings = k.roleBindings || [];
+    const roleMatch = y.match(/roleRef:[\s\S]*?name:\s*(\S+)/);
+    const subjMatch = y.match(/subjects:[\s\S]*?name:\s*(\S+)/);
+    k.roleBindings.push({
+      name,
+      role: roleMatch ? roleMatch[1] : "",
+      serviceAccount: subjMatch ? subjMatch[1] : "",
+    });
+    return O("rolebinding.rbac.authorization.k8s.io/" + name + " created");
+  }
+  return O(kind.toLowerCase() + "/" + name + " created");
+}
+
 def("kubectl", (a, w) => {
   const k = k8sInit(w);
   const [sub, ...rest] = a;
@@ -37,96 +135,7 @@ def("kubectl", (a, w) => {
     if (!f) return E("kubectl apply: укажи файл: kubectl apply -f deploy.yaml");
     const y = readFile(w, resolvePath(w, f));
     if (y == null) return E("error: файл " + f + " не найден");
-    if (!/kind:\s*\w+/.test(y))
-      return E("error: в манифесте нет поля kind — Kubernetes не понимает, что создавать");
-    const kind = (y.match(/kind:\s*(\w+)/) || [])[1];
-    const name = (y.match(/name:\s*([\w-]+)/) || [])[1] || "app";
-
-    if (kind === "Deployment") {
-      const reps = Number((y.match(/replicas:\s*(\d+)/) || [])[1] || 1);
-      const hasEnvDb = /DB_URL/.test(y);
-      const existing = k.deploys.find((x) => x.name === name);
-      if (!existing)
-        k.deploys.push({
-          name,
-          replicas: reps,
-          image: (y.match(/image:\s*(\S+)/) || [])[1] || "app",
-          crash: !hasEnvDb,
-        });
-      else {
-        existing.replicas = reps;
-        existing.crash = !hasEnvDb;
-      }
-      syncPods(w);
-      return O("deployment.apps/" + name + (existing ? " configured" : " created"));
-    }
-    if (kind === "Service") {
-      k.svcs.push({ name, port: Number((y.match(/port:\s*(\d+)/) || [])[1] || 80) });
-      return O("service/" + name + " created");
-    }
-    if (kind === "Job") {
-      k.jobs = k.jobs || [];
-      const image = (y.match(/image:\s*(\S+)/) || [])[1] || "app";
-      k.jobs.push({ name, image, completed: true });
-      return O("job.batch/" + name + " created");
-    }
-    if (kind === "Ingress") {
-      const host = (y.match(/host:\s*(\S+)/) || [])[1] || "app.local";
-      const svcMatch = y.match(/service:\s*\n\s*name:\s*(\S+)/);
-      const service = svcMatch ? svcMatch[1] : "";
-      const port = Number((y.match(/number:\s*(\d+)/) || [])[1] || 80);
-      k.ingresses = k.ingresses || [];
-      k.ingresses.push({ name, host, service, port });
-      return O("ingress.networking.k8s.io/" + name + " created");
-    }
-    if (kind === "PersistentVolumeClaim") {
-      k.pvcs = k.pvcs || [];
-      const size = (y.match(/storage:\s*(\S+)/) || [])[1] || "1Gi";
-      k.pvcs.push({ name, size, bound: true });
-      return O("persistentvolumeclaim/" + name + " created");
-    }
-    if (kind === "HorizontalPodAutoscaler") {
-      k.hpas = k.hpas || [];
-      const targetMatch = y.match(/scaleTargetRef:[\s\S]*?name:\s*(\S+)/);
-      k.hpas.push({
-        name,
-        deployment: targetMatch ? targetMatch[1] : "",
-        minReplicas: Number((y.match(/minReplicas:\s*(\d+)/) || [])[1] || 1),
-        maxReplicas: Number((y.match(/maxReplicas:\s*(\d+)/) || [])[1] || 1),
-        targetCpu: Number((y.match(/averageUtilization:\s*(\d+)/) || [])[1] || 80),
-      });
-      return O("horizontalpodautoscaler.autoscaling/" + name + " created");
-    }
-    if (kind === "ServiceAccount") {
-      k.serviceAccounts = k.serviceAccounts || [];
-      if (!k.serviceAccounts.includes(name)) k.serviceAccounts.push(name);
-      return O("serviceaccount/" + name + " created");
-    }
-    if (kind === "Role") {
-      k.roles = k.roles || [];
-      const list = (re: RegExp): string[] => {
-        const m = y.match(re);
-        return m ? m[1].split(",").map((s) => s.trim().replace(/['"]/g, "")) : [];
-      };
-      k.roles.push({
-        name,
-        verbs: list(/verbs:\s*\[([^\]]*)\]/),
-        resources: list(/resources:\s*\[([^\]]*)\]/),
-      });
-      return O("role.rbac.authorization.k8s.io/" + name + " created");
-    }
-    if (kind === "RoleBinding") {
-      k.roleBindings = k.roleBindings || [];
-      const roleMatch = y.match(/roleRef:[\s\S]*?name:\s*(\S+)/);
-      const subjMatch = y.match(/subjects:[\s\S]*?name:\s*(\S+)/);
-      k.roleBindings.push({
-        name,
-        role: roleMatch ? roleMatch[1] : "",
-        serviceAccount: subjMatch ? subjMatch[1] : "",
-      });
-      return O("rolebinding.rbac.authorization.k8s.io/" + name + " created");
-    }
-    return O(kind.toLowerCase() + "/" + name + " created");
+    return applyManifest(y, k, w);
   }
 
   if (sub === "auth" && rest[0] === "can-i") {
