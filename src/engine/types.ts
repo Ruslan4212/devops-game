@@ -127,6 +127,8 @@ export interface K8sState {
   nodeCapacity?: number;
   /** правила входящего трафика: домен -> Service (Ingress) */
   ingresses?: { name: string; host: string; service: string; port: number }[];
+  /** разовые задачи (Job) — доходят до Completed сами, без реплик и самолечения */
+  jobs?: { name: string; image: string; completed: boolean }[];
 }
 
 export interface Alert {

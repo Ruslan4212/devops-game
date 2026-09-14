@@ -64,6 +64,12 @@ def("kubectl", (a, w) => {
       k.svcs.push({ name, port: Number((y.match(/port:\s*(\d+)/) || [])[1] || 80) });
       return O("service/" + name + " created");
     }
+    if (kind === "Job") {
+      k.jobs = k.jobs || [];
+      const image = (y.match(/image:\s*(\S+)/) || [])[1] || "app";
+      k.jobs.push({ name, image, completed: true });
+      return O("job.batch/" + name + " created");
+    }
     if (kind === "Ingress") {
       const host = (y.match(/host:\s*(\S+)/) || [])[1] || "app.local";
       const svcMatch = y.match(/service:\s*\n\s*name:\s*(\S+)/);
@@ -101,6 +107,13 @@ def("kubectl", (a, w) => {
     }
     if (/^s(vc|ervice)/.test(what))
       return O("NAME       PORT\n" + (k.svcs.map((s) => s.name.padEnd(11) + s.port).join("\n") || "(нет)"));
+    if (/^job/.test(what))
+      return O(
+        "NAME       COMPLETIONS   IMAGE\n" +
+          ((k.jobs || [])
+            .map((j) => j.name.padEnd(11) + (j.completed ? "1/1" : "0/1").padEnd(14) + j.image)
+            .join("\n") || "(нет)"),
+      );
     if (/^ing/.test(what))
       return O(
         "NAME            HOST              SERVICE        PORT\n" +
@@ -108,7 +121,7 @@ def("kubectl", (a, w) => {
             .map((i) => i.name.padEnd(16) + i.host.padEnd(18) + i.service.padEnd(15) + i.port)
             .join("\n") || "(нет)"),
       );
-    return E("kubectl get: укажи ресурс — pods | deployments | services | ingress");
+    return E("kubectl get: укажи ресурс — pods | deployments | services | ingress | jobs");
   }
 
   if (sub === "describe") {

@@ -1293,4 +1293,89 @@ export const act09: Lesson[] = [
       },
     ],
   },
+  {
+    id: "9.20",
+    act: 9,
+    title: "Разовая задача: Job",
+    xp: 25,
+    intro:
+      "Перед релизом нужно один раз прогнать миграцию базы. Deployment для этого не подходит — он держит процесс живым вечно.",
+    setup: (w) => {
+      seedK8s(w);
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Deployment создан для процессов, которые должны работать ПОСТОЯННО: под упал —\n" +
+          "тут же поднялся новый. Но у миграции базы данных другая природа: она должна\n" +
+          "выполниться РОВНО ОДИН РАЗ и завершиться. Если обернуть её в Deployment, Kubernetes\n" +
+          "решит, что процесс упал, и будет перезапускать миграцию бесконечно.\n\n" +
+          "Для одноразовых задач в Kubernetes есть отдельный тип ресурса — Job.",
+      },
+      {
+        kind: "say",
+        text:
+          "Манифест Job почти как у Deployment, только  kind: Job  и без replicas:\n\n" +
+          "  apiVersion: batch/v1\n" +
+          "  kind: Job\n" +
+          "  metadata:\n" +
+          "    name: db-migrate\n" +
+          "  spec:\n" +
+          "    template:\n" +
+          "      spec:\n" +
+          "        containers:\n" +
+          "          - name: migrate\n" +
+          "            image: shop-migrate:1.0\n" +
+          "        restartPolicy: Never",
+      },
+      {
+        kind: "do",
+        text: "Задача: опиши Job миграции базы (образ shop-migrate:1.0). Набери:  edit job.yaml",
+        check: (w) => has("job.yaml", /kind:\s*Job/)(w) && has("job.yaml", /image:\s*shop-migrate:1\.0/)(w),
+        answer:
+          "apiVersion: batch/v1\n" +
+          "kind: Job\n" +
+          "metadata:\n" +
+          "  name: db-migrate\n" +
+          "spec:\n" +
+          "  template:\n" +
+          "    spec:\n" +
+          "      containers:\n" +
+          "        - name: migrate\n" +
+          "          image: shop-migrate:1.0\n" +
+          "      restartPolicy: Never\n",
+        editFile: "/home/devops/k8s/job.yaml",
+        hint: "kind: Job, containers[0].image: shop-migrate:1.0",
+      },
+      {
+        kind: "do",
+        text: "Задача: примени манифест.",
+        check: (w) => !!w.k8s?.jobs?.some((j) => j.image === "shop-migrate:1.0"),
+        answer: "kubectl apply -f job.yaml",
+        hint: "kubectl apply -f job.yaml",
+      },
+      {
+        kind: "do",
+        text: "Задача: убедись, что задача выполнилась до конца.",
+        check: ran(/^kubectl\s+get\s+job/),
+        answer: "kubectl get jobs",
+        hint: "kubectl get jobs",
+      },
+      {
+        kind: "quiz",
+        text: "Почему миграцию БД нельзя запускать через Deployment?",
+        options: [
+          "Deployment вообще не умеет запускать контейнеры",
+          "Deployment следит, чтобы процесс работал ПОСТОЯННО, и будет бесконечно перезапускать завершившуюся миграцию",
+          "Deployment требует Service рядом",
+          "Разницы нет, оба варианта равнозначны",
+        ],
+        answer: 1,
+        explain:
+          "Deployment = «этот процесс должен жить вечно». Job = «выполнись один раз и остановись». " +
+          "Разная семантика для разных задач.",
+      },
+    ],
+  },
 ];
