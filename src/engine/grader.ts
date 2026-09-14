@@ -321,7 +321,22 @@ function polarities(list: Concept[]): Map<string, Set<boolean>> {
   return m;
 }
 
-function compare(reference: Concept[], answer: Concept[], w: Map<string, number>): Match {
+/**
+ * Стеммер неизбежно расходится на родственных словах: «отказ» и «откажется»,
+ * «держит» и «удерживается». Считаем такие корни одним понятием, если один
+ * входит в другой или они совпадают достаточно длинным началом.
+ */
+function akin(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  if (short.length < 4) return false;
+  if (long.includes(short)) return true;
+  let i = 0;
+  while (i < short.length && short[i] === long[i]) i++;
+  return i >= 4;
+}
+
+function compare(reference: Concept[], answer: Concept[], w: Map<string, number>, fuzzy = true): Match {
   const stated = polarities(answer);
   const wanted = polarities(reference);
 
@@ -335,9 +350,14 @@ function compare(reference: Concept[], answer: Concept[], w: Map<string, number>
     const weight = w.get(key) ?? 1;
     total += weight;
     const said = stated.get(key);
-    if (!said) {
+    // Точного корня нет — пробуем родственный: «удерживается» про «держит».
+    // Засчитываем так только в пользу игрока; обвинять в заблуждении по
+    // приблизительному совпадению нельзя, поэтому для неверных вариантов fuzzy выключен.
+    const viaKin = said || !fuzzy ? null : [...stated.keys()].find((k) => akin(k, key));
+    const heard = said ?? (viaKin ? stated.get(viaKin) : undefined);
+    if (!heard) {
       missing.push(key);
-    } else if ([...said].some((s) => signs.has(s))) {
+    } else if ([...heard].some((s) => signs.has(s))) {
       // хотя бы в одном знаке совпало — этого довольно: в длинной фразе одно и
       // то же понятие законно встречается и с отрицанием, и без
       got += weight;
@@ -415,7 +435,7 @@ export function localGrade(input: GradeInput): GradeResult {
   let rivalScore = 0;
   for (let i = 0; i < options.length; i++) {
     if (i === answerIx) continue;
-    const s = compare(conceptsOf(options[i]), answerConcepts, w).score;
+    const s = compare(conceptsOf(options[i]), answerConcepts, w, false).score;
     if (s > rivalScore) {
       rivalScore = s;
       rivalIx = i;
@@ -486,6 +506,46 @@ export function localGrade(input: GradeInput): GradeResult {
 }
 
 /** Точка входа для UI. Асинхронная ради совместимости с экранами уроков и собеседований. */
+/** Адрес проверки на сервере: там настоящая модель, а не подсчёт слов. */
+const GRADER_URL = "https://72.56.16.8.nip.io/grader/grade";
+
+/** Сколько ждём сервер, прежде чем проверить локально: игрок не должен смотреть в пустоту. */
+const GRADER_TIMEOUT_MS = 12_000;
+
+async function remoteGrade(input: GradeInput): Promise<GradeResult | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
+  try {
+    const res = await fetch(GRADER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        question: input.question,
+        expected: input.options[input.answerIx] ?? "",
+        explain: input.explain,
+        userAnswer: input.userAnswer,
+        options: input.options,
+        answerIx: input.answerIx,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as Partial<GradeResult>;
+    if (typeof data.correct !== "boolean" || typeof data.feedback !== "string") return null;
+    return { correct: data.correct, feedback: data.feedback };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Точка входа для UI. Сначала спрашиваем модель на сервере — она понимает смысл,
+ * а не слова. Если сервер недоступен, работает локальный разбор: игру нельзя
+ * останавливать из-за сети, но и врать про «неверно» из-за неё тоже нельзя.
+ */
 export async function gradeAnswer(input: GradeInput): Promise<GradeResult> {
-  return localGrade(input);
+  if (!input.userAnswer.trim()) return localGrade(input);
+  return (await remoteGrade(input)) ?? localGrade(input);
 }
