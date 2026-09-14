@@ -1216,6 +1216,68 @@ export const act01: Lesson[] = [
         explain:
           "cp — «размножить», mv — «переложить/переименовать». Для бэкапа перед правкой нужен именно cp.",
       },
+      {
+        kind: "do",
+        text: "Практика 1/6. Сделай резервную копию  app.yml  с добавкой .bak",
+        check: (w) => lastCmd(w) === "cp app.yml app.yml.bak",
+        answer: "cp app.yml app.yml.bak",
+        hint: "cp app.yml app.yml.bak",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Переименуй только что созданную копию в  app.yml.old",
+        check: (w) => lastCmd(w) === "mv app.yml.bak app.yml.old",
+        answer: "mv app.yml.bak app.yml.old",
+        hint: "mv app.yml.bak app.yml.old",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед копированием сначала посмотри подробный список — что вообще есть в папке.",
+        check: (w) => lastCmd(w) === "ls -l",
+        answer: "ls -l",
+        hint: "Урок 1.3: ls -l",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Полный ритуал перед правкой конфига: посмотри список, сделай бэкап,\n" +
+          "переименуй его в .old. Три команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iL = cmds.lastIndexOf("ls -l");
+          const iC = cmds.lastIndexOf("cp app.yml app.yml.bak");
+          const iM = cmds.lastIndexOf("mv app.yml.bak app.yml.old");
+          return iL >= 0 && iC > iL && iM > iC;
+        },
+        answer: "ls -l\ncp app.yml app.yml.bak\nmv app.yml.bak app.yml.old",
+        hint: "ls -l, потом cp app.yml app.yml.bak, потом mv app.yml.bak app.yml.old",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: тот же ритуал целиком.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iL = cmds.lastIndexOf("ls -l");
+          const iC = cmds.lastIndexOf("cp app.yml app.yml.bak");
+          const iM = cmds.lastIndexOf("mv app.yml.bak app.yml.old");
+          return iL >= 0 && iC > iL && iM > iC;
+        },
+        answer: "ls -l\ncp app.yml app.yml.bak\nmv app.yml.bak app.yml.old",
+        hint: "ls -l, cp app.yml app.yml.bak, mv app.yml.bak app.yml.old",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз весь ритуал — «сначала бэкап, потом правка» должно стать рефлексом навсегда.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iL = cmds.lastIndexOf("ls -l");
+          const iC = cmds.lastIndexOf("cp app.yml app.yml.bak");
+          const iM = cmds.lastIndexOf("mv app.yml.bak app.yml.old");
+          return iL >= 0 && iC > iL && iM > iC;
+        },
+        answer: "ls -l\ncp app.yml app.yml.bak\nmv app.yml.bak app.yml.old",
+        hint: "ls -l, cp app.yml app.yml.bak, mv app.yml.bak app.yml.old",
+      },
     ],
   },
   {
@@ -1285,6 +1347,71 @@ export const act01: Lesson[] = [
         ],
         answer: 0,
         explain: "Это самая частая ошибка новичков с перенаправлением. Для дописывания нужен >>, а не >.",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Сохрани строки со словом  WARN  в файл  warn.txt",
+        check: (w) => lastCmd(w) === "grep WARN app.log > warn.txt",
+        answer: "grep WARN app.log > warn.txt",
+        hint: "grep WARN app.log > warn.txt",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Допиши в конец  warn.txt  строку «проверено».",
+        check: (w) => lastCmd(w) === 'echo "проверено" >> warn.txt',
+        answer: 'echo "проверено" >> warn.txt',
+        hint: 'echo "проверено" >> warn.txt',
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед сохранением сначала посчитай трубой, сколько всего строк ERROR.",
+        check: (w) => lastCmd(w) === "grep ERROR app.log | wc -l",
+        answer: "grep ERROR app.log | wc -l",
+        hint: "Урок 1.8: grep ERROR app.log | wc -l",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Реальный сценарий отчёта: посчитай ошибки трубой, сохрани сами строки\n" +
+          "с ошибками в файл, допиши в конец итоговую пометку. Три команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iCount = cmds.lastIndexOf("grep ERROR app.log | wc -l");
+          const iSave = cmds.lastIndexOf("grep ERROR app.log > errors.txt");
+          const iNote = cmds.lastIndexOf('echo "отчёт готов" >> errors.txt');
+          return iCount >= 0 && iSave > iCount && iNote > iSave;
+        },
+        answer:
+          'grep ERROR app.log | wc -l\ngrep ERROR app.log > errors.txt\necho "отчёт готов" >> errors.txt',
+        hint: 'grep ERROR app.log | wc -l, потом grep ERROR app.log > errors.txt, потом echo "отчёт готов" >> errors.txt',
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: тот же трёхшаговый отчёт.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iCount = cmds.lastIndexOf("grep ERROR app.log | wc -l");
+          const iSave = cmds.lastIndexOf("grep ERROR app.log > errors.txt");
+          const iNote = cmds.lastIndexOf('echo "отчёт готов" >> errors.txt');
+          return iCount >= 0 && iSave > iCount && iNote > iSave;
+        },
+        answer:
+          'grep ERROR app.log | wc -l\ngrep ERROR app.log > errors.txt\necho "отчёт готов" >> errors.txt',
+        hint: 'grep ERROR app.log | wc -l, grep ERROR app.log > errors.txt, echo "отчёт готов" >> errors.txt',
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз весь отчёт целиком — именно так на дежурстве прикладывают факты к тикету.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iCount = cmds.lastIndexOf("grep ERROR app.log | wc -l");
+          const iSave = cmds.lastIndexOf("grep ERROR app.log > errors.txt");
+          const iNote = cmds.lastIndexOf('echo "отчёт готов" >> errors.txt');
+          return iCount >= 0 && iSave > iCount && iNote > iSave;
+        },
+        answer:
+          'grep ERROR app.log | wc -l\ngrep ERROR app.log > errors.txt\necho "отчёт готов" >> errors.txt',
+        hint: 'grep ERROR app.log | wc -l, grep ERROR app.log > errors.txt, echo "отчёт готов" >> errors.txt',
       },
     ],
   },
@@ -1357,6 +1484,65 @@ export const act01: Lesson[] = [
         answer: 0,
         explain:
           "tail -f (постоянно следить за новыми строками) — вообще любимый инструмент дежурного инженера.",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Покажи первые 3 строки access.log",
+        check: (w) => lastCmd(w) === "head -n 3 access.log",
+        answer: "head -n 3 access.log",
+        hint: "head -n 3 access.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Покажи последние 4 строки access.log",
+        check: (w) => lastCmd(w) === "tail -n 4 access.log",
+        answer: "tail -n 4 access.log",
+        hint: "tail -n 4 access.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед этим посчитай трубой, сколько всего строк с кодом 500 в файле.",
+        check: (w) => lastCmd(w) === "grep 500 access.log | wc -l",
+        answer: "grep 500 access.log | wc -l",
+        hint: "Урок 1.8: grep 500 access.log | wc -l",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Реальный разбор инцидента: посчитай сколько всего ошибок 500 за день,\n" +
+          "затем посмотри последние 3 строки — что происходит прямо сейчас. Две команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iCount = cmds.lastIndexOf("grep 500 access.log | wc -l");
+          const iTail = cmds.lastIndexOf("tail -n 3 access.log");
+          return iCount >= 0 && iTail > iCount;
+        },
+        answer: "grep 500 access.log | wc -l\ntail -n 3 access.log",
+        hint: "grep 500 access.log | wc -l, потом tail -n 3 access.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же пара — сначала общее число ошибок, потом свежий хвост лога.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iCount = cmds.lastIndexOf("grep 500 access.log | wc -l");
+          const iTail = cmds.lastIndexOf("tail -n 3 access.log");
+          return iCount >= 0 && iTail > iCount;
+        },
+        answer: "grep 500 access.log | wc -l\ntail -n 3 access.log",
+        hint: "grep 500 access.log | wc -l, tail -n 3 access.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз тот же разбор — масштаб проблемы, потом что происходит прямо сейчас.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iCount = cmds.lastIndexOf("grep 500 access.log | wc -l");
+          const iTail = cmds.lastIndexOf("tail -n 3 access.log");
+          return iCount >= 0 && iTail > iCount;
+        },
+        answer: "grep 500 access.log | wc -l\ntail -n 3 access.log",
+        hint: "grep 500 access.log | wc -l, tail -n 3 access.log",
       },
     ],
   },
