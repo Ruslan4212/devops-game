@@ -1506,4 +1506,94 @@ export const act09: Lesson[] = [
       },
     ],
   },
+  {
+    id: "9.22",
+    act: 9,
+    title: "Данные, которые переживают под: PersistentVolumeClaim",
+    xp: 25,
+    intro: "Под пересоздался — и все файлы, которые он писал на диск, исчезли вместе со старым подом.",
+    setup: (w) => {
+      seedK8s(w);
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Помнишь: под эфемерен, его в любой момент могут пересоздать. Всё, что контейнер\n" +
+          "написал на СВОЙ диск, живёт ровно столько же, сколько сам под — и исчезает вместе с ним.\n\n" +
+          "Для базы данных или загруженных пользователями файлов это неприемлемо. Нужно\n" +
+          "хранилище, которое живёт ОТДЕЛЬНО от пода и просто подключается к новому,\n" +
+          "когда старый исчезает.",
+      },
+      {
+        kind: "say",
+        text:
+          "За это отвечает PersistentVolumeClaim (PVC, «запрос на постоянный том»):\n\n" +
+          "  apiVersion: v1\n" +
+          "  kind: PersistentVolumeClaim\n" +
+          "  metadata:\n" +
+          "    name: db-data\n" +
+          "  spec:\n" +
+          "    accessModes:\n" +
+          "      - ReadWriteOnce\n" +
+          "    resources:\n" +
+          "      requests:\n" +
+          "        storage: 5Gi\n\n" +
+          "Ты не создаёшь диск сам — просто ЗАПРАШИВАЕШЬ его размер, а Kubernetes находит подходящий.",
+      },
+      {
+        kind: "do",
+        text: "Задача: запроси постоянный том db-data на 5Gi. Набери:  edit pvc.yaml",
+        check: (w) =>
+          has("pvc.yaml", /kind:\s*PersistentVolumeClaim/)(w) && has("pvc.yaml", /storage:\s*5Gi/)(w),
+        answer:
+          "apiVersion: v1\n" +
+          "kind: PersistentVolumeClaim\n" +
+          "metadata:\n" +
+          "  name: db-data\n" +
+          "spec:\n" +
+          "  accessModes:\n" +
+          "    - ReadWriteOnce\n" +
+          "  resources:\n" +
+          "    requests:\n" +
+          "      storage: 5Gi\n",
+        editFile: "/home/devops/k8s/pvc.yaml",
+        hint: "kind: PersistentVolumeClaim, resources.requests.storage: 5Gi",
+      },
+      {
+        kind: "do",
+        text: "Примени запрос на том.",
+        check: (w) => !!w.k8s?.pvcs?.some((p) => p.name === "db-data"),
+        answer: "kubectl apply -f pvc.yaml",
+        hint: "kubectl apply -f pvc.yaml",
+      },
+      {
+        kind: "do",
+        text: "Проверь, что том выделен (статус Bound).",
+        check: ran(/^kubectl\s+get\s+pvc/),
+        answer: "kubectl get pvc",
+        hint: "kubectl get pvc",
+      },
+      {
+        kind: "say",
+        text:
+          "Дальше PVC подключают к поду как обычный volume в манифесте Deployment — и куда бы\n" +
+          "Kubernetes ни переместил под при пересоздании, данные на этом томе останутся целы.",
+      },
+      {
+        kind: "quiz",
+        text: "Почему для базы данных в Kubernetes используют PVC, а не просто пишут файлы внутрь контейнера?",
+        options: [
+          "PVC работает быстрее, чем диск контейнера",
+          "Диск контейнера живёт не дольше самого пода — при пересоздании данные исчезнут; PVC существует отдельно от пода",
+          "PVC — обязательное требование для запуска любого контейнера",
+          "Разницы нет, это просто два названия одного и того же",
+        ],
+        answer: 1,
+        explain:
+          "Под эфемерен, а PVC — нет. Именно поэтому для БД и любых важных данных используют том, " +
+          "существующий независимо от жизненного цикла конкретного пода.",
+      },
+    ],
+  },
 ];

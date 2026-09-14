@@ -135,6 +135,8 @@ export interface K8sState {
   roles?: { name: string; verbs: string[]; resources: string[] }[];
   /** RBAC: связка ServiceAccount -> Role */
   roleBindings?: { name: string; role: string; serviceAccount: string }[];
+  /** постоянное хранилище, переживающее пересоздание пода */
+  pvcs?: { name: string; size: string; bound: boolean }[];
 }
 
 export interface Alert {

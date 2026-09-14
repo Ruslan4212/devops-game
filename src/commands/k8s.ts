@@ -79,6 +79,12 @@ def("kubectl", (a, w) => {
       k.ingresses.push({ name, host, service, port });
       return O("ingress.networking.k8s.io/" + name + " created");
     }
+    if (kind === "PersistentVolumeClaim") {
+      k.pvcs = k.pvcs || [];
+      const size = (y.match(/storage:\s*(\S+)/) || [])[1] || "1Gi";
+      k.pvcs.push({ name, size, bound: true });
+      return O("persistentvolumeclaim/" + name + " created");
+    }
     if (kind === "ServiceAccount") {
       k.serviceAccounts = k.serviceAccounts || [];
       if (!k.serviceAccounts.includes(name)) k.serviceAccounts.push(name);
@@ -155,6 +161,13 @@ def("kubectl", (a, w) => {
         "NAME       COMPLETIONS   IMAGE\n" +
           ((k.jobs || [])
             .map((j) => j.name.padEnd(11) + (j.completed ? "1/1" : "0/1").padEnd(14) + j.image)
+            .join("\n") || "(нет)"),
+      );
+    if (/^pvc$|^persistentvolumeclaims?$/.test(what))
+      return O(
+        "NAME       STATUS   CAPACITY\n" +
+          ((k.pvcs || [])
+            .map((p) => p.name.padEnd(11) + (p.bound ? "Bound" : "Pending").padEnd(9) + p.size)
             .join("\n") || "(нет)"),
       );
     if (/^ing/.test(what))
