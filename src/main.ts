@@ -423,7 +423,9 @@ $("#ratingBtn").onclick = () => {
   void import("./ui/leaderboard").then(({ openLeaderboard }) => void openLeaderboard());
 };
 $("#ivBtn").onclick = () => {
-  void import("./ui/interview").then(({ openInterview }) => openInterview());
+  // самый поздний акт, до которого игрок реально дошёл: дальше спрашивать нечестно
+  const reached = Math.max(1, ...LESSONS.filter((l) => P.done[l.id]).map((l) => l.act));
+  void import("./ui/interview").then(({ openInterview }) => openInterview(reached));
 };
 $("#certBtn").onclick = () => {
   if (!allLessonsDone(P)) {

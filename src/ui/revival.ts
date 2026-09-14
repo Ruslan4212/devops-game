@@ -46,14 +46,18 @@ function bubble(who: "sys" | "me", html: string): string {
  */
 export function openRevivalExam(d: RevivalDeps): void {
   const topicIds = [...new Set(d.doneActs.map((a) => ACT_TO_TOPIC[a]).filter((t): t is string => !!t))];
+  // одна тема покрывает несколько актов («linux» — акты 1-3), поэтому мало выбрать
+  // тему: спрашивать можно только до самого позднего пройденного акта
+  const maxAct = d.doneActs.length ? Math.max(...d.doneActs) : 1;
   const poolSize = topicIds.reduce(
-    (n, id) => n + (TECH_TOPICS.find((t) => t.id === id)?.questions.length ?? 0),
+    (n, id) =>
+      n + (TECH_TOPICS.find((t) => t.id === id)?.questions.filter((q) => q.act <= maxAct).length ?? 0),
     0,
   );
   const n = questionCount(poolSize || 1);
-  const qs: TechQuestion[] = topicIds.length
-    ? pickTechQuestions(topicIds, n)
-    : shuffled(TECH_TOPICS[0].questions).slice(0, 3);
+  const qs: TechQuestion[] = poolSize
+    ? pickTechQuestions(topicIds, n, Math.random, maxAct)
+    : shuffled(TECH_TOPICS[0].questions.filter((q) => q.act <= maxAct)).slice(0, 3);
 
   let i = 0;
   let correct = 0;

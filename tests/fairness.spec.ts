@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { JOBS, SOFT_QUESTIONS, jobTopics, pickQuestions } from "../src/data/careers";
+import { ACT_TO_TOPIC, JOBS, SOFT_QUESTIONS, jobTopics, pickQuestions } from "../src/data/careers";
 import { TECH_TOPICS, pickTechQuestions } from "../src/data/interview";
 import { LESSONS } from "../src/lessons";
 import { localGrade } from "../src/engine/grader";
@@ -53,6 +53,39 @@ describe("спрашиваем только то, чему уже научили
       pickTechQuestions(jobTopics(intern), 99, Math.random, 1).length,
       "для Акта 1 нет ни одного технического вопроса",
     ).toBeGreaterThan(0);
+  });
+});
+
+describe("каждый экран с вопросами уважает прогресс игрока", () => {
+  const ACTS = [...new Set(LESSONS.map((l) => l.act))].sort((a, b) => a - b);
+
+  it("экран самопроверки на любом уровне показывает только пройденные темы", () => {
+    for (const reached of ACTS) {
+      for (const topic of TECH_TOPICS) {
+        const shown = topic.questions.filter((q) => q.act <= reached);
+        for (const q of shown) {
+          expect(
+            q.act,
+            `акт ${reached}: показан вопрос акта ${q.act} — «${q.q.slice(0, 40)}»`,
+          ).toBeLessThanOrEqual(reached);
+        }
+      }
+    }
+  });
+
+  it("экзамен на выживание не спрашивает дальше пройденного", () => {
+    for (const reached of ACTS) {
+      const doneActs = ACTS.filter((a) => a <= reached);
+      const topics = [...new Set(doneActs.map((a) => ACT_TO_TOPIC[a]).filter((t): t is string => !!t))];
+      for (const q of pickTechQuestions(topics, 99, Math.random, reached)) {
+        expect(q.act, `пройден акт ${reached}, спросили про акт ${q.act}`).toBeLessThanOrEqual(reached);
+      }
+    }
+  });
+
+  it("на первом же акте есть о чём спросить на всех экранах", () => {
+    expect(TECH_TOPICS.flatMap((t) => t.questions).filter((q) => q.act === 1).length).toBeGreaterThan(0);
+    expect(SOFT_QUESTIONS.filter((q) => q.act === 1).length).toBeGreaterThan(0);
   });
 });
 

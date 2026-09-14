@@ -8,22 +8,52 @@ import type { TechQuestion } from "../data/interview";
  * видишь разбор каждого и итоговый счёт. Отдельно от карьерного слоя —
  * здесь можно тренироваться сколько угодно.
  */
-export function openInterview(): void {
+/** До какого акта дошёл игрок: возврат «к темам» должен помнить это же ограничение. */
+let reachedAct = Infinity;
+
+export function openInterview(maxAct = Infinity): void {
+  reachedAct = maxAct;
   menu();
   $("#modOv").classList.remove("hide");
 }
 
+/** Русское склонение после числа: 1 вопрос, 2 вопроса, 5 вопросов. */
+function plural(n: number, one: string, few: string, many: string): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  const mod10 = n % 10;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
+/** Вопросы темы, до которых игрок уже дошёл по программе. */
+const openQuestions = (t: (typeof TECH_TOPICS)[number]): TechQuestion[] =>
+  t.questions.filter((q) => q.act <= reachedAct);
+
 function menu(): void {
+  // спрашивать можно только пройденное: иначе на Акте 1 экран предлагает
+  // Kubernetes и Terraform, которых игрок ещё даже не открывал
+  const open = TECH_TOPICS.map((t) => ({ t, qs: openQuestions(t) })).filter((x) => x.qs.length);
+  const hidden = TECH_TOPICS.length - open.length;
+
   $("#modBody").innerHTML =
     `<h1>🎓 Подготовка к собеседованию</h1>` +
     `<p>Вопросы уровня реального DevOps-интервью: не «вспомни термин», а «объясни разницу» и «разбери сценарий». Выбери тему.</p>` +
-    `<div class="iv-topics">` +
-    TECH_TOPICS.map(
-      (t) =>
-        `<button class="iv-topic" data-t="${t.id}"><b>${esc(t.name)}</b>` +
-        `<span>${t.questions.length} вопросов</span></button>`,
-    ).join("") +
-    `</div>` +
+    (open.length
+      ? `<div class="iv-topics">` +
+        open
+          .map(
+            ({ t, qs }) =>
+              `<button class="iv-topic" data-t="${t.id}"><b>${esc(t.name)}</b>` +
+              `<span>${qs.length} ${plural(qs.length, "вопрос", "вопроса", "вопросов")}</span></button>`,
+          )
+          .join("") +
+        `</div>`
+      : `<p class="kb">Пройди первые уроки — и здесь появятся вопросы по тому, что ты уже знаешь.</p>`) +
+    (hidden
+      ? `<div class="kb">Ещё ${hidden} ${plural(hidden, "тема", "темы", "тем")} впереди — откроются по мере прохождения актов.</div>`
+      : "") +
     `<button class="sec" id="ivClose">Закрыть</button>`;
   $("#ivClose").onclick = () => $("#modOv").classList.add("hide");
   $("#modBody")
@@ -31,7 +61,7 @@ function menu(): void {
     .forEach((b) => {
       b.onclick = () => {
         const t = TECH_TOPICS.find((x) => x.id === b.dataset.t);
-        if (t) run(t.name, t.questions);
+        if (t) run(t.name, openQuestions(t));
       };
     });
 }
