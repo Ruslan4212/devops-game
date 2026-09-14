@@ -90,6 +90,19 @@ function renderAll(): void {
 }
 
 /** Финал курса: капстоун на реальном сервере. Открыт только после всех уроков и экзаменов. */
+/** Кнопка в шапке терминала: тот же урок, но на настоящем сервере вместо симулятора. */
+function openLiveServerFlow(): void {
+  if (!run) return;
+  const lesson = run.lesson;
+  void import("./sandbox/live").then(({ openLiveServer, lessonCommands }) => {
+    openLiveServer({
+      getToken: accessToken,
+      title: lesson.title,
+      commands: lessonCommands(lesson.steps),
+    });
+  });
+}
+
 function openCapstoneFlow(): void {
   if (!allLessonsDone(P)) {
     toast("Сначала пройди все уроки и экзамены курса");
@@ -429,6 +442,7 @@ $("#certBtn").onclick = () => {
     });
   });
 };
+$("#liveBtn").onclick = openLiveServerFlow;
 $("#resetBtn").onclick = () => {
   if (!confirm("Сбросить весь прогресс и начать с первого урока?")) return;
   clearProgress();

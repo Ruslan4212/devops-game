@@ -54,6 +54,18 @@ export function closeReason(code: number): string {
   }
 }
 
+/**
+ * Адрес песочницы. Приоритет тот же, что у облака: переменная сборки, иначе
+ * рабочий сервер проекта. Без запасного значения игра молча оставалась на
+ * симуляторе, хотя контейнеры на сервере были подняты и ждали подключения.
+ */
+const DEFAULT_SANDBOX_URL = "wss://72.56.16.8.nip.io/sandbox";
+
+export function sandboxUrl(): string {
+  const fromEnv = import.meta.env.VITE_SANDBOX_URL as string | undefined;
+  return fromEnv && fromEnv.trim() ? fromEnv.trim() : DEFAULT_SANDBOX_URL;
+}
+
 export interface SandboxHandlers {
   /** сервер подтвердил старт, сообщил лимит времени */
   onReady: (minutes: number) => void;
