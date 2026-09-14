@@ -1,4 +1,4 @@
-import { getNode, writeFile } from "../engine/vfs";
+import { getNode, mkdirp, writeFile } from "../engine/vfs";
 import { exists, has, ran } from "../missions/helpers";
 import { seedAppLog } from "../missions/act01";
 import type { Lesson, World } from "../engine/types";
@@ -1042,6 +1042,88 @@ export const act03: Lesson[] = [
         answer: 1,
         explain:
           "update — это «обновить каталог», а install — «поставить конкретную вещь из каталога». Разные шаги.",
+      },
+    ],
+  },
+  {
+    id: "3.16",
+    act: 3,
+    title: "Настоящий бэкап: tar и rsync",
+    xp: 30,
+    intro: "Раньше backup.sh просто печатал текст. Пора сделать бэкап, который реально что-то спасает.",
+    setup: (w) => {
+      mkdirp(w, "/var/www");
+      writeFile(w, "/var/www/index.html", "<h1>Магазин</h1>\n");
+      writeFile(w, "/var/www/style.css", "body { margin: 0; }\n");
+      mkdirp(w, "/home/devops/backups");
+      w.cwd = "/home/devops";
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Раньше backup.sh был учебной заглушкой — просто печатал «бэкап начат». Настоящий\n" +
+          "бэкап делает две вещи: (1) упаковывает файлы в один архив, (2) копирует этот архив\n" +
+          "туда, где его не убьёт та же авария, что и оригинал.",
+      },
+      {
+        kind: "say",
+        text:
+          "Упаковка — команда  tar :\n\n" +
+          "  tar -czf АРХИВ.tar.gz ПАПКА\n\n" +
+          "  c — create (создать), z — gzip (сжать), f — file (имя архива идёт следующим).\n" +
+          "Расшифровать легко: «c-z-f», «сжать и создать файл».",
+      },
+      {
+        kind: "watch",
+        run: "tar -czf site-backup.tar.gz /var/www",
+        note: "Появился один файл  site-backup.tar.gz  — внутри него весь /var/www целиком.",
+      },
+      {
+        kind: "type",
+        text: "Заархивируй сайт сам. Набери:  tar -czf site-backup.tar.gz /var/www",
+        cmd: "tar -czf site-backup.tar.gz /var/www",
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: архив на том же диске, что и сайт — если диск умрёт, погибнут оба.\n" +
+          "Скопируй архив в отдельную папку  backups  утилитой rsync.",
+        check: exists("/home/devops/backups/site-backup.tar.gz"),
+        answer: "rsync -a site-backup.tar.gz backups/",
+        hint: "rsync -a site-backup.tar.gz backups/",
+      },
+      {
+        kind: "say",
+        text: "А теперь — авария. Диск сервера с сайтом полностью вышел из строя.",
+      },
+      {
+        kind: "watch",
+        run: "rm -rf /var/www",
+        note: "/var/www больше не существует. Хорошо, что архив лежал не рядом, а в backups/.",
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: восстанови сайт из архива. Распакуй  backups/site-backup.tar.gz  в корень\n" +
+          "диска (флаг  -C / ), чтобы  /var/www  появился снова на своём месте.",
+        check: exists("/var/www/index.html"),
+        answer: "tar -xzf backups/site-backup.tar.gz -C /",
+        hint: "tar -xzf backups/site-backup.tar.gz -C /   (x — extract, распаковать)",
+      },
+      {
+        kind: "quiz",
+        text: "Почему бэкап хранят ОТДЕЛЬНО от исходных файлов, а не рядом на том же диске?",
+        options: [
+          "Так архив весит меньше",
+          "Если сломается диск, на котором лежат и файлы, и бэкап — погибнет всё сразу",
+          "rsync требует отдельный диск технически",
+          "Это не имеет значения, главное — сам факт архивации",
+        ],
+        answer: 1,
+        explain:
+          "Бэкап на том же диске не защищает ни от чего, кроме случайного удаления одного файла. " +
+          "От отказа диска целиком спасает только копия в другом месте.",
       },
     ],
   },

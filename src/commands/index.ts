@@ -6,6 +6,7 @@ import "./text";
 import "./system";
 import "./net";
 import "./pkg";
+import "./archive";
 import "./git";
 import "./docker";
 import "./compose";
