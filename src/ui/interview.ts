@@ -1,4 +1,5 @@
 import { $, esc } from "./dom";
+import { gradeAnswer } from "../engine/grader";
 import { TECH_TOPICS } from "../data/interview";
 import type { TechQuestion } from "../data/interview";
 
@@ -62,24 +63,42 @@ function run(title: string, questions: TechQuestion[]): void {
       `<div class="cr-progress">Вопрос ${i + 1} из ${questions.length}</div>` +
       `<div class="cr-q">${esc(q.q)}</div>` +
       `<textarea class="lp-quiz-input" id="ivAnswerInput" rows="3" placeholder="Ответь сам, своими словами…" autofocus></textarea>` +
-      `<button class="prim" id="ivAnswerSend">Ответил — показать правильный вариант</button>`;
-    $("#ivAnswerSend").onclick = () => {
+      `<button class="prim" id="ivAnswerSend">Ответил — проверить</button>`;
+    const advance = (ok: boolean): void => {
+      if (ok) correct++;
+      i++;
+      step();
+    };
+    const fallbackToSelfGrade = (): void => {
       $("#modBody").innerHTML =
         `<h1>${esc(title)}</h1>` +
         `<div class="cr-q">${esc(q.options[q.answer])}</div>` +
         `<div class="cr-why">${esc(q.why)}</div>` +
-        `<div class="lp-tip" style="margin-bottom:10px">Сравни со своим ответом и оцени себя честно.</div>` +
+        `<div class="lp-tip" style="margin-bottom:10px">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
         `<div class="lp-selfgrade">` +
         `<button class="prim" id="ivRight">✅ У меня было верно</button>` +
         `<button class="sec" id="ivWrong">❌ Ошибся</button>` +
         `</div>`;
-      const advance = (ok: boolean): void => {
-        if (ok) correct++;
-        i++;
-        step();
-      };
       $("#ivRight").onclick = () => advance(true);
       $("#ivWrong").onclick = () => advance(false);
+    };
+    $("#ivAnswerSend").onclick = () => {
+      const ta = document.getElementById("ivAnswerInput") as HTMLTextAreaElement | null;
+      const mine = (ta?.value ?? "").trim();
+      $("#modBody").innerHTML =
+        `<h1>${esc(title)}</h1>` +
+        `<div class="cr-q">${esc(q.q)}</div>` +
+        `<div class="lp-tip">🧑‍🏫 Наставник проверяет ответ…</div>`;
+      gradeAnswer(q.q, q.options[q.answer], q.why, mine)
+        .then((result) => {
+          $("#modBody").innerHTML =
+            `<h1>${esc(title)}</h1>` +
+            `<div class="cr-q">${esc(q.options[q.answer])}</div>` +
+            `<div class="cr-why"><b>${result.correct ? "Верно." : "Не совсем."}</b> ${esc(result.feedback)}</div>` +
+            `<button class="prim" id="ivNext">Дальше</button>`;
+          $("#ivNext").onclick = () => advance(result.correct);
+        })
+        .catch(fallbackToSelfGrade);
     };
   };
 

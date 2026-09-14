@@ -1,0 +1,17 @@
+{
+  "name": "opsacademy-grader-server",
+  "version": "1.0.0",
+  "description": "Прокси-сервер для проверки смысла свободных ответов игрока через Claude API — наставник, а не self-report.",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "dotenv": "^16.4.5"
+  }
+}

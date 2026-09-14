@@ -1,4 +1,5 @@
 import { $, esc, toast } from "./dom";
+import { gradeAnswer } from "../engine/grader";
 import { JOBS, STORY, jobTopics, pickQuestions } from "../data/careers";
 import type { Job, SoftQuestion } from "../data/careers";
 import { pickTechQuestions } from "../data/interview";
@@ -212,11 +213,14 @@ function runInterview(job: Job, d: CareerDeps): void {
       header() +
       `<div class="iv-chat">${transcript.join("")}</div>` +
       `<textarea class="lp-quiz-input" id="crAnswerInput" rows="3" placeholder="Ответь своими словами вслух — как на реальном собеседовании…" autofocus></textarea>` +
-      `<button class="prim" id="crAnswerSend">Ответил — узнать, что ждали услышать</button>`;
-    $("#crAnswerSend").onclick = () => {
-      const ta = document.getElementById("crAnswerInput") as HTMLTextAreaElement | null;
-      const mine = (ta?.value ?? "").trim();
-      transcript.push(bubble("me", esc(mine || "(промолчал)")));
+      `<button class="prim" id="crAnswerSend">Ответил — проверить</button>`;
+    const advance = (ok: boolean): void => {
+      if (ok) correct++;
+      i++;
+      step();
+    };
+    const fallbackToSelfGrade = (): void => {
+      transcript.pop();
       transcript.push(
         bubble("lead", `<b>Ожидали услышать:</b> ${esc(q.options[q.answer])}<br>${esc(q.why)}`),
       );
@@ -227,14 +231,31 @@ function runInterview(job: Job, d: CareerDeps): void {
         `<button class="prim" id="crRight">✅ У меня было по сути так</button>` +
         `<button class="sec" id="crWrong">❌ Не угадал</button>` +
         `</div>`;
-      const advance = (ok: boolean): void => {
-        if (ok) correct++;
-        i++;
-        step();
-      };
       $("#crRight").onclick = () => advance(true);
       $("#crWrong").onclick = () => advance(false);
       scrollChatToEnd();
+    };
+    $("#crAnswerSend").onclick = () => {
+      const ta = document.getElementById("crAnswerInput") as HTMLTextAreaElement | null;
+      const mine = (ta?.value ?? "").trim();
+      transcript.push(bubble("me", esc(mine || "(промолчал)")));
+      transcript.push(bubble("lead", "🧑‍💻 Думает над твоим ответом…"));
+      $("#modBody").innerHTML = header() + `<div class="iv-chat">${transcript.join("")}</div>`;
+      scrollChatToEnd();
+      gradeAnswer(q.q, q.options[q.answer], q.why, mine)
+        .then((result) => {
+          transcript.pop();
+          transcript.push(
+            bubble("lead", `<b>${result.correct ? "Верно." : "Не совсем."}</b> ${esc(result.feedback)}`),
+          );
+          $("#modBody").innerHTML =
+            header() +
+            `<div class="iv-chat">${transcript.join("")}</div>` +
+            `<button class="prim" id="crNext">Дальше</button>`;
+          $("#crNext").onclick = () => advance(result.correct);
+          scrollChatToEnd();
+        })
+        .catch(fallbackToSelfGrade);
     };
     scrollChatToEnd();
   };

@@ -1,5 +1,6 @@
 import { $, esc } from "./dom";
 import type { LessonRun } from "../engine/lesson-run";
+import { gradeAnswer, type GradeResult } from "../engine/grader";
 
 export interface PanelHandlers {
   onAdvance: () => void;
@@ -10,13 +11,18 @@ export interface PanelHandlers {
 }
 
 /**
- * Свободный ответ по памяти вместо выбора из вариантов: игрок печатает
- * свою версию сам, потом видит правильный ответ и сам решает, совпало ли —
- * единственный честный способ проверить чужой текст без сервера с ИИ,
- * и он тренирует активное вспоминание лучше, чем узнавание в списке.
- * Состояние — какой шаг сейчас раскрыт — локально для этого модуля.
+ * Свободный ответ по памяти вместо выбора из вариантов: игрок печатает свою
+ * версию сам, и наставник (ИИ через grader-server) оценивает её ПО СМЫСЛУ —
+ * не требуя дословного совпадения. Если сервер проверки недоступен, откат
+ * на честную самооценку, чтобы это никогда не блокировало игру.
+ * Состояние — какой шаг сейчас раскрыт и на какой стадии проверки — локально
+ * для этого модуля.
  */
-let revealedQuiz: { key: string; myAnswer: string } | null = null;
+type QuizPhase =
+  | { phase: "grading"; myAnswer: string }
+  | { phase: "graded"; myAnswer: string; result: GradeResult }
+  | { phase: "error"; myAnswer: string };
+let quizState: { key: string; state: QuizPhase } | null = null;
 
 /**
  * Правая колонка: ОДИН текущий шаг урока, крупно.
@@ -83,21 +89,39 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
           "○".repeat(7 - Math.max(1, Math.min(7, step.d))) +
           `<span style="letter-spacing:0"> · сложность ${step.d}/7</span></div>`
         : "";
-    if (!revealedQuiz || revealedQuiz.key !== quizKey) {
+    const st = quizState && quizState.key === quizKey ? quizState.state : null;
+
+    if (!st) {
       body =
         `<div class="lp-badge">🤔 вопрос — ответь своими словами</div>` +
         grade +
         `<div class="lp-say">${esc(step.text)}</div>` +
         `<textarea class="lp-quiz-input" id="lpQuizInput" rows="3" placeholder="Напиши ответ сам, своими словами…" autofocus></textarea>` +
-        `<button class="lp-next" id="lpQuizReveal">Ответил — показать правильный вариант</button>`;
+        `<button class="lp-next" id="lpQuizSubmit">Ответил — проверить</button>`;
+    } else if (st.phase === "grading") {
+      body =
+        `<div class="lp-badge">🤔 ${esc(step.text)}</div>` +
+        grade +
+        `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
+        `<div class="lp-tip">🧑‍🏫 Наставник читает ответ…</div>`;
+    } else if (st.phase === "graded") {
+      const ok = st.result.correct;
+      body =
+        `<div class="lp-badge">🤔 ${esc(step.text)}</div>` +
+        grade +
+        `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
+        `<div class="lp-note" style="border-left:3px solid ${ok ? "var(--ok,#3c8)" : "var(--warn,#e94)"};padding-left:10px">` +
+        `${ok ? "✅" : "✏️"} <b>Наставник:</b> ${esc(st.result.feedback)}</div>` +
+        (ok ? "" : `<div class="lp-cmd">${esc(step.options[step.answer])}</div>`) +
+        `<button class="lp-next" id="lpQuizNext">Дальше →</button>`;
     } else {
       body =
         `<div class="lp-badge">🤔 ${esc(step.text)}</div>` +
         grade +
-        `<div class="lp-answer"><b>Ты ответил:</b> ${esc(revealedQuiz.myAnswer || "(ничего не написал)")}</div>` +
+        `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
         `<div class="lp-cmd">${esc(step.options[step.answer])}</div>` +
         `<div class="lp-note">${esc(step.explain)}</div>` +
-        `<div class="lp-tip" style="margin-bottom:10px">Сравни со своим ответом и оцени себя честно — это работает только если не жульничать.</div>` +
+        `<div class="lp-tip" style="margin-bottom:10px">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
         `<div class="lp-selfgrade">` +
         `<button class="lp-next" id="lpQuizRight">✅ У меня было по сути верно</button>` +
         `<button class="lp-reveal" id="lpQuizWrong">❌ Я ошибся, повторить вопрос</button>` +
@@ -119,24 +143,44 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   const reveal = document.getElementById("lpReveal");
   if (reveal) reveal.onclick = h.onReveal;
 
-  const quizReveal = document.getElementById("lpQuizReveal");
-  if (quizReveal) {
-    quizReveal.onclick = () => {
+  const quizSubmit = document.getElementById("lpQuizSubmit");
+  if (quizSubmit) {
+    quizSubmit.onclick = () => {
+      const qs = step as { text: string; options: string[]; answer: number; explain: string };
       const ta = document.getElementById("lpQuizInput") as HTMLTextAreaElement | null;
-      revealedQuiz = { key: quizKey, myAnswer: (ta?.value ?? "").trim() };
+      const myAnswer = (ta?.value ?? "").trim();
+      quizState = { key: quizKey, state: { phase: "grading", myAnswer } };
       renderLessonPanel(run, h);
+      gradeAnswer(qs.text, qs.options[qs.answer], qs.explain, myAnswer)
+        .then((result) => {
+          quizState = { key: quizKey, state: { phase: "graded", myAnswer, result } };
+          renderLessonPanel(run, h);
+        })
+        .catch(() => {
+          quizState = { key: quizKey, state: { phase: "error", myAnswer } };
+          renderLessonPanel(run, h);
+        });
+    };
+  }
+  const quizNext = document.getElementById("lpQuizNext");
+  if (quizNext) {
+    quizNext.onclick = () => {
+      const st = quizState?.state;
+      quizState = null;
+      const answer = (step as { answer: number }).answer;
+      h.onQuiz(st && st.phase === "graded" && st.result.correct ? answer : answer === 0 ? -1 : 0);
     };
   }
   const quizRight = document.getElementById("lpQuizRight");
   if (quizRight)
     quizRight.onclick = () => {
-      revealedQuiz = null;
+      quizState = null;
       h.onQuiz((step as { answer: number }).answer);
     };
   const quizWrong = document.getElementById("lpQuizWrong");
   if (quizWrong)
     quizWrong.onclick = () => {
-      revealedQuiz = null;
+      quizState = null;
       const wrongAnswer = (step as { answer: number }).answer;
       h.onQuiz(wrongAnswer === 0 ? -1 : 0);
     };

@@ -1,4 +1,5 @@
 import { $, esc } from "./dom";
+import { gradeAnswer } from "../engine/grader";
 import { ACT_TO_TOPIC } from "../data/careers";
 import { TECH_TOPICS, pickTechQuestions } from "../data/interview";
 import type { TechQuestion } from "../data/interview";
@@ -100,11 +101,14 @@ export function openRevivalExam(d: RevivalDeps): void {
       header() +
       `<div class="iv-chat">${transcript.join("")}</div>` +
       `<textarea class="lp-quiz-input" id="rvAnswerInput" rows="3" placeholder="Ответь сам, своими словами…" autofocus></textarea>` +
-      `<button class="prim" id="rvAnswerSend">Ответил — показать правильный вариант</button>`;
-    $("#rvAnswerSend").onclick = () => {
-      const ta = document.getElementById("rvAnswerInput") as HTMLTextAreaElement | null;
-      const mine = (ta?.value ?? "").trim();
-      transcript.push(bubble("me", esc(mine || "(ничего не написал)")));
+      `<button class="prim" id="rvAnswerSend">Ответил — проверить</button>`;
+    const advance = (ok: boolean): void => {
+      if (ok) correct++;
+      i++;
+      step();
+    };
+    const fallbackToSelfGrade = (): void => {
+      transcript.pop();
       transcript.push(
         bubble("sys", `<b>Правильный вариант:</b> ${esc(q.options[q.answer])}<br>${esc(q.why)}`),
       );
@@ -115,13 +119,28 @@ export function openRevivalExam(d: RevivalDeps): void {
         `<button class="prim" id="rvRight">✅ У меня было верно</button>` +
         `<button class="sec" id="rvWrong">❌ Ошибся</button>` +
         `</div>`;
-      const advance = (ok: boolean): void => {
-        if (ok) correct++;
-        i++;
-        step();
-      };
       $("#rvRight").onclick = () => advance(true);
       $("#rvWrong").onclick = () => advance(false);
+    };
+    $("#rvAnswerSend").onclick = () => {
+      const ta = document.getElementById("rvAnswerInput") as HTMLTextAreaElement | null;
+      const mine = (ta?.value ?? "").trim();
+      transcript.push(bubble("me", esc(mine || "(ничего не написал)")));
+      transcript.push(bubble("sys", "🧑‍🏫 Проверяю ответ…"));
+      $("#modBody").innerHTML = header() + `<div class="iv-chat">${transcript.join("")}</div>`;
+      gradeAnswer(q.q, q.options[q.answer], q.why, mine)
+        .then((result) => {
+          transcript.pop();
+          transcript.push(
+            bubble("sys", `<b>${result.correct ? "Верно." : "Не совсем."}</b> ${esc(result.feedback)}`),
+          );
+          $("#modBody").innerHTML =
+            header() +
+            `<div class="iv-chat">${transcript.join("")}</div>` +
+            `<button class="prim" id="rvNext">Дальше</button>`;
+          $("#rvNext").onclick = () => advance(result.correct);
+        })
+        .catch(fallbackToSelfGrade);
     };
   };
 
