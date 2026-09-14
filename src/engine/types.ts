@@ -129,6 +129,12 @@ export interface K8sState {
   ingresses?: { name: string; host: string; service: string; port: number }[];
   /** разовые задачи (Job) — доходят до Completed сами, без реплик и самолечения */
   jobs?: { name: string; image: string; completed: boolean }[];
+  /** RBAC: под каким именем действует под */
+  serviceAccounts?: string[];
+  /** RBAC: набор разрешённых глаголов/ресурсов — Role */
+  roles?: { name: string; verbs: string[]; resources: string[] }[];
+  /** RBAC: связка ServiceAccount -> Role */
+  roleBindings?: { name: string; role: string; serviceAccount: string }[];
 }
 
 export interface Alert {

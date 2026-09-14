@@ -79,11 +79,54 @@ def("kubectl", (a, w) => {
       k.ingresses.push({ name, host, service, port });
       return O("ingress.networking.k8s.io/" + name + " created");
     }
+    if (kind === "ServiceAccount") {
+      k.serviceAccounts = k.serviceAccounts || [];
+      if (!k.serviceAccounts.includes(name)) k.serviceAccounts.push(name);
+      return O("serviceaccount/" + name + " created");
+    }
+    if (kind === "Role") {
+      k.roles = k.roles || [];
+      const list = (re: RegExp): string[] => {
+        const m = y.match(re);
+        return m ? m[1].split(",").map((s) => s.trim().replace(/['"]/g, "")) : [];
+      };
+      k.roles.push({
+        name,
+        verbs: list(/verbs:\s*\[([^\]]*)\]/),
+        resources: list(/resources:\s*\[([^\]]*)\]/),
+      });
+      return O("role.rbac.authorization.k8s.io/" + name + " created");
+    }
+    if (kind === "RoleBinding") {
+      k.roleBindings = k.roleBindings || [];
+      const roleMatch = y.match(/roleRef:[\s\S]*?name:\s*(\S+)/);
+      const subjMatch = y.match(/subjects:[\s\S]*?name:\s*(\S+)/);
+      k.roleBindings.push({
+        name,
+        role: roleMatch ? roleMatch[1] : "",
+        serviceAccount: subjMatch ? subjMatch[1] : "",
+      });
+      return O("rolebinding.rbac.authorization.k8s.io/" + name + " created");
+    }
     return O(kind.toLowerCase() + "/" + name + " created");
+  }
+
+  if (sub === "auth" && rest[0] === "can-i") {
+    const verb = rest[1];
+    const resource = rest[2];
+    const asTok = rest.find((x) => x.startsWith("--as="));
+    const svcAccount = asTok ? asTok.slice("--as=".length).split(":").pop() : null;
+    if (!svcAccount) return E("kubectl auth can-i: укажи --as=ИМЯ_SERVICEACCOUNT");
+    const binding = (k.roleBindings || []).find((b) => b.serviceAccount === svcAccount);
+    const role = binding ? (k.roles || []).find((r) => r.name === binding.role) : null;
+    const allowed = !!role && role.verbs.includes(verb) && role.resources.includes(resource);
+    return O(allowed ? "yes" : "no");
   }
 
   if (sub === "get") {
     const what = rest[0] || "";
+    if (/^sa$|^serviceaccounts?$/.test(what))
+      return O("NAME\n" + ((k.serviceAccounts || []).join("\n") || "(нет)"));
     if (/^pod/.test(what)) {
       if (!k.pods.length) return O("Ресурсы не найдены.");
       return O(

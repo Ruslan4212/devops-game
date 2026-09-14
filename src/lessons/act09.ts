@@ -1378,4 +1378,132 @@ export const act09: Lesson[] = [
       },
     ],
   },
+  {
+    id: "9.21",
+    act: 9,
+    title: "Кому что можно: RBAC",
+    xp: 30,
+    intro:
+      "Мониторингу нужно ЧИТАТЬ список подов. Не создавать, не удалять — только читать. Как это ограничить?",
+    setup: (w) => {
+      seedK8s(w);
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "По умолчанию под может действовать в кластере с очень скромными правами — и это правильно:\n" +
+          "чем меньше прав у сервиса, тем меньше вреда от взлома или ошибки в его коде.\n\n" +
+          "Когда сервису реально нужны права (например, мониторингу — читать список подов),\n" +
+          "их выдают точечно через RBAC (Role-Based Access Control, «доступ по ролям»).\n" +
+          "Три детали пазла: ServiceAccount (кто), Role (что можно) и RoleBinding (связка).",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 1. Заведи «личность» для мониторинга — ServiceAccount monitoring-sa.\n" +
+          "Набери:  edit sa.yaml",
+        check: (w) =>
+          has("sa.yaml", /kind:\s*ServiceAccount/)(w) && has("sa.yaml", /name:\s*monitoring-sa/)(w),
+        answer: "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: monitoring-sa\n",
+        editFile: "/home/devops/k8s/sa.yaml",
+        hint: "kind: ServiceAccount, metadata.name: monitoring-sa",
+      },
+      {
+        kind: "do",
+        text: "Примени файл.",
+        check: (w) => !!w.k8s?.serviceAccounts?.includes("monitoring-sa"),
+        answer: "kubectl apply -f sa.yaml",
+        hint: "kubectl apply -f sa.yaml",
+      },
+      {
+        kind: "say",
+        text:
+          "Теперь опиши, ЧТО разрешено — Role. Ей всё равно, кому она достанется, она просто\n" +
+          "список разрешений:\n\n" +
+          "  rules:\n" +
+          '    - resources: ["pods"]\n' +
+          '      verbs: ["get", "list"]\n\n' +
+          "Можно читать поды (get, list) — и всё. Не создавать, не удалять.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 2. Опиши Role pod-reader с этими правами. Набери:  edit role.yaml",
+        check: (w) => has("role.yaml", /kind:\s*Role/)(w) && has("role.yaml", /verbs:\s*\["get"/)(w),
+        answer:
+          "apiVersion: rbac.authorization.k8s.io/v1\n" +
+          "kind: Role\n" +
+          "metadata:\n" +
+          "  name: pod-reader\n" +
+          "rules:\n" +
+          '  - resources: ["pods"]\n' +
+          '    verbs: ["get", "list"]\n',
+        editFile: "/home/devops/k8s/role.yaml",
+        hint: 'kind: Role, resources: ["pods"], verbs: ["get", "list"]',
+      },
+      {
+        kind: "do",
+        text: "Примени Role.",
+        check: (w) => !!w.k8s?.roles?.some((r) => r.name === "pod-reader" && r.verbs.includes("get")),
+        answer: "kubectl apply -f role.yaml",
+        hint: "kubectl apply -f role.yaml",
+      },
+      {
+        kind: "say",
+        text:
+          "Осталось связать «кто» и «что можно» — RoleBinding. Без неё Role так и останется\n" +
+          "просто описанием на бумаге, ни на кого не действующим.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Свяжи monitoring-sa с pod-reader через RoleBinding. Набери:  edit rolebinding.yaml",
+        check: (w) =>
+          has("rolebinding.yaml", /kind:\s*RoleBinding/)(w) &&
+          has("rolebinding.yaml", /name:\s*monitoring-sa/)(w) &&
+          has("rolebinding.yaml", /name:\s*pod-reader/)(w),
+        answer:
+          "apiVersion: rbac.authorization.k8s.io/v1\n" +
+          "kind: RoleBinding\n" +
+          "metadata:\n" +
+          "  name: monitoring-binding\n" +
+          "subjects:\n" +
+          "  - kind: ServiceAccount\n" +
+          "    name: monitoring-sa\n" +
+          "roleRef:\n" +
+          "  kind: Role\n" +
+          "  name: pod-reader\n",
+        editFile: "/home/devops/k8s/rolebinding.yaml",
+        hint: "subjects[0].name: monitoring-sa, roleRef.name: pod-reader",
+      },
+      {
+        kind: "do",
+        text: "Примени RoleBinding.",
+        check: (w) =>
+          !!w.k8s?.roleBindings?.some((b) => b.serviceAccount === "monitoring-sa" && b.role === "pod-reader"),
+        answer: "kubectl apply -f rolebinding.yaml",
+        hint: "kubectl apply -f rolebinding.yaml",
+      },
+      {
+        kind: "do",
+        text: "Задача: проверь права напрямую — может ли monitoring-sa читать поды (get pods)?",
+        check: ran(/^kubectl\s+auth\s+can-i\s+get\s+pods\s+--as=.*monitoring-sa/),
+        answer: "kubectl auth can-i get pods --as=system:serviceaccount:default:monitoring-sa",
+        hint: "kubectl auth can-i get pods --as=system:serviceaccount:default:monitoring-sa",
+      },
+      {
+        kind: "quiz",
+        text: "Что произойдёт, если создать Role, но не создать RoleBinding?",
+        options: [
+          "Role сработает автоматически для всех подов",
+          "Ничего не изменится — Role сама по себе никого ни к чему не привязывает, нужна RoleBinding",
+          "Kubernetes выдаст ошибку и не даст создать под",
+          "Все ServiceAccount получат права из этой Role по умолчанию",
+        ],
+        answer: 1,
+        explain:
+          "Role — это просто список разрешений на бумаге. Реально действует только связка через RoleBinding: " +
+          "«вот ЭТОТ ServiceAccount получает права из ЭТОЙ Role».",
+      },
+    ],
+  },
 ];
