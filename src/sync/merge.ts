@@ -11,7 +11,12 @@ import type { LessonState } from "../engine/lesson-run";
 function pickLessonState(a: Progress, b: Progress, cur: string | null): LessonState | undefined {
   const as = a.lessonState?.id === cur ? a.lessonState : undefined;
   const bs = b.lessonState?.id === cur ? b.lessonState : undefined;
-  if (as && bs) return as.actions.length >= bs.actions.length ? as : bs;
+  // дальше продвинулся тот, кто на большем шаге; шаги «смотри»/«читай» не дают действий,
+  // поэтому сравнивать по их числу нельзя — при равном шаге берём версию с большим числом действий
+  if (as && bs) {
+    if (as.stepIx !== bs.stepIx) return as.stepIx > bs.stepIx ? as : bs;
+    return as.actions.length >= bs.actions.length ? as : bs;
+  }
   return as ?? bs;
 }
 

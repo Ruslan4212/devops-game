@@ -9,7 +9,10 @@ export type StepResult =
   | { status: "retry"; feedback: string; reveal?: string };
 
 /** Одно действие, менявшее world с начала урока — нужно для восстановления после перезагрузки/синхронизации. */
-export type ReplayAction = { kind: "cmd"; cmd: string } | { kind: "edit"; path: string; content: string };
+export type ReplayAction =
+  | { kind: "cmd"; cmd: string }
+  | { kind: "watch"; cmd: string }
+  | { kind: "edit"; path: string; content: string };
 
 /** Снимок прохождения незаконченного урока — то, что нужно сохранить, чтобы не проходить заново. */
 export interface LessonState {
@@ -53,7 +56,7 @@ export class LessonRun {
 
   /** Снимок текущего прохождения — сохранить, чтобы восстановить ровно на этом месте. */
   snapshot(): LessonState {
-    return { id: this.lesson.id, stepIx: this.stepIx, attempts: this.attempts, actions: this.actions };
+    return { id: this.lesson.id, stepIx: this.stepIx, attempts: this.attempts, actions: [...this.actions] };
   }
 
   /** Воссоздаёт урок из сохранённого снимка: та же настройка world, потом повтор всех действий игрока. */
@@ -61,6 +64,7 @@ export class LessonRun {
     const run = new LessonRun(lesson, opts);
     for (const a of state.actions) {
       if (a.kind === "cmd") execLine(run.world, a.cmd);
+      else if (a.kind === "watch") execLine(run.world, a.cmd, { record: false });
       else applyFileEdit(run.world, a.path, a.content);
       run.actions.push(a);
     }
@@ -105,6 +109,8 @@ export class LessonRun {
 
   /** Для say / watch / принятого объяснения — просто идём дальше. */
   ackAndAdvance(): void {
+    // команда шага «смотри» меняет world — без записи восстановление получило бы другой мир
+    if (this.step.kind === "watch") this.actions.push({ kind: "watch", cmd: this.step.run });
     this.goNext();
   }
 

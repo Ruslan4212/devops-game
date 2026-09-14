@@ -118,13 +118,18 @@ function startLesson(id: string): void {
     return;
   }
 
+  // снимок читаем ДО persist(): дальше P.cur перезапишется и снимок другого урока станет неактуален
+  const snap = P.lessonState?.id === id ? P.lessonState : undefined;
+  // шаги «смотри»/«читай» не выполняют команд, поэтому actions может быть пуст —
+  // признак незаконченного прохождения это stepIx, а не число действий
+  const restoring = !!snap && (snap.stepIx > 0 || snap.actions.length > 0);
+
   P.cur = id;
-  persist();
-  // если на этом уроке уже есть незаконченный прогресс — восстанавливаем его, а не начинаем с шага 1
-  const restoring = !!(P.lessonState && P.lessonState.id === id && P.lessonState.actions.length > 0);
   run = restoring
-    ? LessonRun.fromState(lesson, P.lessonState!, { strict: !!P.strict })
+    ? LessonRun.fromState(lesson, snap!, { strict: !!P.strict })
     : new LessonRun(lesson, { strict: !!P.strict });
+  P.lessonState = run.snapshot();
+  persist();
 
   clearTerminal();
   print(`— Урок ${lesson.id}: ${lesson.title} —`, "ok");
