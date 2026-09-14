@@ -259,6 +259,12 @@ export interface World {
   packages: Record<string, boolean>;
   /** блочные устройства сервера — диски/разделы, view lsblk / mount / umount */
   disks?: { name: string; size: string; mount: string | null }[];
+  /** LVM: физические тома, группы томов и логические тома поверх дисков */
+  lvm?: {
+    pvs: string[];
+    vgs: { name: string; pvs: string[]; sizeG: number; usedG: number }[];
+    lvs: { name: string; vg: string; sizeG: number; mount: string | null }[];
+  };
 }
 
 /** Заготовленный ответ curl на конкретный URL: код, заголовки и тело. */

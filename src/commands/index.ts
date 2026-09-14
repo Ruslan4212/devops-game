@@ -8,6 +8,7 @@ import "./net";
 import "./pkg";
 import "./archive";
 import "./disks";
+import "./lvm";
 import "./git";
 import "./docker";
 import "./compose";
