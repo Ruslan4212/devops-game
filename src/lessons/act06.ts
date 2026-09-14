@@ -1425,4 +1425,94 @@ export const act06: Lesson[] = [
       },
     ],
   },
+  {
+    id: "6.24",
+    act: 6,
+    title: "Много контейнеров одной командой: docker-compose",
+    xp: 30,
+    intro:
+      "Магазину нужен не один контейнер, а несколько: api и база данных. Поднимать их вручную — путь к ошибкам.",
+    setup: (w) => {
+      mkdirp(w, "/home/devops/stack");
+      w.cwd = "/home/devops/stack";
+      w.templates = {
+        "/home/devops/stack/docker-compose.yml":
+          "# опиши здесь два сервиса: api (образ shop-api:v1, порт 8080->80)\n" +
+          "# и db (образ postgres:15, без портов наружу). Сотри этот комментарий.\n",
+      };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Представь: нужно поднять api и базу данных вместе, каждый раз одинаково — на своей\n" +
+          "машине, у коллеги, на сервере. Делать это парой ручных  docker run  можно, но легко\n" +
+          "забыть флаг или перепутать порт. docker-compose описывает весь стек ОДНИМ файлом.",
+      },
+      {
+        kind: "say",
+        text:
+          "Файл называется  docker-compose.yml . Устроен просто:\n\n" +
+          "  services:\n" +
+          "    api:\n" +
+          "      image: shop-api:v1\n" +
+          "      ports:\n" +
+          '        - "8080:80"\n' +
+          "    db:\n" +
+          "      image: postgres:15\n\n" +
+          "Под  services:  — список сервисов с отступом в 2 пробела, у каждого свой образ и порты.",
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: опиши в docker-compose.yml два сервиса — api (образ shop-api:v1, порт 8080->80)\n" +
+          "и db (образ postgres:15, без портов наружу). Набери:  edit docker-compose.yml",
+        check: (w) =>
+          has("docker-compose.yml", /api:\s*\n\s*image:\s*shop-api:v1/)(w) &&
+          has("docker-compose.yml", /db:\s*\n\s*image:\s*postgres:15/)(w),
+        answer:
+          'services:\n  api:\n    image: shop-api:v1\n    ports:\n      - "8080:80"\n  db:\n    image: postgres:15\n',
+        editFile: "/home/devops/stack/docker-compose.yml",
+        hint: 'services:\n  api:\n    image: shop-api:v1\n    ports:\n      - "8080:80"\n  db:\n    image: postgres:15',
+      },
+      {
+        kind: "watch",
+        run: "docker-compose up -d",
+        note: "Оба сервиса поднялись одной командой — образы, порты, имена контейнеров взяты прямо из файла.",
+      },
+      {
+        kind: "type",
+        text: "Подними стек сам. Набери:  docker-compose up -d",
+        cmd: "docker-compose up -d",
+      },
+      {
+        kind: "do",
+        text: "Задача: проверь, что оба сервиса из файла работают.",
+        check: ran(/^docker-compose\s+ps/),
+        answer: "docker-compose ps",
+        hint: "docker-compose ps",
+      },
+      {
+        kind: "do",
+        text: "Задача: работа закончена — останови и убери весь стек одной командой.",
+        check: (w) => !w.docker.containers.some((c) => c.name === "api" || c.name === "db"),
+        answer: "docker-compose down",
+        hint: "docker-compose down",
+      },
+      {
+        kind: "quiz",
+        text: "В чём главное преимущество docker-compose перед несколькими docker run подряд?",
+        options: [
+          "Он собирает образы быстрее",
+          "Весь стек описан в одном файле — поднимается и убирается одной командой, без риска забыть флаг",
+          "Он не поддерживает переменные окружения",
+          "Он заменяет Dockerfile целиком",
+        ],
+        answer: 1,
+        explain:
+          "compose — это декларативное описание: «вот какой стек должен быть». up поднимает его целиком, " +
+          "down убирает целиком — воспроизводимо и без ручных ошибок.",
+      },
+    ],
+  },
 ];

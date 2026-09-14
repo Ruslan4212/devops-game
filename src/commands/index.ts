@@ -8,6 +8,7 @@ import "./net";
 import "./pkg";
 import "./git";
 import "./docker";
+import "./compose";
 import "./ci";
 import "./terraform";
 import "./k8s";
