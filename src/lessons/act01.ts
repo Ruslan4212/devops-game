@@ -18,6 +18,52 @@ function seedHome(w: World): void {
 const lastCmd = (w: World): string => (w.log.length ? w.log[w.log.length - 1].cmd.trim() : "");
 const ranOK = (w: World, re: RegExp): boolean => w.log.some((l) => re.test(l.cmd) && l.code === 0);
 
+/**
+ * Сколько первых команд цепочки игрок уже выполнил в нужном порядке.
+ * Отсчёт ведём от последнего появления первой команды — это и есть текущая попытка,
+ * поэтому счётчик годится и для проверки шага, и для подсказки «застрял вот здесь».
+ */
+const doneOf = (w: World, pats: RegExp[]): number => {
+  const cmds = w.log.map((l) => l.cmd.trim());
+  let at = cmds.length - 1;
+  while (at >= 0 && !pats[0].test(cmds[at])) at--;
+  if (at < 0) return 0;
+
+  let n = 1;
+  for (let i = 1; i < pats.length; i++) {
+    let k = at + 1;
+    while (k < cmds.length && !pats[i].test(cmds[k])) k++;
+    if (k >= cmds.length) break;
+    at = k;
+    n++;
+  }
+  return n;
+};
+
+/** Шаг из нескольких команд: проверка плюс подсказка, на какой именно команде игрок застрял. */
+function sequence(names: string[], also?: (w: World) => boolean) {
+  const pats = names.map(
+    (n) => new RegExp("^" + n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s*") + "$"),
+  );
+  return {
+    check: (w: World): boolean => doneOf(w, pats) === pats.length && (!also || also(w)),
+    feedback: (w: World): string => {
+      const n = Math.min(doneOf(w, pats), names.length - 1);
+      return (
+        `Засчитано ${doneOf(w, pats)} из ${names.length}. Следующей нужна команда:  ${names[n]}\n` +
+        `Набирай их по очереди, каждую с Enter, — или одной строкой через  && . ` +
+        `Через  |  не выйдет: echo не читает ввод из пайпа, в реальном bash будет то же самое.`
+      );
+    },
+  };
+}
+
+/** Три команды урока 1.16: завести переменную, вывести её, найти среди всех. */
+const stageTriple = sequence(
+  ["export STAGE=prod", "echo $STAGE", "env | grep STAGE"],
+  (w) => w.env.STAGE === "prod",
+);
+
 export const act01: Lesson[] = [
   {
     id: "1.1",
@@ -1905,39 +1951,21 @@ export const act01: Lesson[] = [
         text:
           "Практика 4/6. Полная настройка окружения: заведи  STAGE=prod , выведи её,\n" +
           "затем проверь среди всех переменных через env и grep. Три команды подряд.",
-        check: (w) => {
-          const cmds = w.log.map((l) => l.cmd.trim());
-          const iE = cmds.lastIndexOf("export STAGE=prod");
-          const iP = cmds.lastIndexOf("echo $STAGE");
-          const iG = cmds.lastIndexOf("env | grep STAGE");
-          return iE >= 0 && iP > iE && iG > iP && w.env.STAGE === "prod";
-        },
+        ...stageTriple,
         answer: "export STAGE=prod\necho $STAGE\nenv | grep STAGE",
         hint: "export STAGE=prod, echo $STAGE, env | grep STAGE",
       },
       {
         kind: "do",
         text: "Практика 5/6. Без подсказок: та же тройка команд с переменной STAGE.",
-        check: (w) => {
-          const cmds = w.log.map((l) => l.cmd.trim());
-          const iE = cmds.lastIndexOf("export STAGE=prod");
-          const iP = cmds.lastIndexOf("echo $STAGE");
-          const iG = cmds.lastIndexOf("env | grep STAGE");
-          return iE >= 0 && iP > iE && iG > iP && w.env.STAGE === "prod";
-        },
+        ...stageTriple,
         answer: "export STAGE=prod\necho $STAGE\nenv | grep STAGE",
         hint: "export STAGE=prod, echo $STAGE, env | grep STAGE",
       },
       {
         kind: "do",
         text: "Практика 6/6. Ещё раз всё то же самое — завести, вывести, проверить среди всех переменных.",
-        check: (w) => {
-          const cmds = w.log.map((l) => l.cmd.trim());
-          const iE = cmds.lastIndexOf("export STAGE=prod");
-          const iP = cmds.lastIndexOf("echo $STAGE");
-          const iG = cmds.lastIndexOf("env | grep STAGE");
-          return iE >= 0 && iP > iE && iG > iP && w.env.STAGE === "prod";
-        },
+        ...stageTriple,
         answer: "export STAGE=prod\necho $STAGE\nenv | grep STAGE",
         hint: "export STAGE=prod, echo $STAGE, env | grep STAGE",
       },

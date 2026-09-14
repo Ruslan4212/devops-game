@@ -142,7 +142,9 @@ export class LessonRun {
       return { status: "advance", printOut: r.out, printTone: r.err ? "err" : null };
     }
     this.attempts++;
-    let feedback = r.err ? r.out : "Это выполнилось, но задача шага ещё не закрыта.";
+    let feedback = r.err
+      ? r.out
+      : (step.feedback?.(this.world) ?? "Это выполнилось, но задача шага ещё не закрыта.");
     if (this.attempts === this.hintAt) feedback += `\n\n💡 Подсказка: ${step.hint}`;
     const reveal = this.attempts >= this.revealAt ? step.answer : undefined;
     if (reveal) feedback += `\n\nНе получается — просто набери это:\n${step.answer}`;

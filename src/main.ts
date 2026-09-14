@@ -443,7 +443,12 @@ sync = initAccount({
   applyMerged: (merged) => {
     P = merged;
     saveProgress(P);
-    startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
+    const target = P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id;
+    const cloudStep = P.lessonState?.id === target ? P.lessonState.stepIx : 0;
+    // урок перезапускаем, только если облако принесло другой урок или продвинулось дальше;
+    // иначе синхронизация стирала бы текущее прохождение
+    if (!run || run.lesson.id !== target || cloudStep > run.stepIx) startLesson(target);
+    else renderAll();
   },
   rankOf,
   toast,

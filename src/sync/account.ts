@@ -30,6 +30,8 @@ export function initAccount(deps: Deps): AccountApi {
   let account: Account | null = null;
   let pushTimer: number | undefined;
   let syncing = false;
+  /** id аккаунта, для которого стартовая синхронизация уже прошла */
+  let syncedFor: string | null = null;
 
   /* ---------- кнопка в шапке ---------- */
   const btn = document.createElement("button");
@@ -119,6 +121,11 @@ export function initAccount(deps: Deps): AccountApi {
   async function onSignedIn(acc: Account): Promise<void> {
     account = acc;
     refreshBtn();
+    // Supabase шлёт это событие и при обычном обновлении токена — то есть каждый раз,
+    // когда игрок возвращается во вкладку. Полную синхронизацию делаем один раз на вход:
+    // иначе возврат в браузер перезапускал текущий урок с первого шага.
+    if (syncedFor === acc.id || syncing) return;
+    syncedFor = acc.id;
     syncing = true;
     try {
       const pulled = await cloud.pullProfile();
@@ -135,6 +142,7 @@ export function initAccount(deps: Deps): AccountApi {
 
   function onSignedOut(): void {
     account = null;
+    syncedFor = null;
     refreshBtn();
   }
 
