@@ -1,6 +1,19 @@
 import { def, E, O } from "./registry";
 import { metricsText } from "./prom";
 
+def("ip", (a) => {
+  const sub = a[0];
+  if (sub === "addr" || sub === "a")
+    return O(
+      "1: lo: <LOOPBACK,UP> inet 127.0.0.1/8\n" +
+        "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP>\n" +
+        "    inet 10.0.0.5/24 brd 10.0.0.255 scope global eth0",
+    );
+  if (sub === "route" || sub === "r")
+    return O("default via 10.0.0.1 dev eth0\n" + "10.0.0.0/24 dev eth0 proto kernel scope link src 10.0.0.5");
+  return E("ip: используй addr или route");
+});
+
 def("ss", (_a, w) =>
   O(
     "Netid State  Local Address:Port   Process\n" +
