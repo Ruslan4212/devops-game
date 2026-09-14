@@ -74,6 +74,38 @@ function pickProvider() {
   return null;
 }
 
+/** Модели по убыванию пригодности: русский язык и следование инструкции. */
+const PREFERRED = {
+  groq: ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b", "groq/compound"],
+  gemini: ["gemini-2.0-flash", "gemini-1.5-flash"],
+  openrouter: ["meta-llama/llama-3.3-70b-instruct:free", "qwen/qwen-2.5-72b-instruct:free"],
+  anthropic: [],
+};
+
+/**
+ * Провайдеры переименовывают и снимают модели — захардкоженное имя однажды
+ * отвечает 404 и проверка молча ломается. Поэтому при старте спрашиваем
+ * список доступных и берём первую подходящую.
+ */
+async function resolveModel(provider) {
+  if (provider.name === "anthropic") return provider.model;
+  const listUrl = provider.url.replace(/\/chat\/completions$/, "/models");
+  try {
+    const res = await fetch(listUrl, { headers: { authorization: "Bearer " + provider.key } });
+    if (!res.ok) return provider.model;
+    const data = await res.json();
+    const ids = (data?.data || []).map((m) => m.id);
+    if (!ids.length) return provider.model;
+    if (ids.includes(provider.model)) return provider.model;
+    const better = (PREFERRED[provider.name] || []).find((m) => ids.includes(m));
+    if (better) return better;
+    // последний шанс: любая инструктивная модель, не распознавание речи
+    return ids.find((m) => !/whisper|guard|tts|embed/i.test(m)) || provider.model;
+  } catch {
+    return provider.model;
+  }
+}
+
 const PROVIDER = pickProvider();
 if (!PROVIDER) {
   console.error(
@@ -147,26 +179,30 @@ app.post("/grade", async (req, res) => {
     : [];
 
   const prompt =
-    "Ты опытный, доброжелательный DevOps-наставник. Ученик отвечает вслух своими словами, " +
-    "как на собеседовании.\n\n" +
+    "Ты строгий, но справедливый экзаменатор по DevOps. Твоя задача — проверить, " +
+    "СОВПАДАЕТ ЛИ ПО СМЫСЛУ ответ ученика с верной мыслью. Ты не пересказываешь верный " +
+    "ответ и не хвалишь за старание — ты выносишь вердикт.\n\n" +
+    "ОТВЕТ УЧЕНИКА (именно его надо оценить): " + userAnswer + "\n\n" +
     "ВОПРОС: " + question + "\n\n" +
-    "ВЕРНАЯ МЫСЛЬ (ориентир для тебя, не требуй дословного совпадения): " + expected + "\n\n" +
+    "ВЕРНАЯ МЫСЛЬ: " + expected + "\n\n" +
     (explain ? "ПОЯСНЕНИЕ: " + explain + "\n\n" : "") +
-    (wrong.length ? "ТИПИЧНЫЕ ЗАБЛУЖДЕНИЯ: " + wrong.join(" | ") + "\n\n" : "") +
-    "ОТВЕТ УЧЕНИКА: " + userAnswer + "\n\n" +
-    "Как оценивать:\n" +
-    "- Суди ТОЛЬКО по смыслу. Синонимы, свои формулировки, разговорный язык, опечатки, " +
-    "отсутствие терминов из учебника — не ошибка. «Удерживается процессом» и «держит " +
-    "открытым живой процесс» — одно и то же. «На 4 ядра претендуют 8 процессов» — верно.\n" +
-    "- Короткий ответ, если он по сути верный, — полноценно верный. Длина не важна.\n" +
-    "- Не требуй перечисления всех деталей ориентира: достаточно главной мысли.\n" +
-    "- Неверно — только если ответ пустой, не по теме, противоречит сути или содержит " +
-    "фактическую ошибку.\n" +
-    "- Если ученик пересказал одно из заблуждений — скажи прямо, в чём именно он ошибается.\n\n" +
-    "Верни СТРОГО JSON без markdown:\n" +
-    '{"correct": true|false, "feedback": "1-3 предложения по-русски. Если верно — подтверди ' +
-    "и добавь одну полезную деталь. Если нет — объясни именно его ошибку и дай верную мысль " +
-    'своими словами. Обращайся на ты, без канцелярита."}';
+    (wrong.length ? "ЗАВЕДОМО НЕВЕРНЫЕ ВАРИАНТЫ: " + wrong.join(" | ") + "\n\n" : "") +
+    "Порядок работы:\n" +
+    "1. Сформулируй своими словами, что именно УТВЕРЖДАЕТ ученик.\n" +
+    "2. Сравни это утверждение с верной мыслью.\n" +
+    "3. Вынеси вердикт.\n\n" +
+    "Верно (correct=true), если ученик выразил ту же мысль — любыми словами, кратко, " +
+    "с опечатками, без терминов из учебника. «Удерживается процессом» = «держит открытым " +
+    "живой процесс». «На 4 ядра претендуют 8 процессов» = верно. Достаточно главной мысли, " +
+    "перечислять все детали не нужно.\n\n" +
+    "Неверно (correct=false), если утверждение ученика ПРОТИВОРЕЧИТ верной мысли, " +
+    "совпадает с одним из заведомо неверных вариантов, не отвечает на вопрос, пустое или " +
+    "содержит фактическую ошибку. Пример: если верно «ssh откажется работать с ключом», " +
+    "то ответ «ничего, просто подключится медленнее» — НЕВЕРНО, даже если звучит уверенно.\n\n" +
+    "Верни СТРОГО один JSON-объект, без markdown и текста вокруг:\n" +
+    '{"claim": "что утверждает ученик, одной фразой", "correct": true или false, ' +
+    '"feedback": "1-3 предложения по-русски, на ты. Если верно — подтверди и добавь одну ' +
+    'полезную деталь. Если неверно — назови именно его ошибку и дай верную мысль."}';
 
   const isAnthropic = PROVIDER.name === "anthropic";
   const headers = isAnthropic
@@ -176,8 +212,9 @@ app.post("/grade", async (req, res) => {
     ? { model: PROVIDER.model, max_tokens: 300, messages: [{ role: "user", content: prompt }] }
     : {
         model: PROVIDER.model,
-        max_tokens: 300,
-        temperature: 0.2,
+        max_tokens: 400,
+        temperature: 0,
+        response_format: { type: "json_object" },
         messages: [{ role: "user", content: prompt }],
       };
 
@@ -203,6 +240,10 @@ app.post("/grade", async (req, res) => {
 
   res.json({ correct: parsed.correct, feedback: parsed.feedback });
 });
+
+void (async () => {
+  PROVIDER.model = await resolveModel(PROVIDER);
+})();
 
 app.listen(PORT, () => {
   console.log("Grader server слушает порт " + PORT + ", проверяет через " + PROVIDER.name + " (" + PROVIDER.model + ")");
