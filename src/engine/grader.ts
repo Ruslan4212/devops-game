@@ -242,6 +242,8 @@ const SYNONYM: Map<string, string> = (() => {
 interface Concept {
   key: string;
   negated: boolean;
+  /** слово, как оно написано в тексте: разбор показывают человеку, а не корни */
+  word: string;
 }
 
 function tokenize(text: string): string[] {
@@ -279,7 +281,7 @@ export function conceptsOf(text: string): Concept[] {
       const root = stem(word);
       // служебные слова окно отрицания не тратят: «не нужно удалять» — про удаление
       if (word.length < 2 || STOPWORDS.has(word) || STOP_STEMS.has(root)) continue;
-      out.push({ key: SYNONYM.get(word) ?? SYNONYM.get(root) ?? root, negated: negateFor > 0 });
+      out.push({ key: SYNONYM.get(word) ?? SYNONYM.get(root) ?? root, negated: negateFor > 0, word });
       negateFor = 0;
     }
   }
@@ -357,6 +359,22 @@ function compare(reference: Concept[], answer: Concept[], w: Map<string, number>
 const top = (keys: string[], w: Map<string, number>): string[] =>
   [...keys].sort((a, b) => (w.get(b) ?? 1) - (w.get(a) ?? 1)).slice(0, 3);
 
+/**
+ * Корень понятия -> слово, как оно написано в исходном тексте. Разбор читает
+ * человек, поэтому в нём должно стоять «постмортем», а не обрубок «постморт».
+ */
+function surfaceForms(...lists: Concept[][]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const list of lists) {
+    for (const c of list) {
+      const known = m.get(c.key);
+      // из нескольких форм выбираем самую длинную: она обычно и есть словарная
+      if (!known || c.word.length > known.length) m.set(c.key, c.word);
+    }
+  }
+  return m;
+}
+
 export function localGrade(input: GradeInput): GradeResult {
   const { options, answerIx, explain, userAnswer } = input;
   const expected = options[answerIx] ?? "";
@@ -407,6 +425,13 @@ export function localGrade(input: GradeInput): GradeResult {
   // Главный признак правильности — не абсолютный процент совпадения (тогда
   // короткий точный ответ проигрывал бы многословному эталону), а то, что ответ
   // ближе к верному варианту, чем к любому из заблуждений.
+  // в разборе показываем слова из эталона, а не внутренние корни
+  const words = surfaceForms(required, explainConcepts);
+  const say = (keys: string[]): string =>
+    top(keys, w)
+      .map((k) => words.get(k) ?? k)
+      .join(", ");
+
   const size = new Set(required.map((c) => c.key)).size;
   const minCover = size <= 4 ? 0.35 : 0.3;
   // Короткое заблуждение легко набирает высокий процент на паре общих слов,
@@ -414,13 +439,13 @@ export function localGrade(input: GradeInput): GradeResult {
   const correct = best.score >= minCover && rivalScore <= best.score + 0.05 && best.contradicted.length === 0;
 
   if (correct) {
-    const gap = top(best.missing, w);
+    const gap = say(best.missing);
     return {
       correct: true,
       feedback:
         "Верно по сути — главное ты назвал(а). " +
         (explain ? explain + " " : "") +
-        (gap.length ? "Для полноты стоило упомянуть ещё: " + gap.join(", ") + "." : ""),
+        (gap ? "Для полноты стоило упомянуть ещё: " + gap + "." : ""),
     };
   }
 
@@ -429,7 +454,7 @@ export function localGrade(input: GradeInput): GradeResult {
       correct: false,
       feedback:
         "Ключевое место ты утверждаешь наоборот — «" +
-        top(best.contradicted, w).join(", ") +
+        say(best.contradicted) +
         "». Как на самом деле: " +
         expected +
         (explain ? " " + explain : ""),
@@ -448,14 +473,12 @@ export function localGrade(input: GradeInput): GradeResult {
     };
   }
 
-  const gap = top(best.missing, w);
+  const gap = say(best.missing);
   return {
     correct: false,
     feedback:
-      (best.matched.length
-        ? "Начало верное (" + top(best.matched, w).join(", ") + "), но "
-        : "Ответ не про то: ") +
-      (gap.length ? "не хватает главного — " + gap.join(", ") + ". " : "сути вопроса он не касается. ") +
+      (best.matched.length ? "Начало верное (" + say(best.matched) + "), но " : "Ответ не про то: ") +
+      (gap ? "не хватает главного — " + gap + ". " : "сути вопроса он не касается. ") +
       "Правильная мысль: " +
       expected +
       (explain ? " " + explain : ""),

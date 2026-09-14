@@ -169,8 +169,11 @@ function runInterview(job: Job, d: CareerDeps): void {
   // ~60% технических вопросов по темам вакансии + ~40% поведенческих —
   // это ровно тот набор тем, который спрашивают на реальном собеседовании на эту роль
   const nTech = Math.max(1, Math.round(job.questions * 0.6));
-  const tech = pickTechQuestions(jobTopics(job), nTech);
-  const soft = pickQuestions(job.questions - tech.length);
+  // выше своего акта вакансия не спрашивает: стажёрская роль про Акт 1 не должна
+  // выяснять разницу SIGKILL и SIGTERM — этого игрок ещё не проходил
+  const maxAct = Math.max(...job.reqActs);
+  const tech = pickTechQuestions(jobTopics(job), nTech, Math.random, maxAct);
+  const soft = pickQuestions(job.questions - tech.length, Math.random, maxAct);
   const qs: IvQuestion[] = shuffled([...tech, ...soft]).slice(0, job.questions);
   const interviewer = INTERVIEWERS[job.id] ?? "Тех-лид";
   let i = 0;

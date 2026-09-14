@@ -9,6 +9,8 @@ export interface SoftQuestion {
   options: string[];
   answer: number;
   why: string;
+  /** акт, после которого вопрос честен: раньше игрок не знает нужных понятий */
+  act: number;
 }
 
 /** 12 поведенческих вопросов — задаются на любом собеседовании. */
@@ -22,6 +24,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Сразу сообщить руководству",
     ],
     answer: 1,
+    act: 7,
     why: "Оценивают, видишь ли ты за просьбой системную проблему: разблокировать человека сейчас и убрать причину потом.",
   },
   {
@@ -33,6 +36,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Жду, спросят ли",
     ],
     answer: 1,
+    act: 10,
     why: "Зрелость измеряется тем, что происходит после ошибки. Сокрытие инцидента — быстрый способ потерять доверие команды.",
   },
   {
@@ -44,6 +48,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Попросить другую задачу",
     ],
     answer: 1,
+    act: 1,
     why: "Ценят прозрачность оценки, а не героическое молчание. Ранняя проверка гипотезы снижает риск для всех.",
   },
   {
@@ -55,6 +60,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Промолчать навсегда",
     ],
     answer: 1,
+    act: 1,
     why: "Разделяй блокирующие замечания и вкусовые. Ревью — не место для навязывания личного стиля.",
   },
   {
@@ -66,6 +72,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Ускорить и молчать про риск",
     ],
     answer: 1,
+    act: 1,
     why: "Разговор на языке данных, а не мнений. Предлагать решение, а не только возражать.",
   },
   {
@@ -77,6 +84,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Отключить алерт",
     ],
     answer: 1,
+    act: 10,
     why: "Эскалация — часть процесса, а не признак слабости. Отключить алерт можно только после разбора, а не вместо него.",
   },
   {
@@ -88,6 +96,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Скучно",
     ],
     answer: 1,
+    act: 1,
     why: "Критика прошлого работодателя читается против кандидата. Мотивация «к», а не «от».",
   },
   {
@@ -99,6 +108,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Отказаться от проекта",
     ],
     answer: 1,
+    act: 1,
     why: "Инвентаризация и документирование по ходу — то, что отличает инженера от исполнителя задач.",
   },
   {
@@ -110,6 +120,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Зависит от настроения",
     ],
     answer: 1,
+    act: 1,
     why: "Ответ через error budget показывает знание инженерного способа разрешать конфликт, а не философию.",
   },
   {
@@ -121,6 +132,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Назвать срок с запасом ×3",
     ],
     answer: 1,
+    act: 1,
     why: "Честная вилка плюс обязательство уточнить — профессиональный ответ. Точная цифра из воздуха хуже.",
   },
   {
@@ -132,6 +144,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Как решит руководство",
     ],
     answer: 1,
+    act: 9,
     why: "Умение назвать критерии, а не лозунги, — главный признак middle. Технология не самоцель.",
   },
   {
@@ -143,6 +156,7 @@ export const SOFT_QUESTIONS: SoftQuestion[] = [
       "Написать в соцсети",
     ],
     answer: 1,
+    act: 1,
     why: "Ответственность без самодеятельности: сообщить тому, кто принимает решение, и предложить план.",
   },
 ];
@@ -476,8 +490,10 @@ export function jobTopics(job: Job): string[] {
 }
 
 /** Перемешанная выборка n поведенческих вопросов. rnd — источник случайности (для тестов). */
-export function pickQuestions(n: number, rnd: () => number = Math.random): SoftQuestion[] {
-  const pool = [...SOFT_QUESTIONS];
+export function pickQuestions(n: number, rnd: () => number = Math.random, maxAct = Infinity): SoftQuestion[] {
+  // и поведенческий вопрос может требовать понятий из поздних актов
+  // («постмортем», «дежурство») — такое стажёру не задаём
+  const pool = SOFT_QUESTIONS.filter((q) => q.act <= maxAct);
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
