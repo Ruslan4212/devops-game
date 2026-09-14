@@ -647,6 +647,68 @@ export const act01: Lesson[] = [
         answer: 0,
         explain: "Верно. ~ — это всегда сокращение для твоей домашней папки.",
       },
+      {
+        kind: "do",
+        text: "Практика 1/6. Уйди в /tmp, потом вернись домой значком тильды.",
+        check: (w) => w.cwd === "/home/devops" && lastCmd(w) === "cd ~",
+        answer: "cd /tmp\ncd ~",
+        hint: "cd /tmp, потом cd ~",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Прежде чем скакать по папкам, подтверди, под кем ты работаешь.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "Урок 1.1: whoami",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. И где ты сейчас находишься.",
+        check: (w) => lastCmd(w) === "pwd",
+        answer: "pwd",
+        hint: "Урок 1.2: pwd",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Полный маршрут: уйди в  /etc , посмотри список подробно, вернись домой\n" +
+          "одной короткой командой. Три команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iE = cmds.lastIndexOf("cd /etc");
+          const iL = cmds.lastIndexOf("ls -l");
+          const iH = cmds.lastIndexOf("cd ~");
+          return iE >= 0 && iL > iE && iH > iL && w.cwd === "/home/devops";
+        },
+        answer: "cd /etc\nls -l\ncd ~",
+        hint: "cd /etc, потом ls -l, потом cd ~",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: тот же маршрут — уйти в /etc, посмотреть подробно, вернуться домой.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iE = cmds.lastIndexOf("cd /etc");
+          const iL = cmds.lastIndexOf("ls -l");
+          const iH = cmds.lastIndexOf("cd ~");
+          return iE >= 0 && iL > iE && iH > iL && w.cwd === "/home/devops";
+        },
+        answer: "cd /etc\nls -l\ncd ~",
+        hint: "cd /etc, ls -l, cd ~",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Последний раз: тот же маршрут туда и обратно.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iE = cmds.lastIndexOf("cd /etc");
+          const iL = cmds.lastIndexOf("ls -l");
+          const iH = cmds.lastIndexOf("cd ~");
+          return iE >= 0 && iL > iE && iH > iL && w.cwd === "/home/devops";
+        },
+        answer: "cd /etc\nls -l\ncd ~",
+        hint: "cd /etc, ls -l, cd ~",
+      },
     ],
   },
   {
@@ -719,6 +781,65 @@ export const act01: Lesson[] = [
         answer: 0,
         explain: "Верно. -i = «ignore case» — искать без разницы в регистре букв.",
       },
+      {
+        kind: "do",
+        text: "Практика 1/6. Найди строки со словом  WARN",
+        check: (w) => lastCmd(w) === "grep WARN app.log",
+        answer: "grep WARN app.log",
+        hint: "grep WARN app.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Теперь то же самое, но без учёта регистра букв.",
+        check: (w) => lastCmd(w) === "grep -i warn app.log",
+        answer: "grep -i warn app.log",
+        hint: "grep -i warn app.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Прежде чем фильтровать, посмотри файл целиком — так делают перед любым поиском.",
+        check: (w) => lastCmd(w) === "cat app.log",
+        answer: "cat app.log",
+        hint: "Урок 1.4: cat app.log",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Стандартная проверка лога: сначала прочитай файл целиком, потом найди в нём\n" +
+          "строки с ERROR. Две команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iC = cmds.lastIndexOf("cat app.log");
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          return iC >= 0 && iG > iC;
+        },
+        answer: "cat app.log\ngrep ERROR app.log",
+        hint: "cat app.log, потом grep ERROR app.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же пара — прочитать целиком, потом найти ERROR.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iC = cmds.lastIndexOf("cat app.log");
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          return iC >= 0 && iG > iC;
+        },
+        answer: "cat app.log\ngrep ERROR app.log",
+        hint: "cat app.log, grep ERROR app.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз та же пара команд — это должно быть рефлексом при разборе любого лога.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iC = cmds.lastIndexOf("cat app.log");
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          return iC >= 0 && iG > iC;
+        },
+        answer: "cat app.log\ngrep ERROR app.log",
+        hint: "cat app.log, grep ERROR app.log",
+      },
     ],
   },
   {
@@ -779,6 +900,65 @@ export const act01: Lesson[] = [
         options: ["Отдаёт результат левой команды правой", "Это опечатка", "Запускает игру заново"],
         answer: 0,
         explain: "Да. Труба | соединяет команды: выход левой становится входом правой.",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Посчитай строки со словом  WARN",
+        check: (w) => lastCmd(w) === "grep WARN app.log | wc -l",
+        answer: "grep WARN app.log | wc -l",
+        hint: "grep WARN app.log | wc -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Посчитай строки со словом  ERROR  (без учёта регистра).",
+        check: (w) => lastCmd(w) === "grep -i error app.log | wc -l",
+        answer: "grep -i error app.log | wc -l",
+        hint: "grep -i error app.log | wc -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед подсчётом сначала найди просто строки с ERROR, без счётчика — глазами проверить, что там.",
+        check: (w) => lastCmd(w) === "grep ERROR app.log",
+        answer: "grep ERROR app.log",
+        hint: "Урок 1.7: grep ERROR app.log",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Сначала посмотри строки с ERROR глазами, затем посчитай их число трубой.\n" +
+          "Две команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          const iW = cmds.lastIndexOf("grep ERROR app.log | wc -l");
+          return iG >= 0 && iW > iG;
+        },
+        answer: "grep ERROR app.log\ngrep ERROR app.log | wc -l",
+        hint: "grep ERROR app.log, потом grep ERROR app.log | wc -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же пара — посмотреть глазами, потом посчитать трубой.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          const iW = cmds.lastIndexOf("grep ERROR app.log | wc -l");
+          return iG >= 0 && iW > iG;
+        },
+        answer: "grep ERROR app.log\ngrep ERROR app.log | wc -l",
+        hint: "grep ERROR app.log, grep ERROR app.log | wc -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз — эта связка (grep + труба + wc -l) встретится тебе ещё много раз в курсе.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          const iW = cmds.lastIndexOf("grep ERROR app.log | wc -l");
+          return iG >= 0 && iW > iG;
+        },
+        answer: "grep ERROR app.log\ngrep ERROR app.log | wc -l",
+        hint: "grep ERROR app.log, grep ERROR app.log | wc -l",
       },
     ],
   },
@@ -904,6 +1084,68 @@ export const act01: Lesson[] = [
         ],
         answer: 0,
         explain: "Именно поэтому перед rm -r на проде всегда сначала смотрят, что удаляют (ls, echo пути).",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Создай папку  ~/app/tmp",
+        check: (w) => lastCmd(w) === "mkdir -p ~/app/tmp",
+        answer: "mkdir -p ~/app/tmp",
+        hint: "mkdir -p ~/app/tmp",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Создай в ней пустой файл  cache.tmp",
+        check: (w) => lastCmd(w) === "touch ~/app/tmp/cache.tmp",
+        answer: "touch ~/app/tmp/cache.tmp",
+        hint: "touch ~/app/tmp/cache.tmp",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Передумал — удали этот файл.",
+        check: (w) => lastCmd(w) === "rm ~/app/tmp/cache.tmp",
+        answer: "rm ~/app/tmp/cache.tmp",
+        hint: "rm ~/app/tmp/cache.tmp",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Полный цикл: создай папку  ~/app/build , создай в ней файл  out.log ,\n" +
+          "затем убедись подробным списком, что оба появились. Три команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iM = cmds.lastIndexOf("mkdir -p ~/app/build");
+          const iT = cmds.lastIndexOf("touch ~/app/build/out.log");
+          const iL = cmds.lastIndexOf("ls -l");
+          return iM >= 0 && iT > iM && iL > iT;
+        },
+        answer: "mkdir -p ~/app/build\ntouch ~/app/build/out.log\nls -l",
+        hint: "mkdir -p ~/app/build, touch ~/app/build/out.log, ls -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же тройка — создать папку, создать в ней файл, проверить список.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iM = cmds.lastIndexOf("mkdir -p ~/app/build");
+          const iT = cmds.lastIndexOf("touch ~/app/build/out.log");
+          const iL = cmds.lastIndexOf("ls -l");
+          return iM >= 0 && iT > iM && iL > iT;
+        },
+        answer: "mkdir -p ~/app/build\ntouch ~/app/build/out.log\nls -l",
+        hint: "mkdir -p ~/app/build, touch ~/app/build/out.log, ls -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз весь цикл создания структуры — это будет твоя первая привычка на любом новом сервере.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iM = cmds.lastIndexOf("mkdir -p ~/app/build");
+          const iT = cmds.lastIndexOf("touch ~/app/build/out.log");
+          const iL = cmds.lastIndexOf("ls -l");
+          return iM >= 0 && iT > iM && iL > iT;
+        },
+        answer: "mkdir -p ~/app/build\ntouch ~/app/build/out.log\nls -l",
+        hint: "mkdir -p ~/app/build, touch ~/app/build/out.log, ls -l",
       },
     ],
   },
