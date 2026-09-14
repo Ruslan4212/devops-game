@@ -255,6 +255,8 @@ export interface World {
   httpMocks?: Record<string, HttpMock>;
   /** установленные пакеты (apt install / dpkg) — акт «Bash-скрипты» */
   packages: Record<string, boolean>;
+  /** блочные устройства сервера — диски/разделы, view lsblk / mount / umount */
+  disks?: { name: string; size: string; mount: string | null }[];
 }
 
 /** Заготовленный ответ curl на конкретный URL: код, заголовки и тело. */
