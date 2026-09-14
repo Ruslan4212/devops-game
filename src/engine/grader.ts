@@ -5,9 +5,9 @@
  * адрес прокси.
  */
 
-// TODO: заменить на реальный адрес после разворачивания grader-server
-// (Cloudflare Tunnel даёт https://ЧТО-ТО.trycloudflare.com — подставить сюда + /grade).
-export const GRADER_URL = "https://REPLACE-WITH-YOUR-GRADER-URL/grade";
+// Развёрнут на VPS (grader-server/), проксируется через Caddy по пути /grader/
+// на том же домене, что и sandbox-server.
+export const GRADER_URL = "https://72.56.16.8.nip.io/grader/grade";
 
 export interface GradeResult {
   correct: boolean;
