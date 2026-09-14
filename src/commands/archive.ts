@@ -16,16 +16,21 @@ def("tar", (a, w) => {
     const sources = a.slice(fIdx + 2).filter((x) => !x.startsWith("-"));
     if (!sources.length) return E("tar: укажи, что архивировать");
     const entries: Record<string, FSNode> = {};
+    let strippedSlash = false;
     for (const src of sources) {
       const abs = resolvePath(w, src);
       const node = getNode(w, abs);
       if (!node) return E("tar: " + src + ": Нет такого файла или каталога");
-      entries[splitPath(abs).pop() || src] = copyNode(node);
+      // как настоящий tar: путь запоминается целиком, только без ведущего слэша,
+      // иначе распаковка в корень положила бы /var/www как /www
+      if (src.startsWith("/")) strippedSlash = true;
+      const key = src.replace(/^\/+/, "").replace(/\/+$/, "") || (splitPath(abs).pop() ?? src);
+      entries[key] = copyNode(node);
     }
     const [dir] = parentOf(archiveAbs);
     mkdirp(w, dir);
     writeFile(w, archiveAbs, TAR_MAGIC + JSON.stringify(entries));
-    return O(sources.join("\n"));
+    return O((strippedSlash ? "tar: Removing leading `/' from member names\n" : "") + sources.join("\n"));
   }
 
   if (flagsTok.includes("x")) {
@@ -36,8 +41,12 @@ def("tar", (a, w) => {
     const destDir = cIdx >= 0 && a[cIdx + 1] ? resolvePath(w, a[cIdx + 1]) : w.cwd;
     mkdirp(w, destDir);
     const entries: Record<string, FSNode> = JSON.parse(archiveNode.content.slice(TAR_MAGIC.length));
-    const destNode = getNode(w, destDir) as DirNode;
-    for (const [name, node] of Object.entries(entries)) destNode.children[name] = copyNode(node);
+    for (const [name, node] of Object.entries(entries)) {
+      const abs = resolvePath(w, destDir.replace(/\/+$/, "") + "/" + name);
+      const [parent, base] = parentOf(abs);
+      mkdirp(w, parent);
+      (getNode(w, parent) as DirNode).children[base] = copyNode(node);
+    }
     return O(Object.keys(entries).join("\n"));
   }
 
