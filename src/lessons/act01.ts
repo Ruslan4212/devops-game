@@ -1626,6 +1626,65 @@ export const act01: Lesson[] = [
         answer: 0,
         explain: "sort | uniq — почти устойчивое выражение в терминале. Запомни их вместе, как пару.",
       },
+      {
+        kind: "do",
+        text: "Практика 1/6. Посчитай, сколько РАЗНЫХ пользователей заходило.",
+        check: (w) => lastCmd(w) === "cat auth.log | sort | uniq | wc -l",
+        answer: "cat auth.log | sort | uniq | wc -l",
+        hint: "cat auth.log | sort | uniq | wc -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Без счётчика — просто покажи список уникальных пользователей.",
+        check: (w) => lastCmd(w) === "cat auth.log | sort | uniq",
+        answer: "cat auth.log | sort | uniq",
+        hint: "cat auth.log | sort | uniq",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед этим прочитай файл целиком — глазами, без фильтров.",
+        check: (w) => lastCmd(w) === "cat auth.log",
+        answer: "cat auth.log",
+        hint: "Урок 1.4: cat auth.log",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Полный разбор входов: прочитай журнал целиком, затем посчитай, сколько\n" +
+          "разных людей заходило. Две команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iC = cmds.lastIndexOf("cat auth.log");
+          const iU = cmds.lastIndexOf("cat auth.log | sort | uniq | wc -l");
+          return iC >= 0 && iU > iC;
+        },
+        answer: "cat auth.log\ncat auth.log | sort | uniq | wc -l",
+        hint: "cat auth.log, потом cat auth.log | sort | uniq | wc -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же пара — прочитать целиком, потом посчитать уникальных.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iC = cmds.lastIndexOf("cat auth.log");
+          const iU = cmds.lastIndexOf("cat auth.log | sort | uniq | wc -l");
+          return iC >= 0 && iU > iC;
+        },
+        answer: "cat auth.log\ncat auth.log | sort | uniq | wc -l",
+        hint: "cat auth.log, cat auth.log | sort | uniq | wc -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз: sort | uniq — цепочка, которую ты будешь набирать сотни раз в карьере.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iC = cmds.lastIndexOf("cat auth.log");
+          const iU = cmds.lastIndexOf("cat auth.log | sort | uniq | wc -l");
+          return iC >= 0 && iU > iC;
+        },
+        answer: "cat auth.log\ncat auth.log | sort | uniq | wc -l",
+        hint: "cat auth.log, cat auth.log | sort | uniq | wc -l",
+      },
     ],
   },
   {
@@ -1692,6 +1751,65 @@ export const act01: Lesson[] = [
         ],
         answer: 0,
         explain: "find отвечает на вопрос «где файл», grep — «что внутри файла». Их часто используют вместе.",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Найди во всём дереве файлы с расширением .bak",
+        check: (w) => lastCmd(w) === "find . -name *.bak",
+        answer: "find . -name *.bak",
+        hint: "find . -name *.bak",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Найди все .log файлы.",
+        check: (w) => lastCmd(w) === "find . -name *.log",
+        answer: "find . -name *.log",
+        hint: "find . -name *.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед поиском сначала посмотри подробный список текущей папки.",
+        check: (w) => lastCmd(w) === "ls -l",
+        answer: "ls -l",
+        hint: "Урок 1.3: ls -l",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Реальный сценарий: посмотри, что лежит на верхнем уровне, затем найди\n" +
+          "во всём дереве забытые резервные копии .bak. Две команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iL = cmds.lastIndexOf("ls -l");
+          const iF = cmds.lastIndexOf("find . -name *.bak");
+          return iL >= 0 && iF > iL;
+        },
+        answer: "ls -l\nfind . -name *.bak",
+        hint: "ls -l, потом find . -name *.bak",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же пара команд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iL = cmds.lastIndexOf("ls -l");
+          const iF = cmds.lastIndexOf("find . -name *.bak");
+          return iL >= 0 && iF > iL;
+        },
+        answer: "ls -l\nfind . -name *.bak",
+        hint: "ls -l, find . -name *.bak",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз тот же разбор дерева.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iL = cmds.lastIndexOf("ls -l");
+          const iF = cmds.lastIndexOf("find . -name *.bak");
+          return iL >= 0 && iF > iL;
+        },
+        answer: "ls -l\nfind . -name *.bak",
+        hint: "ls -l, find . -name *.bak",
       },
     ],
   },
@@ -1760,6 +1878,68 @@ export const act01: Lesson[] = [
         answer: 0,
         explain:
           "Это прямое продолжение урока про утёкший пароль из git (Акт 5): секрет в коде рано или поздно утечёт.",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Заведи переменную  STAGE  со значением  prod",
+        check: (w) => w.env.STAGE === "prod" && lastCmd(w) === "export STAGE=prod",
+        answer: "export STAGE=prod",
+        hint: "export STAGE=prod",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Выведи её значение на экран.",
+        check: (w) => lastCmd(w) === "echo $STAGE",
+        answer: "echo $STAGE",
+        hint: "echo $STAGE",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед этим проверь список всех переменных с фильтром на DB_URL.",
+        check: (w) => lastCmd(w) === "env | grep DB_URL",
+        answer: "env | grep DB_URL",
+        hint: "env | grep DB_URL",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Полная настройка окружения: заведи  STAGE=prod , выведи её,\n" +
+          "затем проверь среди всех переменных через env и grep. Три команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iE = cmds.lastIndexOf("export STAGE=prod");
+          const iP = cmds.lastIndexOf("echo $STAGE");
+          const iG = cmds.lastIndexOf("env | grep STAGE");
+          return iE >= 0 && iP > iE && iG > iP && w.env.STAGE === "prod";
+        },
+        answer: "export STAGE=prod\necho $STAGE\nenv | grep STAGE",
+        hint: "export STAGE=prod, echo $STAGE, env | grep STAGE",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же тройка команд с переменной STAGE.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iE = cmds.lastIndexOf("export STAGE=prod");
+          const iP = cmds.lastIndexOf("echo $STAGE");
+          const iG = cmds.lastIndexOf("env | grep STAGE");
+          return iE >= 0 && iP > iE && iG > iP && w.env.STAGE === "prod";
+        },
+        answer: "export STAGE=prod\necho $STAGE\nenv | grep STAGE",
+        hint: "export STAGE=prod, echo $STAGE, env | grep STAGE",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз всё то же самое — завести, вывести, проверить среди всех переменных.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iE = cmds.lastIndexOf("export STAGE=prod");
+          const iP = cmds.lastIndexOf("echo $STAGE");
+          const iG = cmds.lastIndexOf("env | grep STAGE");
+          return iE >= 0 && iP > iE && iG > iP && w.env.STAGE === "prod";
+        },
+        answer: "export STAGE=prod\necho $STAGE\nenv | grep STAGE",
+        hint: "export STAGE=prod, echo $STAGE, env | grep STAGE",
       },
     ],
   },
