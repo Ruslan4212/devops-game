@@ -1596,4 +1596,111 @@ export const act09: Lesson[] = [
       },
     ],
   },
+  {
+    id: "9.23",
+    act: 9,
+    title: "Масштабирование само по себе: HPA",
+    xp: 25,
+    intro: "kubectl scale --replicas=N ты уже умеешь. А если нагрузка скачет ночью, пока ты спишь?",
+    setup: (w) => {
+      seedK8s(w);
+      w.k8s = {
+        deploys: [{ name: "api", replicas: 2, image: "shop:1.0", crash: false }],
+        pods: [],
+        svcs: [],
+      };
+      syncPods(w);
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "kubectl scale — ручное масштабирование: ты решил, ты набрал команду. Но нагрузка\n" +
+          "интернет-магазина скачет сама — распродажа среди ночи, наплыв после рекламы.\n" +
+          "Сидеть и вручную добавлять реплики круглосуточно — не работа для человека.\n\n" +
+          "HorizontalPodAutoscaler (HPA) следит за нагрузкой САМ и меняет число реплик\n" +
+          "в заданных границах — без единой команды от тебя.",
+      },
+      {
+        kind: "say",
+        text:
+          "Манифест:\n\n" +
+          "  apiVersion: autoscaling/v2\n" +
+          "  kind: HorizontalPodAutoscaler\n" +
+          "  metadata:\n" +
+          "    name: api-hpa\n" +
+          "  spec:\n" +
+          "    scaleTargetRef:\n" +
+          "      kind: Deployment\n" +
+          "      name: api\n" +
+          "    minReplicas: 2\n" +
+          "    maxReplicas: 6\n" +
+          "    metrics:\n" +
+          "      - type: Resource\n" +
+          "        resource:\n" +
+          "          name: cpu\n" +
+          "          target:\n" +
+          "            averageUtilization: 70\n\n" +
+          "Читается так: «следи за Deployment api. Пока средняя загрузка CPU выше 70% —\n" +
+          "добавляй реплики, но не больше 6. Упала нагрузка — убирай, но не меньше 2».",
+      },
+      {
+        kind: "do",
+        text:
+          "Задача: опиши HPA для Deployment api — от 2 до 6 реплик, порог CPU 70%.\n" +
+          "Набери:  edit hpa.yaml",
+        check: (w) =>
+          has("hpa.yaml", /kind:\s*HorizontalPodAutoscaler/)(w) &&
+          has("hpa.yaml", /maxReplicas:\s*6/)(w) &&
+          has("hpa.yaml", /averageUtilization:\s*70/)(w),
+        answer:
+          "apiVersion: autoscaling/v2\n" +
+          "kind: HorizontalPodAutoscaler\n" +
+          "metadata:\n" +
+          "  name: api-hpa\n" +
+          "spec:\n" +
+          "  scaleTargetRef:\n" +
+          "    kind: Deployment\n" +
+          "    name: api\n" +
+          "  minReplicas: 2\n" +
+          "  maxReplicas: 6\n" +
+          "  metrics:\n" +
+          "    - type: Resource\n" +
+          "      resource:\n" +
+          "        name: cpu\n" +
+          "        target:\n" +
+          "          averageUtilization: 70\n",
+        editFile: "/home/devops/k8s/hpa.yaml",
+        hint: "scaleTargetRef.name: api, minReplicas: 2, maxReplicas: 6, averageUtilization: 70",
+      },
+      {
+        kind: "do",
+        text: "Примени HPA.",
+        check: (w) => !!w.k8s?.hpas?.some((h) => h.deployment === "api" && h.maxReplicas === 6),
+        answer: "kubectl apply -f hpa.yaml",
+        hint: "kubectl apply -f hpa.yaml",
+      },
+      {
+        kind: "do",
+        text: "Проверь, что автоскейлер работает и следит за api.",
+        check: ran(/^kubectl\s+get\s+hpa/),
+        answer: "kubectl get hpa",
+        hint: "kubectl get hpa",
+      },
+      {
+        kind: "quiz",
+        text: "Зачем в HPA задают И minReplicas, И maxReplicas, а не просто «масштабируй как хочешь»?",
+        options: [
+          "Это ничего не значащие поля для галочки",
+          "minReplicas — минимум для отказоустойчивости, maxReplicas — потолок, чтобы всплеск нагрузки не съел весь бюджет на сервера",
+          "Kubernetes требует их синтаксически, но не использует",
+          "minReplicas и maxReplicas должны всегда быть равны",
+        ],
+        answer: 1,
+        explain:
+          "Без минимума кластер может схлопнуть сервис до одной реплики в затишье. Без потолка — разогнать " +
+          "расходы до небес на одном ложном скачке метрики. Границы — это осознанный компромисс.",
+      },
+    ],
+  },
 ];

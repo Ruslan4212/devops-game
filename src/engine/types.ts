@@ -137,6 +137,8 @@ export interface K8sState {
   roleBindings?: { name: string; role: string; serviceAccount: string }[];
   /** постоянное хранилище, переживающее пересоздание пода */
   pvcs?: { name: string; size: string; bound: boolean }[];
+  /** автомасштабирование по нагрузке — следит за Deployment из deployment */
+  hpas?: { name: string; deployment: string; minReplicas: number; maxReplicas: number; targetCpu: number }[];
 }
 
 export interface Alert {

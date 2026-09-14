@@ -85,6 +85,18 @@ def("kubectl", (a, w) => {
       k.pvcs.push({ name, size, bound: true });
       return O("persistentvolumeclaim/" + name + " created");
     }
+    if (kind === "HorizontalPodAutoscaler") {
+      k.hpas = k.hpas || [];
+      const targetMatch = y.match(/scaleTargetRef:[\s\S]*?name:\s*(\S+)/);
+      k.hpas.push({
+        name,
+        deployment: targetMatch ? targetMatch[1] : "",
+        minReplicas: Number((y.match(/minReplicas:\s*(\d+)/) || [])[1] || 1),
+        maxReplicas: Number((y.match(/maxReplicas:\s*(\d+)/) || [])[1] || 1),
+        targetCpu: Number((y.match(/averageUtilization:\s*(\d+)/) || [])[1] || 80),
+      });
+      return O("horizontalpodautoscaler.autoscaling/" + name + " created");
+    }
     if (kind === "ServiceAccount") {
       k.serviceAccounts = k.serviceAccounts || [];
       if (!k.serviceAccounts.includes(name)) k.serviceAccounts.push(name);
@@ -161,6 +173,24 @@ def("kubectl", (a, w) => {
         "NAME       COMPLETIONS   IMAGE\n" +
           ((k.jobs || [])
             .map((j) => j.name.padEnd(11) + (j.completed ? "1/1" : "0/1").padEnd(14) + j.image)
+            .join("\n") || "(нет)"),
+      );
+    if (/^hpa$|^horizontalpodautoscalers?$/.test(what))
+      return O(
+        "NAME      REFERENCE       MINPODS   MAXPODS   REPLICAS   TARGET-CPU\n" +
+          ((k.hpas || [])
+            .map((h) => {
+              const d = k.deploys.find((x) => x.name === h.deployment);
+              return (
+                h.name.padEnd(10) +
+                ("Deployment/" + h.deployment).padEnd(16) +
+                String(h.minReplicas).padEnd(10) +
+                String(h.maxReplicas).padEnd(10) +
+                String(d ? d.replicas : 0).padEnd(11) +
+                h.targetCpu +
+                "%"
+              );
+            })
             .join("\n") || "(нет)"),
       );
     if (/^pvc$|^persistentvolumeclaims?$/.test(what))
