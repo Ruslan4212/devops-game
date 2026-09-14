@@ -68,6 +68,57 @@ export const act01: Lesson[] = [
         answer: 0,
         explain: "Верно. whoami = «кто я». Она просто печатает твоё имя и ничего не меняет.",
       },
+      {
+        kind: "say",
+        text:
+          "Дальше в каждом уроке будет короткая практика — несколько задач подряд, где сложность растёт.\n" +
+          "Не потому что придумано зря: именно так команда оседает в руках навсегда, а не забывается\n" +
+          "через день. Начнём.",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Ещё раз узнай, под каким именем ты сейчас работаешь.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "whoami",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Коллега в чате спрашивает: «под кем ты сейчас в терминале?» Ответь командой, а не словами.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "whoami",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 3/6. Перед тем как что-то менять на сервере, хорошая привычка — сверить пользователя.\n" +
+          "Сделай это сейчас, без подсказки в виде готовой команды выше.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "Та же команда, что и весь урок — три раза подряд, чтобы рука запомнила.",
+      },
+      {
+        kind: "do",
+        text: "Практика 4/6. Сейчас 3 часа ночи, звонок про инцидент. Первая команда, которую ты набираешь на любом сервере, — эта. Набери её.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "whoami",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без единой подсказки в тексте: узнай, под каким пользователем ты вошёл.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "Это первая команда, которую ты выучил в этом уроке.",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Последний раз в этом уроке — дальше эта команда уже должна набираться не думая.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "whoami",
+      },
     ],
   },
   {
@@ -111,6 +162,65 @@ export const act01: Lesson[] = [
         options: ["Ты сейчас находишься в папке /etc", "Ты удалил папку /etc", "Произошла ошибка"],
         answer: 0,
         explain: "Да. pwd всегда показывает ту папку, в которой ты сейчас находишься.",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Спроси у терминала, где ты сейчас находишься.",
+        check: (w) => lastCmd(w) === "pwd",
+        answer: "pwd",
+        hint: "pwd",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Сначала вспомни команду из прошлого урока — под кем ты работаешь.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "Урок 1.1: whoami",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. А теперь узнай, в какой папке ты сейчас — командой из этого урока.",
+        check: (w) => lastCmd(w) === "pwd",
+        answer: "pwd",
+        hint: "pwd",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Перед любой рискованной операцией на сервере первым делом проверяют две вещи:\n" +
+          "кто ты и где ты. Набери обе команды подряд — сначала «кто», потом «где».",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          return iW >= 0 && iP > iW;
+        },
+        answer: "whoami\npwd",
+        hint: "Сначала whoami, потом pwd — одна за другой.",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: те же две команды, но теперь ты не спишь третью ночь подряд и делаешь это на автомате.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          return iW >= 0 && iP > iW;
+        },
+        answer: "whoami\npwd",
+        hint: "whoami, затем pwd.",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Последний раз в этом уроке: снова «кто я» и «где я», в этом порядке.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          return iW >= 0 && iP > iW;
+        },
+        answer: "whoami\npwd",
+        hint: "whoami, затем pwd.",
       },
     ],
   },
@@ -176,6 +286,68 @@ export const act01: Lesson[] = [
         answer: 0,
         explain: "Точно. -l = «long», подробный вид списка.",
       },
+      {
+        kind: "do",
+        text: "Практика 1/6. Покажи подробный список текущей папки.",
+        check: (w) => lastCmd(w) === "ls -l",
+        answer: "ls -l",
+        hint: "ls -l",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Теперь простой список, без подробностей.",
+        check: (w) => lastCmd(w) === "ls",
+        answer: "ls",
+        hint: "ls",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Прежде чем смотреть файлы, по привычке из прошлых уроков подтверди, где ты находишься.",
+        check: (w) => lastCmd(w) === "pwd",
+        answer: "pwd",
+        hint: "Урок 1.2: pwd",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Собери всё вместе, как в начале рабочего дня: кто ты, где ты, что здесь лежит\n" +
+          "(подробно). Три команды подряд, в этом порядке.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          const iL = cmds.lastIndexOf("ls -l");
+          return iW >= 0 && iP > iW && iL > iP;
+        },
+        answer: "whoami\npwd\nls -l",
+        hint: "whoami, потом pwd, потом ls -l.",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же тройка команд — кто, где, что здесь подробно.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          const iL = cmds.lastIndexOf("ls -l");
+          return iW >= 0 && iP > iW && iL > iP;
+        },
+        answer: "whoami\npwd\nls -l",
+        hint: "whoami, pwd, ls -l — по порядку.",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз та же тройка — это должно стать рефлексом на любом новом сервере.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          const iL = cmds.lastIndexOf("ls -l");
+          return iW >= 0 && iP > iW && iL > iP;
+        },
+        answer: "whoami\npwd\nls -l",
+        hint: "whoami, pwd, ls -l.",
+      },
     ],
   },
   {
@@ -227,6 +399,71 @@ export const act01: Lesson[] = [
         answer: 0,
         explain: "Верно. cat только читает файл и печатает его содержимое.",
       },
+      {
+        kind: "do",
+        text: "Практика 1/6. Прочитай файл  notes.txt  ещё раз.",
+        check: (w) => lastCmd(w) === "cat notes.txt",
+        answer: "cat notes.txt",
+        hint: "cat notes.txt",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Теперь прочитай  README.md",
+        check: (w) => lastCmd(w) === "cat README.md",
+        answer: "cat README.md",
+        hint: "cat README.md",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Прежде чем читать файлы, сначала посмотри подробный список папки — что там вообще есть.",
+        check: (w) => lastCmd(w) === "ls -l",
+        answer: "ls -l",
+        hint: "Урок 1.3: ls -l",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Полный ритуал новичка на сервере: кто ты, где ты, что здесь лежит подробно,\n" +
+          "и прочитай notes.txt. Четыре команды подряд, в этом порядке.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          const iL = cmds.lastIndexOf("ls -l");
+          const iC = cmds.lastIndexOf("cat notes.txt");
+          return iW >= 0 && iP > iW && iL > iP && iC > iL;
+        },
+        answer: "whoami\npwd\nls -l\ncat notes.txt",
+        hint: "whoami, pwd, ls -l, cat notes.txt — по порядку.",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же четвёрка команд целиком.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          const iL = cmds.lastIndexOf("ls -l");
+          const iC = cmds.lastIndexOf("cat notes.txt");
+          return iW >= 0 && iP > iW && iL > iP && iC > iL;
+        },
+        answer: "whoami\npwd\nls -l\ncat notes.txt",
+        hint: "whoami, pwd, ls -l, cat notes.txt.",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз весь ритуал целиком — четыре команды одна за другой.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          const iL = cmds.lastIndexOf("ls -l");
+          const iC = cmds.lastIndexOf("cat notes.txt");
+          return iW >= 0 && iP > iW && iL > iP && iC > iL;
+        },
+        answer: "whoami\npwd\nls -l\ncat notes.txt",
+        hint: "whoami, pwd, ls -l, cat notes.txt.",
+      },
     ],
   },
   {
@@ -235,6 +472,7 @@ export const act01: Lesson[] = [
     title: "Перейти в другую папку",
     xp: 20,
     intro: "Учимся ходить по папкам: cd и cd ..",
+    setup: seedHome,
     steps: [
       {
         kind: "say",
@@ -302,6 +540,67 @@ export const act01: Lesson[] = [
         options: ["Поднимает на одну папку вверх", "Удаляет текущую папку", "Показывает содержимое папки"],
         answer: 0,
         explain: "Да. Две точки везде в терминале значат «папка уровнем выше».",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Перейди в папку  /tmp",
+        check: (w) => w.cwd === "/tmp" && lastCmd(w) === "cd /tmp",
+        answer: "cd /tmp",
+        hint: "cd /tmp",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Поднимись на одну папку выше.",
+        check: (w) => w.cwd === "/" && lastCmd(w) === "cd ..",
+        answer: "cd ..",
+        hint: "cd ..",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Посмотри подробный список того, что лежит здесь — командой из урока 1.3.",
+        check: (w) => lastCmd(w) === "ls -l",
+        answer: "ls -l",
+        hint: "Урок 1.3: ls -l",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Собери маршрут новичка целиком: перейди в  /var , посмотри список подробно,\n" +
+          "перейди в  /var/log , и прочитай там файл, который лежит в этой же папке — ls -l покажет его имя,\n" +
+          "но сейчас там пусто, так что просто подтверди, где ты, командой pwd в конце.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iV = cmds.lastIndexOf("cd /var");
+          const iL = cmds.lastIndexOf("ls -l");
+          const iVL = cmds.lastIndexOf("cd /var/log");
+          const iP = cmds.lastIndexOf("pwd");
+          return iV >= 0 && iL > iV && iVL > iL && iP > iVL && w.cwd === "/var/log";
+        },
+        answer: "cd /var\nls -l\ncd /var/log\npwd",
+        hint: "cd /var, потом ls -l, потом cd /var/log, потом pwd.",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Вернись домой одной короткой командой.",
+        check: (w) => w.cwd === "/home/devops" && lastCmd(w) === "cd ~",
+        answer: "cd ~",
+        hint: "Значок тильды: cd ~",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 6/6. Финальный прогон без подсказок: узнай кто ты, где ты, посмотри список подробно,\n" +
+          "и прочитай  notes.txt . Четыре команды подряд — весь урок 1.1-1.4 разом.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iP = cmds.lastIndexOf("pwd");
+          const iL = cmds.lastIndexOf("ls -l");
+          const iC = cmds.lastIndexOf("cat notes.txt");
+          return iW >= 0 && iP > iW && iL > iP && iC > iL;
+        },
+        answer: "whoami\npwd\nls -l\ncat notes.txt",
+        hint: "whoami, pwd, ls -l, cat notes.txt.",
       },
     ],
   },
