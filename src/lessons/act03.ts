@@ -625,7 +625,14 @@ export const act03: Lesson[] = [
         text:
           "Задача: попробуй прочитать несуществующий  missing.txt , а если не получится —\n" +
           "выведи «файла нет, использую значение по умолчанию».",
-        check: ran(/cat\s+missing\.txt\s*\|\|\s*echo/),
+        check: (w) => {
+          // теперь каждый сегмент цепочки && / || — своя запись в истории (как в
+          // настоящем терминале), поэтому ищем обе половины по отдельности, по порядку
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iC = cmds.lastIndexOf("cat missing.txt");
+          const iE = cmds.findIndex((c, i) => i > iC && /^echo\b/.test(c));
+          return iC >= 0 && iE > iC;
+        },
         answer: "cat missing.txt || echo файла нет, использую значение по умолчанию",
         hint: "cat missing.txt || echo файла нет, использую значение по умолчанию",
       },

@@ -200,15 +200,18 @@ export function execLine(w: World, line: string, opts: { record?: boolean } = {}
     res = execPipeline(w, seg);
     if (res.out) outs.push(res.out);
     if (res.clear || res.hint || res.edit || res.restart || res.exitCalled !== undefined) {
-      if (record) w.log.push({ cmd: line, code: res.code || 0 });
+      // каждый сегмент цепочки — своя запись в истории, ровно как если бы игрок
+      // набрал их по отдельности: так задачи, проверяющие "была ли выполнена
+      // команда X", узнают её и внутри  X && Y , а не только когда X набрали одну
+      if (record) w.log.push({ cmd: seg, code: res.code || 0 });
       return { ...res, out: outs.join("\n") };
     }
+    if (record) w.log.push({ cmd: seg, code: res.code || 0 });
     w.code = res.code || 0;
     if (op === "&&" && res.code !== 0) break;
     if (op === "||" && res.code === 0) break;
   }
 
   w.code = res.code || 0;
-  if (record) w.log.push({ cmd: line, code: w.code });
   return { ...res, out: outs.join("\n") };
 }

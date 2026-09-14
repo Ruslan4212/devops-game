@@ -120,11 +120,16 @@ function startLesson(id: string): void {
 
   P.cur = id;
   persist();
-  run = new LessonRun(lesson, { strict: !!P.strict });
+  // если на этом уроке уже есть незаконченный прогресс — восстанавливаем его, а не начинаем с шага 1
+  const restoring = !!(P.lessonState && P.lessonState.id === id && P.lessonState.actions.length > 0);
+  run = restoring
+    ? LessonRun.fromState(lesson, P.lessonState!, { strict: !!P.strict })
+    : new LessonRun(lesson, { strict: !!P.strict });
 
   clearTerminal();
   print(`— Урок ${lesson.id}: ${lesson.title} —`, "ok");
   print(lesson.intro, "dim");
+  if (restoring) print(`↺ Прогресс восстановлен — продолжаем с шага ${run.stepIx + 1}.`, "dim");
   print("");
   setPrompt(run.world);
   enterStep();
@@ -150,8 +155,16 @@ function enterStep(): void {
   if (needsTyping) $("#cmd").focus();
 }
 
+/** Сохраняет снимок незаконченного урока — вызывается на каждое изменение шага/попытки. */
+function persistLessonState(): void {
+  if (!run || run.finished) return;
+  P.lessonState = run.snapshot();
+  persist();
+}
+
 function renderPanel(): void {
   if (!run) return;
+  persistLessonState();
   renderLessonPanel(run, {
     onAdvance: () => {
       run!.ackAndAdvance();
@@ -189,6 +202,8 @@ function afterStep(): void {
 
 function completeLesson(): void {
   if (!run) return;
+  // урок закончен — сохранённый снимок незаконченного прохождения больше не нужен
+  if (P.lessonState?.id === run.lesson.id) P.lessonState = undefined;
   const lesson = run.lesson;
   let gainedXp = lesson.xp;
   let credited = 0;

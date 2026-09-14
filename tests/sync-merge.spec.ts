@@ -102,4 +102,46 @@ describe("mergeProgress — слияние прогресса устройств
     expect(merged.done).toEqual({ "1.1": true, "1.2": true, "1.3": true, "2.1": true });
     expect(merged.cur).toBe("2.2");
   });
+
+  it("lessonState: побеждает та версия, что дальше продвинулась внутри одного и того же урока", () => {
+    const a = P({
+      cur: "1.3",
+      lessonState: { id: "1.3", stepIx: 1, attempts: 0, actions: [{ kind: "cmd", cmd: "ls" }] },
+    });
+    const b = P({
+      cur: "1.3",
+      lessonState: {
+        id: "1.3",
+        stepIx: 3,
+        attempts: 0,
+        actions: [
+          { kind: "cmd", cmd: "ls" },
+          { kind: "cmd", cmd: "ls -l" },
+          { kind: "cmd", cmd: "ls -l" },
+        ],
+      },
+    });
+    expect(mergeProgress(a, b).lessonState).toEqual(b.lessonState);
+    expect(mergeProgress(b, a).lessonState).toEqual(b.lessonState);
+  });
+
+  it("lessonState: отбрасывается, если урок уже отмечен пройденным на любом устройстве", () => {
+    const withProgress = P({
+      cur: "1.3",
+      lessonState: { id: "1.3", stepIx: 2, attempts: 0, actions: [] },
+    });
+    const finishedElsewhere = P({ cur: "1.3", done: { "1.3": true } });
+    const merged = mergeProgress(withProgress, finishedElsewhere);
+    expect(merged.lessonState).toBeUndefined();
+  });
+
+  it("lessonState: не переносится со старого урока, если cur уже указывает на другой", () => {
+    const a = P({
+      cur: "1.5",
+      done: { "1.4": true },
+      lessonState: { id: "1.3", stepIx: 4, attempts: 0, actions: [] },
+    });
+    const merged = mergeProgress(a, P());
+    expect(merged.lessonState).toBeUndefined();
+  });
 });

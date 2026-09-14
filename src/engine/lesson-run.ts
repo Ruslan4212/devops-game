@@ -8,6 +8,17 @@ export type StepResult =
   | { status: "advance"; printOut?: string; printTone?: "ok" | "err" | null }
   | { status: "retry"; feedback: string; reveal?: string };
 
+/** Одно действие, менявшее world с начала урока — нужно для восстановления после перезагрузки/синхронизации. */
+export type ReplayAction = { kind: "cmd"; cmd: string } | { kind: "edit"; path: string; content: string };
+
+/** Снимок прохождения незаконченного урока — то, что нужно сохранить, чтобы не проходить заново. */
+export interface LessonState {
+  id: string;
+  stepIx: number;
+  attempts: number;
+  actions: ReplayAction[];
+}
+
 const norm = (s: string): string => s.toLowerCase().replace(/\s+/g, " ").trim().replace(/\s*;$/, "");
 
 /** Короткое дружелюбное объяснение, чем набранное отличается от нужного. */
@@ -30,12 +41,32 @@ export class LessonRun {
   /** сколько раз игрок промахнулся на текущем шаге */
   attempts = 0;
   finished = false;
+  /** каждое исполнение команды/правки файла с начала урока — для восстановления после перезагрузки */
+  readonly actions: ReplayAction[] = [];
 
   constructor(lesson: Lesson, opts: { strict?: boolean } = {}) {
     this.lesson = lesson;
     this.strict = !!opts.strict;
     this.world = newWorld();
     lesson.setup?.(this.world);
+  }
+
+  /** Снимок текущего прохождения — сохранить, чтобы восстановить ровно на этом месте. */
+  snapshot(): LessonState {
+    return { id: this.lesson.id, stepIx: this.stepIx, attempts: this.attempts, actions: this.actions };
+  }
+
+  /** Воссоздаёт урок из сохранённого снимка: та же настройка world, потом повтор всех действий игрока. */
+  static fromState(lesson: Lesson, state: LessonState, opts: { strict?: boolean } = {}): LessonRun {
+    const run = new LessonRun(lesson, opts);
+    for (const a of state.actions) {
+      if (a.kind === "cmd") execLine(run.world, a.cmd);
+      else applyFileEdit(run.world, a.path, a.content);
+      run.actions.push(a);
+    }
+    run.stepIx = Math.min(state.stepIx, lesson.steps.length - 1);
+    run.attempts = state.attempts;
+    return run;
   }
 
   /** После скольких промахов показывать подсказку. */
@@ -88,6 +119,7 @@ export class LessonRun {
     const step = this.step as TypeStep;
     if (norm(input) === norm(step.cmd)) {
       const r = execLine(this.world, input);
+      this.actions.push({ kind: "cmd", cmd: input });
       this.goNext();
       return { status: "advance", printOut: r.out, printTone: r.err ? "err" : null };
     }
@@ -98,6 +130,7 @@ export class LessonRun {
   submitDo(input: string): StepResult {
     const step = this.step as DoStep;
     const r: CmdResult = execLine(this.world, input);
+    this.actions.push({ kind: "cmd", cmd: input });
     if (step.check(this.world)) {
       this.goNext();
       return { status: "advance", printOut: r.out, printTone: r.err ? "err" : null };
@@ -123,6 +156,7 @@ export class LessonRun {
   /** Игрок сохранил файл в редакторе (актуально для «сделай»-шагов актов 2–10). */
   applyEdit(path: string, content: string): StepResult {
     applyFileEdit(this.world, path, content);
+    this.actions.push({ kind: "edit", path, content });
     if (this.step.kind === "do" && (this.step as DoStep).check(this.world)) {
       this.goNext();
       return { status: "advance" };

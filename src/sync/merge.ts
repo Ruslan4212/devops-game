@@ -1,5 +1,19 @@
 import { mergeLife } from "../engine/life";
 import type { Progress } from "../engine/progress";
+import type { LessonState } from "../engine/lesson-run";
+
+/**
+ * Снимок прохождения текущего урока имеет смысл только для того урока, который
+ * выбран как cur. Если оба устройства стояли на одном и том же уроке — берём
+ * снимок, где сделано больше действий (дальше продвинулись); если на разных —
+ * снимок от того устройства, чей cur победил.
+ */
+function pickLessonState(a: Progress, b: Progress, cur: string | null): LessonState | undefined {
+  const as = a.lessonState?.id === cur ? a.lessonState : undefined;
+  const bs = b.lessonState?.id === cur ? b.lessonState : undefined;
+  if (as && bs) return as.actions.length >= bs.actions.length ? as : bs;
+  return as ?? bs;
+}
 
 /**
  * Слияние двух версий прогресса — например, локальной и облачной,
@@ -44,11 +58,12 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
   if (aDone !== bDone) cur = aDone > bDone ? a.cur : b.cur;
   else cur = (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a.cur : b.cur;
 
+  const finalCur = cur ?? a.cur ?? b.cur ?? null;
   return {
     xp: Math.max(a.xp ?? 0, b.xp ?? 0),
     done,
     hints,
-    cur: cur ?? a.cur ?? b.cur ?? null,
+    cur: finalCur,
     updatedAt: Math.max(a.updatedAt ?? 0, b.updatedAt ?? 0) || Date.now(),
     capstone: Boolean(a.capstone || b.capstone),
     jobs,
@@ -56,5 +71,8 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     legacyImported: Boolean(a.legacyImported || b.legacyImported),
     // strict — переключаемая настройка, а не прогресс: берём у той версии, что сохранена позже
     strict: (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a.strict : b.strict,
+    // done уже мог "перегнать" lessonState с другого устройства — если урок отмечен
+    // пройденным где-то, снимок незаконченного прохождения этого же урока не нужен
+    lessonState: done[finalCur ?? ""] ? undefined : pickLessonState(a, b, finalCur),
   };
 }

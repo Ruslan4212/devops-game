@@ -1,4 +1,5 @@
 import type { Life } from "./life";
+import type { LessonState } from "./lesson-run";
 
 export interface Progress {
   xp: number;
@@ -21,6 +22,8 @@ export interface Progress {
   deathPending?: boolean;
   /** сколько раз персонаж «падал» (для статистики/флейвора) */
   deaths?: number;
+  /** снимок незаконченного текущего урока — чтобы перезагрузка/синхронизация не откатывали его к шагу 1 */
+  lessonState?: LessonState;
 }
 
 const KEY = "devops_terminal_rpg_v1";
