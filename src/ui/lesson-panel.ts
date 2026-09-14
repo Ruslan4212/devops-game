@@ -151,7 +151,13 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
       const myAnswer = (ta?.value ?? "").trim();
       quizState = { key: quizKey, state: { phase: "grading", myAnswer } };
       renderLessonPanel(run, h);
-      gradeAnswer(qs.text, qs.options[qs.answer], qs.explain, myAnswer)
+      gradeAnswer({
+        question: qs.text,
+        options: qs.options,
+        answerIx: qs.answer,
+        explain: qs.explain,
+        userAnswer: myAnswer,
+      })
         .then((result) => {
           quizState = { key: quizKey, state: { phase: "graded", myAnswer, result } };
           renderLessonPanel(run, h);

@@ -89,7 +89,7 @@ function run(title: string, questions: TechQuestion[]): void {
         `<h1>${esc(title)}</h1>` +
         `<div class="cr-q">${esc(q.q)}</div>` +
         `<div class="lp-tip">🧑‍🏫 Наставник проверяет ответ…</div>`;
-      gradeAnswer(q.q, q.options[q.answer], q.why, mine)
+      gradeAnswer({ question: q.q, options: q.options, answerIx: q.answer, explain: q.why, userAnswer: mine })
         .then((result) => {
           $("#modBody").innerHTML =
             `<h1>${esc(title)}</h1>` +

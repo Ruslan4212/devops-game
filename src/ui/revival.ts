@@ -128,7 +128,7 @@ export function openRevivalExam(d: RevivalDeps): void {
       transcript.push(bubble("me", esc(mine || "(ничего не написал)")));
       transcript.push(bubble("sys", "🧑‍🏫 Проверяю ответ…"));
       $("#modBody").innerHTML = header() + `<div class="iv-chat">${transcript.join("")}</div>`;
-      gradeAnswer(q.q, q.options[q.answer], q.why, mine)
+      gradeAnswer({ question: q.q, options: q.options, answerIx: q.answer, explain: q.why, userAnswer: mine })
         .then((result) => {
           transcript.pop();
           transcript.push(

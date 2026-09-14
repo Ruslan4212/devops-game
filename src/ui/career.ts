@@ -242,7 +242,7 @@ function runInterview(job: Job, d: CareerDeps): void {
       transcript.push(bubble("lead", "🧑‍💻 Думает над твоим ответом…"));
       $("#modBody").innerHTML = header() + `<div class="iv-chat">${transcript.join("")}</div>`;
       scrollChatToEnd();
-      gradeAnswer(q.q, q.options[q.answer], q.why, mine)
+      gradeAnswer({ question: q.q, options: q.options, answerIx: q.answer, explain: q.why, userAnswer: mine })
         .then((result) => {
           transcript.pop();
           transcript.push(
