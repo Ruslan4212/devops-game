@@ -1185,4 +1185,112 @@ export const act09: Lesson[] = [
       },
     ],
   },
+  {
+    id: "9.19",
+    act: 9,
+    title: "Вход снаружи: Ingress",
+    xp: 30,
+    intro: "Service даёт стабильный адрес ВНУТРИ кластера. Снаружи, из интернета, по нему не достучаться.",
+    setup: (w) => {
+      seedK8s(w);
+      writeFile(w, "/home/devops/k8s/deploy.yaml", DEPLOY_OK);
+      writeFile(w, "/home/devops/k8s/service.yaml", SERVICE_YAML);
+      w.k8s = { deploys: [], pods: [], svcs: [] };
+    },
+    steps: [
+      {
+        kind: "say",
+        text:
+          "Service отвечает на вопрос «как одним подам достучаться до других внутри кластера».\n" +
+          "Но у обычного Service нет адреса, который понимает браузер снаружи. Открывать для\n" +
+          "КАЖДОГО сервиса отдельный внешний IP — дорого и неудобно, если сервисов десятки.\n\n" +
+          "Ingress — это один общий «вход» в кластер, который смотрит на домен и путь в запросе\n" +
+          "и решает, к какому Service его направить.",
+      },
+      {
+        kind: "say",
+        text:
+          "Пример:\n\n" +
+          "  apiVersion: networking.k8s.io/v1\n" +
+          "  kind: Ingress\n" +
+          "  metadata:\n" +
+          "    name: shop-ingress\n" +
+          "  spec:\n" +
+          "    rules:\n" +
+          "      - host: shop.local\n" +
+          "        http:\n" +
+          "          paths:\n" +
+          "            - path: /\n" +
+          "              backend:\n" +
+          "                service:\n" +
+          "                  name: api\n" +
+          "                  port:\n" +
+          "                    number: 80\n\n" +
+          "Читается так: «запрос на домен shop.local с путём / отправь в Service api на порт 80».",
+      },
+      {
+        kind: "do",
+        text: "Шаг 1. Сначала подними сам сервис — примени Deployment и Service.",
+        check: (w) => !!w.k8s && w.k8s.deploys.length > 0 && w.k8s.svcs.length > 0,
+        answer: "kubectl apply -f deploy.yaml\nkubectl apply -f service.yaml",
+        hint: "kubectl apply -f deploy.yaml, затем kubectl apply -f service.yaml",
+      },
+      {
+        kind: "do",
+        text:
+          "Шаг 2. Опиши Ingress: домен  shop.local , путь  / , backend — сервис  api  на порту 80.\n" +
+          "Набери:  edit ingress.yaml",
+        check: (w) =>
+          has("ingress.yaml", /kind:\s*Ingress/)(w) &&
+          has("ingress.yaml", /host:\s*shop\.local/)(w) &&
+          has("ingress.yaml", /service:\s*\n\s*name:\s*api/)(w),
+        answer:
+          "apiVersion: networking.k8s.io/v1\n" +
+          "kind: Ingress\n" +
+          "metadata:\n" +
+          "  name: shop-ingress\n" +
+          "spec:\n" +
+          "  rules:\n" +
+          "    - host: shop.local\n" +
+          "      http:\n" +
+          "        paths:\n" +
+          "          - path: /\n" +
+          "            backend:\n" +
+          "              service:\n" +
+          "                name: api\n" +
+          "                port:\n" +
+          "                  number: 80\n",
+        editFile: "/home/devops/k8s/ingress.yaml",
+        hint: "kind: Ingress, host: shop.local, backend → service → name: api, port → number: 80.",
+      },
+      {
+        kind: "do",
+        text: "Шаг 3. Примени манифест Ingress.",
+        check: ranAny(/^kubectl\s+apply\s+-f\s+ingress\.yaml/),
+        answer: "kubectl apply -f ingress.yaml",
+        hint: "kubectl apply -f ingress.yaml",
+      },
+      {
+        kind: "do",
+        text: "Шаг 4. Проверь, что вход настроен.",
+        check: ran(/^kubectl\s+get\s+ing/),
+        answer: "kubectl get ingress",
+        hint: "kubectl get ingress",
+      },
+      {
+        kind: "quiz",
+        text: "Чем Ingress отличается от Service?",
+        options: [
+          "Ничем, это два названия одного и того же",
+          "Service — стабильный адрес ВНУТРИ кластера, Ingress — единая точка входа снаружи по домену/пути",
+          "Ingress нужен только для баз данных",
+          "Service работает только с одним подом, Ingress — с несколькими",
+        ],
+        answer: 1,
+        explain:
+          "Service решает внутреннюю задачу («под умер — трафик тут же нашёл живой»). Ingress решает внешнюю: " +
+          "один вход в кластер, который по домену и пути раскидывает запросы на нужные Service.",
+      },
+    ],
+  },
 ];

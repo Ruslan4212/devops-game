@@ -64,6 +64,15 @@ def("kubectl", (a, w) => {
       k.svcs.push({ name, port: Number((y.match(/port:\s*(\d+)/) || [])[1] || 80) });
       return O("service/" + name + " created");
     }
+    if (kind === "Ingress") {
+      const host = (y.match(/host:\s*(\S+)/) || [])[1] || "app.local";
+      const svcMatch = y.match(/service:\s*\n\s*name:\s*(\S+)/);
+      const service = svcMatch ? svcMatch[1] : "";
+      const port = Number((y.match(/number:\s*(\d+)/) || [])[1] || 80);
+      k.ingresses = k.ingresses || [];
+      k.ingresses.push({ name, host, service, port });
+      return O("ingress.networking.k8s.io/" + name + " created");
+    }
     return O(kind.toLowerCase() + "/" + name + " created");
   }
 
@@ -92,7 +101,14 @@ def("kubectl", (a, w) => {
     }
     if (/^s(vc|ervice)/.test(what))
       return O("NAME       PORT\n" + (k.svcs.map((s) => s.name.padEnd(11) + s.port).join("\n") || "(нет)"));
-    return E("kubectl get: укажи ресурс — pods | deployments | services");
+    if (/^ing/.test(what))
+      return O(
+        "NAME            HOST              SERVICE        PORT\n" +
+          ((k.ingresses || [])
+            .map((i) => i.name.padEnd(16) + i.host.padEnd(18) + i.service.padEnd(15) + i.port)
+            .join("\n") || "(нет)"),
+      );
+    return E("kubectl get: укажи ресурс — pods | deployments | services | ingress");
   }
 
   if (sub === "describe") {

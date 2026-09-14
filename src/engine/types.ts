@@ -125,6 +125,8 @@ export interface K8sState {
   svcs: { name: string; port: number }[];
   /** сколько подов кластер физически способен разместить (учебный лимит узлов) */
   nodeCapacity?: number;
+  /** правила входящего трафика: домен -> Service (Ingress) */
+  ingresses?: { name: string; host: string; service: string; port: number }[];
 }
 
 export interface Alert {
