@@ -1997,6 +1997,68 @@ export const act01: Lesson[] = [
         explain:
           "Заполненный диск — одна из самых частых причин полного отказа сервера. Смотрят на df регулярно, а не по факту аварии.",
       },
+      {
+        kind: "do",
+        text: "Практика 1/6. Проверь оперативную память.",
+        check: (w) => lastCmd(w) === "free",
+        answer: "free",
+        hint: "free",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. И снова диск.",
+        check: (w) => lastCmd(w) === "df",
+        answer: "df",
+        hint: "df",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед этим подтверди, под кем ты сейчас работаешь — привычка с самого начала курса.",
+        check: (w) => lastCmd(w) === "whoami",
+        answer: "whoami",
+        hint: "Урок 1.1: whoami",
+      },
+      {
+        kind: "do",
+        text:
+          "Практика 4/6. Стандартная утренняя проверка сервера: кто ты, диск, память.\n" +
+          "Три команды подряд.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iD = cmds.lastIndexOf("df");
+          const iF = cmds.lastIndexOf("free");
+          return iW >= 0 && iD > iW && iF > iD;
+        },
+        answer: "whoami\ndf\nfree",
+        hint: "whoami, df, free",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же тройка проверок.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iD = cmds.lastIndexOf("df");
+          const iF = cmds.lastIndexOf("free");
+          return iW >= 0 && iD > iW && iF > iD;
+        },
+        answer: "whoami\ndf\nfree",
+        hint: "whoami, df, free",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз — утренний ритуал проверки здоровья сервера.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iW = cmds.lastIndexOf("whoami");
+          const iD = cmds.lastIndexOf("df");
+          const iF = cmds.lastIndexOf("free");
+          return iW >= 0 && iD > iW && iF > iD;
+        },
+        answer: "whoami\ndf\nfree",
+        hint: "whoami, df, free",
+      },
     ],
   },
   {
@@ -2005,6 +2067,10 @@ export const act01: Lesson[] = [
     title: "Не гугли — спроси сам сервер: man",
     xp: 20,
     intro: "На боевом сервере часто нет интернета. Справка всегда под рукой.",
+    setup: (w) => {
+      seedAppLog(w);
+      w.cwd = "/var/log";
+    },
     steps: [
       {
         kind: "say",
@@ -2038,6 +2104,63 @@ export const act01: Lesson[] = [
         ],
         answer: 0,
         explain: "Плюс это быстрее: не отвлекаешься от терминала на середине задачи.",
+      },
+      {
+        kind: "do",
+        text: "Практика 1/6. Узнай через справку, что делает  ls",
+        check: (w) => lastCmd(w) === "man ls",
+        answer: "man ls",
+        hint: "man ls",
+      },
+      {
+        kind: "do",
+        text: "Практика 2/6. Теперь справку по  find",
+        check: (w) => lastCmd(w) === "man find",
+        answer: "man find",
+        hint: "man find",
+      },
+      {
+        kind: "do",
+        text: "Практика 3/6. Перед этим вспомни саму команду find в деле — найди все .log файлы.",
+        check: (w) => lastCmd(w) === "find . -name *.log",
+        answer: "find . -name *.log",
+        hint: "Урок 1.15: find . -name *.log",
+      },
+      {
+        kind: "do",
+        text: "Практика 4/6. Сначала попробуй команду сам, а если забыл флаги — сразу проверь справку. grep, потом man grep.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          const iM = cmds.lastIndexOf("man grep");
+          return iM >= 0 && iM > iG;
+        },
+        answer: "grep ERROR app.log\nman grep",
+        hint: "grep ERROR app.log, потом man grep",
+      },
+      {
+        kind: "do",
+        text: "Практика 5/6. Без подсказок: та же связка команда → справка.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          const iM = cmds.lastIndexOf("man grep");
+          return iM >= 0 && iM > iG;
+        },
+        answer: "grep ERROR app.log\nman grep",
+        hint: "grep ERROR app.log, man grep",
+      },
+      {
+        kind: "do",
+        text: "Практика 6/6. Ещё раз — привычка «не помню флаг, сразу man», а не гуглить.",
+        check: (w) => {
+          const cmds = w.log.map((l) => l.cmd.trim());
+          const iG = cmds.lastIndexOf("grep ERROR app.log");
+          const iM = cmds.lastIndexOf("man grep");
+          return iM >= 0 && iM > iG;
+        },
+        answer: "grep ERROR app.log\nman grep",
+        hint: "grep ERROR app.log, man grep",
       },
     ],
   },
