@@ -61,10 +61,12 @@ describe("персонаж — портрет", () => {
   });
 
   it("борода рисуется только у мужского персонажа", () => {
-    const base = { ...defaultAppearance(), beard: true, beardStyle: 1 };
-    const withBeard = avatarSVG({ ...base, sex: "m" });
-    const without = avatarSVG({ ...base, sex: "f" });
-    expect(withBeard.length).toBeGreaterThan(without.length);
+    // сравниваем один и тот же персонаж с бородой и без: длину строки сравнивать
+    // нельзя — у женских причёсок есть свой слой волос за головой
+    const m = { ...defaultAppearance(), sex: "m" as const };
+    expect(avatarSVG({ ...m, beard: true, beardStyle: 1 })).not.toBe(avatarSVG(m));
+    const f = { ...defaultAppearance(), sex: "f" as const };
+    expect(avatarSVG({ ...f, beard: true, beardStyle: 1 })).toBe(avatarSVG(f));
   });
 
   it("каждый стиль бороды даёт свой контур", () => {
