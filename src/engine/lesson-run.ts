@@ -6,7 +6,7 @@ import type { CmdResult, DoStep, Lesson, QuizStep, Step, TypeStep, World } from 
 /** Что панель должна сделать после действия игрока. */
 export type StepResult =
   | { status: "advance"; printOut?: string; printTone?: "ok" | "err" | null }
-  | { status: "retry"; feedback: string; reveal?: string };
+  | { status: "retry"; feedback: string; reveal?: string; out?: string };
 
 /** Одно действие, менявшее world с начала урока — нужно для восстановления после перезагрузки/синхронизации. */
 export type ReplayAction =
@@ -178,6 +178,14 @@ export class LessonRun {
       feedback,
       reveal: this.attempts >= this.revealAt && step.kind === "do" ? step.answer : undefined,
     };
+  }
+
+  /**
+   * Засчитать текущий шаг, даже если прибитая проверка не сработала: верных
+   * решений почти всегда больше одного, и решает это наставник-ИИ.
+   */
+  acceptStep(): void {
+    this.goNext();
   }
 
   /** Игрок нажал «показать ответ» на «сделай» шаге. */

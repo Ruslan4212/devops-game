@@ -508,6 +508,7 @@ export function localGrade(input: GradeInput): GradeResult {
 /** Точка входа для UI. Асинхронная ради совместимости с экранами уроков и собеседований. */
 /** Адрес проверки на сервере: там настоящая модель, а не подсчёт слов. */
 const GRADER_URL = "https://72.56.16.8.nip.io/grader/grade";
+const COMMAND_URL = "https://72.56.16.8.nip.io/grader/command";
 
 /** Сколько ждём сервер, прежде чем проверить локально: игрок не должен смотреть в пустоту. */
 const GRADER_TIMEOUT_MS = 12_000;
@@ -545,6 +546,46 @@ async function remoteGrade(input: GradeInput): Promise<GradeResult | null> {
  * а не слова. Если сервер недоступен, работает локальный разбор: игру нельзя
  * останавливать из-за сети, но и врать про «неверно» из-за неё тоже нельзя.
  */
+export interface CommandJudgeInput {
+  /** название урока — контекст для наставника */
+  lesson: string;
+  /** формулировка шага, как её видит игрок */
+  task: string;
+  /** прибитое эталонное решение: один из верных вариантов, а не единственный */
+  expected: string;
+  /** что игрок реально набрал */
+  command: string;
+  /** что вывел терминал */
+  output: string;
+}
+
+/**
+ * Судит практическое задание в терминале. Прибитая проверка шага знает один
+ * верный ответ, а их почти всегда больше: «ss -tlpn sport :80» решает задачу
+ * не хуже «ss -ltn», а местами и точнее. Поэтому решает модель, видя команду
+ * и её настоящий вывод. null — сервер недоступен, вердикта нет.
+ */
+export async function judgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
+  try {
+    const res = await fetch(COMMAND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as Partial<GradeResult>;
+    if (typeof data.correct !== "boolean" || typeof data.feedback !== "string") return null;
+    return { correct: data.correct, feedback: data.feedback };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function gradeAnswer(input: GradeInput): Promise<GradeResult> {
   if (!input.userAnswer.trim()) return localGrade(input);
   return (await remoteGrade(input)) ?? localGrade(input);

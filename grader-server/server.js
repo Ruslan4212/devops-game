@@ -209,10 +209,10 @@ app.post("/grade", async (req, res) => {
     ? { "content-type": "application/json", "x-api-key": PROVIDER.key, "anthropic-version": "2023-06-01" }
     : { "content-type": "application/json", authorization: "Bearer " + PROVIDER.key };
   const body = isAnthropic
-    ? { model: PROVIDER.model, max_tokens: 300, messages: [{ role: "user", content: prompt }] }
+    ? { model: PROVIDER.model, max_tokens: 800, messages: [{ role: "user", content: prompt }] }
     : {
         model: PROVIDER.model,
-        max_tokens: 400,
+        max_tokens: 800,
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [{ role: "user", content: prompt }],
@@ -221,6 +221,13 @@ app.post("/grade", async (req, res) => {
   let apiRes;
   try {
     apiRes = await fetch(PROVIDER.url, { method: "POST", headers, body: JSON.stringify(body) });
+    // строгий json-режим иногда упирается в лимит токенов и отдаёт 400 —
+    // тогда просим то же самое обычным текстом и достаём JSON регуляркой
+    if (!apiRes.ok && body.response_format) {
+      const retry = { ...body };
+      delete retry.response_format;
+      apiRes = await fetch(PROVIDER.url, { method: "POST", headers, body: JSON.stringify(retry) });
+    }
   } catch (e) {
     console.error(PROVIDER.name + " недоступен:", e.message);
     return res.status(502).json({ error: "проверка временно недоступна" });
@@ -244,6 +251,87 @@ app.post("/grade", async (req, res) => {
 void (async () => {
   PROVIDER.model = await resolveModel(PROVIDER);
 })();
+
+/* --------- проверка практического задания в терминале ---------------------
+   У шага урока есть прибитый эталонный ответ, но верных решений почти всегда
+   больше одного: «ss -ltn» и «ss -tlpn sport :80» решают одну задачу, причём
+   второе точнее. Здесь модель смотрит на саму задачу, на введённую команду и
+   на её настоящий вывод — и решает, выполнено ли задание по существу.
+   ------------------------------------------------------------------------ */
+app.post("/command", async (req, res) => {
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+  if (rateLimited(ip)) return res.status(429).json({ error: "слишком много запросов, подожди немного" });
+
+  const { task, expected, command, output, lesson } = req.body || {};
+  if (typeof task !== "string" || typeof command !== "string") {
+    return res.status(400).json({ error: "нужны поля task и command (строки)" });
+  }
+  if (command.length > 1000 || task.length > 2000) {
+    return res.status(400).json({ error: "слишком длинный текст" });
+  }
+
+  const prompt =
+    "Ты преподаватель Linux и DevOps, проверяешь практическое задание в тренажёре-терминале.\n\n" +
+    (lesson ? "УРОК: " + lesson + "\n" : "") +
+    "ЗАДАНИЕ: " + task + "\n\n" +
+    (expected ? "ЭТАЛОННОЕ РЕШЕНИЕ (один из вариантов, НЕ единственно верный): " + expected + "\n\n" : "") +
+    "УЧЕНИК ВВЁЛ: " + command + "\n\n" +
+    "ВЫВОД ТЕРМИНАЛА:\n" + String(output || "(пусто)").slice(0, 1500) + "\n\n" +
+    "Главное правило: засчитывай ЛЮБОЕ решение, которое выполняет задание, даже если оно " +
+    "не совпадает с эталонным. Другие флаги, другой порядок, другая утилита с тем же " +
+    "результатом, более точный или более подробный вариант — всё это верно. Например, " +
+    "если эталон «ss -ltn», то «ss -tlpn», «ss -tulpn | grep :80» и «netstat -ltnp» тоже " +
+    "верны, а «ss -tlpn sport :80» даже точнее.\n\n" +
+    "Не засчитывай, если: команда не выполняет задание, завершилась ошибкой и цель не " +
+    "достигнута, решает другую задачу или это случайный ввод.\n\n" +
+    "Если в выводе видно, что команды нет в тренажёре, — это ограничение тренажёра, а не " +
+    "ошибка ученика: скажи об этом прямо и предложи доступную альтернативу.\n\n" +
+    "Верни СТРОГО один JSON-объект без markdown:\n" +
+    '{"correct": true или false, "feedback": "1-2 предложения по-русски, на ты. Если верно — ' +
+    "подтверди и, если решение отличается от эталонного, отметь чем оно хорошо или в чём " +
+    'разница. Если нет — объясни, что именно не так, и подскажи направление, не выдавая ответ целиком."}';
+
+  const isAnthropic = PROVIDER.name === "anthropic";
+  const headers = isAnthropic
+    ? { "content-type": "application/json", "x-api-key": PROVIDER.key, "anthropic-version": "2023-06-01" }
+    : { "content-type": "application/json", authorization: "Bearer " + PROVIDER.key };
+  const body = isAnthropic
+    ? { model: PROVIDER.model, max_tokens: 800, messages: [{ role: "user", content: prompt }] }
+    : {
+        model: PROVIDER.model,
+        max_tokens: 800,
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [{ role: "user", content: prompt }],
+      };
+
+  let apiRes;
+  try {
+    apiRes = await fetch(PROVIDER.url, { method: "POST", headers, body: JSON.stringify(body) });
+    // строгий json-режим иногда упирается в лимит токенов и отдаёт 400 —
+    // тогда просим то же самое обычным текстом и достаём JSON регуляркой
+    if (!apiRes.ok && body.response_format) {
+      const retry = { ...body };
+      delete retry.response_format;
+      apiRes = await fetch(PROVIDER.url, { method: "POST", headers, body: JSON.stringify(retry) });
+    }
+  } catch (e) {
+    console.error(PROVIDER.name + " недоступен:", e.message);
+    return res.status(502).json({ error: "проверка временно недоступна" });
+  }
+  if (!apiRes.ok) {
+    console.error(PROVIDER.name + " вернул ошибку:", apiRes.status, await apiRes.text());
+    return res.status(502).json({ error: "проверка временно недоступна" });
+  }
+  const data = await apiRes.json();
+  const text = isAnthropic ? data?.content?.[0]?.text || "" : data?.choices?.[0]?.message?.content || "";
+  const parsed = extractJson(text);
+  if (!parsed || typeof parsed.correct !== "boolean" || typeof parsed.feedback !== "string") {
+    console.error("Не удалось разобрать ответ модели:", text);
+    return res.status(502).json({ error: "не удалось разобрать ответ проверки" });
+  }
+  res.json({ correct: parsed.correct, feedback: parsed.feedback });
+});
 
 app.listen(PORT, () => {
   console.log("Grader server слушает порт " + PORT + ", проверяет через " + PROVIDER.name + " (" + PROVIDER.model + ")");

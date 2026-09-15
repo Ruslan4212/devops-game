@@ -14,6 +14,8 @@ import { JOBS, parseSalary } from "./data/careers";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
+import { judgeCommand } from "./engine/grader";
+import type { DoStep } from "./engine/types";
 import { initAccount } from "./sync/account";
 import type { AccountApi } from "./sync/account";
 import { accessToken } from "./sync/cloud";
@@ -313,14 +315,50 @@ function handleInput(line: string): void {
       lockInput(true);
       openEditor(run.world, r.edit, (path, content) => {
         lockInput(false);
-        applyResult(run!.applyEdit(path, content));
+        const edited = run!.applyEdit(path, content);
+        // то же правило, что и для команд: верных вариантов файла больше одного
+        if (edited.status === "advance") applyResult(edited);
+        else void askMentor(step.text, (step as DoStep).answer, "сохранил файл " + path, content, edited);
       });
       return;
     }
   }
 
-  if (step.kind === "type") applyResult(run.submitType(line));
-  else applyResult(run.submitDo(line));
+  if (step.kind === "type") return applyResult(run.submitType(line));
+
+  const res = run.submitDo(line);
+  // Прибитая проверка знает один верный ответ, а их обычно больше. Прежде чем
+  // сказать «не закрыто», показываем решение наставнику-ИИ: он видит команду и
+  // её настоящий вывод и засчитывает любое решение, которое делает дело.
+  if (res.status === "advance") return applyResult(res);
+  void askMentor(step.text, (step as DoStep).answer, line, res.out ?? "", res);
+}
+
+/** Второе мнение по практическому заданию: судит модель, а не совпадение строк. */
+async function askMentor(
+  task: string,
+  expected: string,
+  command: string,
+  output: string,
+  fallback: Extract<StepResult, { status: "retry" }>,
+): Promise<void> {
+  if (!run) return;
+  const lesson = run.lesson;
+  lockInput(true);
+  print("🧑‍🏫 Наставник смотрит, что получилось…", "dim");
+
+  const verdict = await judgeCommand({ lesson: lesson.title, task, expected, command, output });
+  if (!run || run.lesson.id !== lesson.id) return; // урок успели сменить
+  lockInput(false);
+
+  if (verdict?.correct) {
+    print("🧑‍🏫 " + verdict.feedback, "ok");
+    run.acceptStep();
+    afterStep();
+    return;
+  }
+  // наставник не засчитал или недоступен — показываем его разбор либо обычную подсказку
+  applyResult(verdict ? { ...fallback, feedback: "🧑‍🏫 " + verdict.feedback } : fallback);
 }
 
 const input = $<HTMLInputElement>("#cmd");
