@@ -5,10 +5,12 @@ import {
   eat,
   mergeLife,
   onLessonComplete,
+  settleTime,
   setCurrentJob,
   xpEarnBonusPct,
 } from "../src/engine/life";
 import { mergeProgress } from "../src/sync/merge";
+import { FOOD } from "../src/data/shop";
 import type { Progress } from "../src/engine/progress";
 
 const P = (o: Partial<Progress> = {}): Progress => ({ xp: 0, done: {}, cur: null, hints: {}, ...o });
@@ -72,11 +74,9 @@ describe("жизнь — начисление за урок", () => {
     expect(l.hunger).toBe(64);
   });
 
-  it("с работой начисление считается от реальной зарплаты и обычно больше подработки", () => {
-    const withJob = onLessonComplete(defaultLife(), 30, 160000).credited;
-    const noJob = onLessonComplete(defaultLife(), 30, 0).credited;
-    expect(withJob).toBeGreaterThan(noJob);
-    expect(withJob).toBe(Math.round(160000 / 10));
+  it("с офертой за урок не платят — оклад идёт по календарю, а не за скорость", () => {
+    expect(onLessonComplete(defaultLife(), 30, 160000).credited).toBe(0);
+    expect(onLessonComplete(defaultLife(), 30, 0).credited).toBeGreaterThan(0);
   });
 
   it("потребности не уходят ниже нуля", () => {
@@ -88,14 +88,17 @@ describe("жизнь — начисление за урок", () => {
     expect(l.health).toBeGreaterThanOrEqual(0);
   });
 
-  it("обслуживание машины и аренда списываются с каждым уроком", () => {
+  it("содержание машины и жильё списываются по календарю, а не за урок", () => {
     const l = defaultLife();
     l.car = "used"; // up: 9000
     l.home = "room"; // rent: 16000
-    const before = l.money;
-    const { credited, upkeep } = onLessonComplete(l, 30, 0);
-    expect(upkeep).toBe(Math.round((9000 + 16000) / 10));
-    expect(l.money).toBe(before + credited - upkeep);
+    expect(onLessonComplete(l, 30, 0).upkeep).toBe(0);
+
+    const day = 86_400_000;
+    l.paidAt = 0;
+    // 15 реальных суток = 30 игровых = ровно игровой месяц
+    const { upkeep } = settleTime(l, 0, 15 * day);
+    expect(upkeep).toBe(9000 + 16000);
   });
 
   it("обслуживание не уводит деньги в минус", () => {
@@ -131,5 +134,75 @@ describe("жизнь — слияние устройств", () => {
     const life = { ...defaultLife(), totalEarned: 999 };
     const m = mergeProgress(P({ life }), P());
     expect(m.life?.totalEarned).toBe(999);
+  });
+});
+
+describe("календарь: время идёт вдвое быстрее реального", () => {
+  const DAY = 86_400_000;
+
+  it("реальные сутки дают двое игровых", () => {
+    const l = defaultLife();
+    l.paidAt = 0;
+    expect(settleTime(l, 0, DAY).gameDays).toBe(2);
+  });
+
+  it("месячный оклад набегает ровно за 15 реальных дней", () => {
+    const l = defaultLife();
+    l.paidAt = 0;
+    expect(settleTime(l, 150_000, 15 * DAY).credited).toBe(150_000);
+  });
+
+  it("первый вызов только запускает отсчёт и ничего не начисляет", () => {
+    const l = defaultLife();
+    expect(settleTime(l, 150_000, 5 * DAY).credited).toBe(0);
+    expect(l.paidAt).toBe(5 * DAY);
+  });
+
+  it("незавершённые сутки не теряются и не задваиваются", () => {
+    const l = defaultLife();
+    l.paidAt = 0;
+    const a = settleTime(l, 300_000, DAY * 0.75).gameDays; // 1.5 игровых суток
+    const b = settleTime(l, 300_000, DAY * 1.0).gameDays; // ещё 0.5 -> всего 2
+    expect(a).toBe(1);
+    expect(b).toBe(1);
+  });
+
+  it("часы, переведённые назад, не начисляют ничего", () => {
+    const l = defaultLife();
+    l.paidAt = 10 * DAY;
+    expect(settleTime(l, 150_000, 2 * DAY).credited).toBe(0);
+  });
+
+  it("голод убывает по календарю, а не по урокам", () => {
+    const l = defaultLife();
+    l.paidAt = 0;
+    const before = l.hunger;
+    settleTime(l, 0, 2 * DAY);
+    expect(l.hunger).toBeLessThan(before);
+  });
+
+  it("брошенный персонаж умирает от голода", () => {
+    const l = defaultLife();
+    l.paidAt = 0;
+    settleTime(l, 0, 30 * DAY);
+    expect(l.hunger).toBe(0);
+    expect(l.health).toBe(0);
+  });
+
+  it("персонаж, которого кормят, не умирает", () => {
+    const l = defaultLife();
+    l.money = 1_000_000;
+    l.paidAt = 0;
+    for (let d = 1; d <= 30; d++) {
+      settleTime(l, 0, d * DAY);
+      while (l.hunger < 60) if (!eat(l, FOOD[0].id).ok) break;
+    }
+    expect(l.health).toBeGreaterThan(0);
+  });
+
+  it("долгий перерыв оплачивается, но не бесконечно", () => {
+    const l = defaultLife();
+    l.paidAt = 0;
+    expect(settleTime(l, 300_000, 365 * DAY).gameDays).toBe(60);
   });
 });

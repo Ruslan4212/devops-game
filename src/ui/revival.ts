@@ -7,9 +7,13 @@ import type { TechQuestion } from "../data/interview";
 export interface RevivalDeps {
   /** номера актов, в которых пройден хотя бы один урок — определяют банк вопросов */
   doneActs: number[];
+  /** сколько попыток ещё осталось, включая текущую */
+  attemptsLeft: number;
   /** экзамен сдан: здоровье будет восстановлено вызывающей стороной */
   onPass: () => void;
-  /** экзамен провален: прогресс будет сброшен вызывающей стороной */
+  /** попытка провалена, но есть ещё: вызывающая сторона учтёт её и откроет экзамен заново */
+  onAttemptFailed: () => void;
+  /** попытки кончились: вызывающая сторона откатит прогресс */
   onFail: () => void;
 }
 
@@ -78,21 +82,28 @@ export function openRevivalExam(d: RevivalDeps): void {
   const finish = (): void => {
     const ratio = qs.length ? correct / qs.length : 0;
     const passed = ratio >= PASS_RATIO;
+    const retryLeft = d.attemptsLeft - 1;
     transcript.push(
       bubble(
         "sys",
         passed
           ? `<b>Выкарабкался.</b> ${correct} из ${qs.length} верно. Здоровье восстановлено — но это был звонок: следи за сытостью и настроением, это не разовая проверка.`
-          : `<b>Не хватило.</b> ${correct} из ${qs.length} верно, нужно было ${Math.ceil(PASS_RATIO * qs.length)}. Прогресс придётся начать заново — на этот раз крепче.`,
+          : retryLeft > 0
+            ? `<b>Не хватило.</b> ${correct} из ${qs.length} верно, нужно было ${Math.ceil(PASS_RATIO * qs.length)}. ` +
+              `Осталось попыток: ${retryLeft}. Материал тот же — соберись.`
+            : `<b>Попытки кончились.</b> ${correct} из ${qs.length} верно, нужно было ${Math.ceil(PASS_RATIO * qs.length)}. ` +
+              `Часть пройденного придётся повторить.`,
       ),
     );
     $("#modBody").innerHTML =
       header() +
       `<div class="iv-chat">${transcript.join("")}</div>` +
-      `<button class="${passed ? "prim" : "sec"}" id="rvContinue">${passed ? "Продолжить" : "Начать заново"}</button>`;
+      `<button class="${passed || retryLeft > 0 ? "prim" : "sec"}" id="rvContinue">` +
+      `${passed ? "Продолжить" : retryLeft > 0 ? "Ещё попытка" : "Принять последствия"}</button>`;
     $("#rvContinue").onclick = () => {
       $("#modOv").classList.add("hide");
       if (passed) d.onPass();
+      else if (retryLeft > 0) d.onAttemptFailed();
       else d.onFail();
     };
   };

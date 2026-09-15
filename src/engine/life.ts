@@ -1,8 +1,10 @@
 /**
  * Экономический слой («жизнь»): кошелёк, потребности, покупки.
- * Перенесён из прежней версии, но без привязки ко времени и без «смерти»:
- * потребности убывают на каждом пройденном уроке, а не по календарю —
- * так поведение детерминировано и не зависит от того, когда игрок заходил.
+ *
+ * Деньги идут по календарю: игровые сутки вдвое быстрее реальных, поэтому
+ * месячный оклад набегает за 15 реальных дней. По тому же календарю идут
+ * квартплата и потребности: забытый персонаж голодает и может умереть
+ * (см. settleTime). Уроки тоже слегка тратят сытость — но не убивают.
  */
 import {
   ACCESSORIES,
@@ -10,8 +12,10 @@ import {
   CLOTHES,
   COMFORT,
   FOOD,
+  GAME_DAYS_PER_MONTH,
+  GAME_DAYS_PER_REAL_DAY,
   HOMES,
-  LESSON_PERIODS_PER_MONTH,
+  MAX_SETTLED_GAME_DAYS,
   NO_JOB_FACTOR,
   REWARD_PER_XP,
   TECH,
@@ -42,6 +46,8 @@ export interface Life {
   comfort?: string[];
   /** id вакансии из полученных офферов, которая сейчас считается основной работой */
   currentJob?: string | null;
+  /** момент последнего расчёта зарплаты, мс эпохи — от него отсчитываются игровые сутки */
+  paidAt?: number;
 }
 
 export type LifeResult = { ok: true } | { ok: false; error: string };
@@ -106,42 +112,97 @@ export function interviewBonus(l: Life): number {
 }
 
 /**
- * Урок пройден: начисляем доход, тратим немного сытости и подводим настроение
- * к 50. Возвращаем сумму начисления и списанное обслуживание (машина/аренда).
+ * Урок пройден: начисляем подработку, тратим немного сытости и подводим
+ * настроение к 50.
  *
  * `monthlyPay` — месячная зарплата ТЕКУЩЕЙ работы (0, если офиса ещё нет).
- * Без работы платят «подработку» по старой формуле (× {@link NO_JOB_FACTOR}
- * от XP урока). С работой реальная зарплата режется на
- * {@link LESSON_PERIODS_PER_MONTH} уроков — это и есть «месяц» игрового
- * времени, — и XP урока на сумму уже не влияет: зарплата не зависит от того,
- * насколько сложным был конкретный урок.
+ * Пока оффера нет, за урок платят подработку (× {@link NO_JOB_FACTOR} от XP).
+ * С работой за урок не платят вовсе: оклад начисляет {@link settleTime}
+ * по календарю, и скорость прохождения на заработок больше не влияет.
  */
 export function onLessonComplete(
   l: Life,
   lessonXp: number,
   monthlyPay: number,
 ): { credited: number; upkeep: number } {
-  const gross =
-    monthlyPay > 0
-      ? Math.round(monthlyPay / LESSON_PERIODS_PER_MONTH)
-      : Math.round((lessonXp / 15) * REWARD_PER_XP * NO_JOB_FACTOR);
+  // Оклад больше не зависит от скорости прохождения — он идёт по календарю
+  // (см. settleTime). За урок платят только подработку, и только без оффера:
+  // иначе усердный ученик за вечер зарабатывал бы несколько месячных зарплат.
+  const gross = monthlyPay > 0 ? 0 : Math.round((lessonXp / 15) * REWARD_PER_XP * NO_JOB_FACTOR);
   l.money += gross;
   l.totalEarned += gross;
 
+  l.hunger = clamp(l.hunger - 6);
+  const drift = l.hunger < 25 ? -6 : -1;
+  l.mood = clamp(l.mood + (l.mood > 50 ? drift : -drift));
+  if (l.hunger < 10) l.health = clamp(l.health - 3);
+  return { credited: gross, upkeep: 0 };
+}
+
+/** Сколько игровых суток прошло за отрезок реального времени. */
+const gameDaysBetween = (fromMs: number, toMs: number): number =>
+  (Math.max(0, toMs - fromMs) / 86_400_000) * GAME_DAYS_PER_REAL_DAY;
+
+/** Сколько сытости съедают одни игровые сутки. */
+const HUNGER_PER_DAY = 10;
+/** Сколько здоровья отнимают сутки на пустой желудок. */
+const HEALTH_PER_STARVED_DAY = 12;
+
+/**
+ * Календарный расчёт: деньги, квартплата и потребности идут за прошедшее
+ * ВРЕМЯ, а не за пройденные уроки. Игровые сутки вдвое быстрее реальных,
+ * поэтому месячный оклад набегает за 15 реальных дней, а забытый на неделю
+ * персонаж успевает проголодаться и заболеть — вплоть до смерти.
+ *
+ * Вызывать можно сколько угодно часто: расчёт идёт от `paidAt` и переносит
+ * остаток суток вперёд, поэтому дробные дни не теряются и не задваиваются.
+ */
+export function settleTime(
+  l: Life,
+  monthlyPay: number,
+  now: number = Date.now(),
+): { credited: number; upkeep: number; gameDays: number; starved: number } {
+  // именно undefined, а не любое ложное: 0 — допустимая отметка времени
+  if (l.paidAt === undefined || l.paidAt > now) {
+    l.paidAt = now;
+    return { credited: 0, upkeep: 0, gameDays: 0, starved: 0 };
+  }
+
+  const elapsed = Math.min(gameDaysBetween(l.paidAt, now), MAX_SETTLED_GAME_DAYS);
+  const days = Math.floor(elapsed);
+  if (days < 1) return { credited: 0, upkeep: 0, gameDays: 0, starved: 0 };
+
+  // сдвигаем отметку ровно на посчитанные сутки: незавершённый день остаётся в запасе
+  l.paidAt += (days / GAME_DAYS_PER_REAL_DAY) * 86_400_000;
+
+  const credited = Math.round((monthlyPay / GAME_DAYS_PER_MONTH) * days);
+  if (credited > 0) {
+    l.money += credited;
+    l.totalEarned += credited;
+  }
+
   const carUp = l.car ? (CARS.find((c) => c.id === l.car)?.up ?? 0) : 0;
   const rent = l.home ? (HOMES.find((h) => h.id === l.home)?.rent ?? 0) : 0;
-  const upkeep = Math.round((carUp + rent) / LESSON_PERIODS_PER_MONTH);
+  const upkeep = Math.round(((carUp + rent) / GAME_DAYS_PER_MONTH) * days);
   if (upkeep > 0) {
     const spent = Math.min(l.money, upkeep);
     l.money -= spent;
     l.totalSpent += spent;
   }
 
-  l.hunger = clamp(l.hunger - 6);
-  const drift = l.hunger < 25 ? -6 : -1;
-  l.mood = clamp(l.mood + (l.mood > 50 ? drift : -drift));
-  if (l.hunger < 10) l.health = clamp(l.health - 3);
-  return { credited: gross, upkeep };
+  // потребности считаем по дням: пока есть еда — падает только сытость,
+  // на пустой желудок начинает уходить здоровье
+  let starved = 0;
+  for (let i = 0; i < days; i++) {
+    if (l.hunger <= 0) {
+      l.health = clamp(l.health - HEALTH_PER_STARVED_DAY);
+      starved++;
+    }
+    l.hunger = clamp(l.hunger - HUNGER_PER_DAY);
+    l.mood = clamp(l.mood - (l.hunger < 20 ? 5 : 2));
+    if (l.health <= 0) break;
+  }
+  return { credited, upkeep, gameDays: days, starved };
 }
 
 export function eat(l: Life, id: string): LifeResult {

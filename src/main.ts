@@ -2,14 +2,30 @@ import "./style.css";
 import { ACTS, LESSONS, lessonById } from "./lessons";
 import { LessonRun } from "./engine/lesson-run";
 import type { StepResult } from "./engine/lesson-run";
-import { clearProgress, loadProgress, nextRank, rankOf, RANKS, saveProgress } from "./engine/progress";
+import {
+  applyDeathPenalty,
+  clearProgress,
+  EXAM_ATTEMPTS,
+  loadProgress,
+  nextRank,
+  rankOf,
+  RANKS,
+  saveProgress,
+} from "./engine/progress";
 import type { Progress } from "./engine/progress";
 import { $, esc, lockInput, toast } from "./ui/dom";
 import { applyLegacy, readLegacySave, summarize, worthImporting } from "./sync/legacy-import";
 import type { LegacySave } from "./sync/legacy-import";
 import { clearTerminal, InputHistory, print, printCommand, setPrompt } from "./ui/terminal";
 import { allLessonsDone, isUnlocked, renderRail } from "./ui/rail";
-import { defaultLife, isDead, onLessonComplete, setCurrentJob, xpEarnBonusPct } from "./engine/life";
+import {
+  defaultLife,
+  isDead,
+  onLessonComplete,
+  setCurrentJob,
+  settleTime,
+  xpEarnBonusPct,
+} from "./engine/life";
 import { JOBS, parseSalary } from "./data/careers";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
@@ -32,6 +48,28 @@ function persist(): void {
   checkDeath();
 }
 
+/** Месячный оклад текущей работы, 0 — если оффера ещё нет. */
+function monthlyPay(): number {
+  const job = JOBS.find((j) => j.id === P.life?.currentJob);
+  return job ? parseSalary(job.pay) : 0;
+}
+
+/**
+ * Свести игровое время с реальным: зарплата, квартплата и потребности идут
+ * по календарю. Вызывается при запуске и после каждого урока, поэтому долгий
+ * перерыв в учёбе честно отражается на кошельке и на сытости персонажа.
+ */
+function settleCalendar(): void {
+  if (!P.life) return;
+  const { credited, upkeep, gameDays } = settleTime(P.life, monthlyPay());
+  if (!gameDays) return;
+  const parts: string[] = [`Прошло игровых суток: ${gameDays}`];
+  if (credited) parts.push(`зарплата +${credited.toLocaleString("ru-RU")} ₽`);
+  if (upkeep) parts.push(`жильё и машина −${upkeep.toLocaleString("ru-RU")} ₽`);
+  print("🗓 " + parts.join(", ") + ".", "dim");
+  persist();
+}
+
 let examOpen = false;
 
 /**
@@ -42,32 +80,60 @@ let examOpen = false;
 function checkDeath(): void {
   if (examOpen || !P.life) return;
   if (!isDead(P.life) && !P.deathPending) return;
-  P.deathPending = true;
-  P.deaths = (P.deaths ?? 0) + 1;
+  // смерть засчитывается один раз: повторные заходы продолжают ту же попытку
+  if (!P.deathPending) {
+    P.deathPending = true;
+    P.deaths = (P.deaths ?? 0) + 1;
+    P.examAttempts = 0;
+  }
   examOpen = true;
   saveProgress(P);
   lockInput(true);
+  openRevivalFlow();
+}
+
+/** Экзамен на выживание: три попытки, дальше — откат тем тяжелее, чем больше смертей. */
+function openRevivalFlow(): void {
   const doneActs = [...new Set(LESSONS.filter((l) => P.done[l.id]).map((l) => l.act))];
   void import("./ui/revival").then(({ openRevivalExam }) => {
     openRevivalExam({
       doneActs,
+      attemptsLeft: EXAM_ATTEMPTS - (P.examAttempts ?? 0),
       onPass: () => {
         P.life!.health = 50;
+        P.life!.hunger = Math.max(P.life!.hunger, 40);
         P.life!.mood = Math.max(P.life!.mood, 40);
+        P.life!.paidAt = Date.now();
         P.deathPending = false;
+        P.examAttempts = 0;
         examOpen = false;
         persist();
         toast("Ты выкарабкался — здоровье восстановлено.");
-        if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) {
-          lockInput(false);
-        }
+        renderAll();
+        if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) lockInput(false);
+      },
+      onAttemptFailed: () => {
+        P.examAttempts = (P.examAttempts ?? 0) + 1;
+        examOpen = false;
+        saveProgress(P);
+        toast(`Попытка не засчитана. Осталось: ${EXAM_ATTEMPTS - P.examAttempts}`);
+        openRevivalFlow();
+        examOpen = true;
       },
       onFail: () => {
-        clearProgress();
-        P = { xp: 0, done: {}, cur: null, hints: {} };
+        const { progress, message } = applyDeathPenalty(P, LESSONS, P.deaths ?? 1);
+        P = progress;
+        // после отката персонаж жив, но впроголодь: календарь считается заново
+        if (P.life) {
+          P.life.health = 40;
+          P.life.hunger = Math.max(P.life.hunger, 35);
+          P.life.paidAt = Date.now();
+        }
         examOpen = false;
-        toast("Прогресс сброшен — начинаем с чистого листа.");
-        startLesson(LESSONS[0].id);
+        saveProgress(P);
+        toast(message);
+        startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
+        renderAll();
       },
     });
   });
@@ -234,10 +300,10 @@ function completeLesson(): void {
     const bonus = Math.max(0, Math.round((lesson.xp * xpEarnBonusPct(P.life)) / 100));
     gainedXp = lesson.xp + bonus;
     P.xp += gainedXp;
-    const currentJob = P.life.currentJob ? JOBS.find((j) => j.id === P.life!.currentJob) : null;
-    const monthlyPay = currentJob ? parseSalary(currentJob.pay) : 0;
-    credited = onLessonComplete(P.life, lesson.xp, monthlyPay).credited;
+    credited = onLessonComplete(P.life, lesson.xp, monthlyPay()).credited;
     persist();
+    // время идёт и во время учёбы: зарплата, квартплата и голод — по календарю
+    settleCalendar();
   }
   print("");
   print(
@@ -548,6 +614,7 @@ function showLegacyImport(save: LegacySave): void {
 }
 
 startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
+settleCalendar();
 if (!Object.keys(P.done).length) showHow();
 checkDeath();
 
