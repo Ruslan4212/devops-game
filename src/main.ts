@@ -31,6 +31,7 @@ import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
 import { judgeCommand } from "./engine/grader";
+import { icon } from "./data/ui-icons";
 import type { DoStep } from "./engine/types";
 import { initAccount } from "./sync/account";
 import type { AccountApi } from "./sync/account";
@@ -548,6 +549,24 @@ $("#certBtn").onclick = () => {
     });
   });
 };
+/* Иконки шапки ставим из кода: один набор на всю игру, палитра наследуется
+   от кнопки, и эмодзи с их разнобоем по системам больше нигде нет. */
+for (const [id, name] of [
+  ["glosBtn", "book"],
+  ["charBtn", "user"],
+  ["lifeBtn", "bag"],
+  ["careerBtn", "briefcase"],
+  ["ratingBtn", "medal"],
+  ["ivBtn", "chat"],
+  ["certBtn", "award"],
+  ["howBtn", "help"],
+  ["resetBtn", "reset"],
+  ["liveBtn", "bolt"],
+] as const) {
+  const b = document.getElementById(id);
+  if (b) b.innerHTML = icon(name) + "<span>" + b.textContent!.trim() + "</span>";
+}
+
 $("#liveBtn").onclick = openLiveServerFlow;
 $("#resetBtn").onclick = () => {
   if (!confirm("Сбросить весь прогресс и начать с первого урока?")) return;

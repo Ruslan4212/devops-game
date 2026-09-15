@@ -1,16 +1,37 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Terminal Ops Academy">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#141922"/>
-      <stop offset="1" stop-color="#0b0e13"/>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e2634" />
+      <stop offset="1" stop-color="#0a0d12" />
     </linearGradient>
     <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f0873f"/>
-      <stop offset="1" stop-color="#ffb067"/>
+      <stop offset="0" stop-color="#ffc184" />
+      <stop offset="1" stop-color="#ef7d2e" />
     </linearGradient>
+    <linearGradient id="glassEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".16" />
+      <stop offset=".5" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".42" r=".62">
+      <stop offset="0" stop-color="#f0873f" stop-opacity=".3" />
+      <stop offset="1" stop-color="#f0873f" stop-opacity="0" />
+    </radialGradient>
   </defs>
-  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
-  <circle cx="256" cy="256" r="200" fill="none" stroke="#2a3342" stroke-width="2"/>
-  <text x="118" y="300" font-family="JetBrains Mono, ui-monospace, Menlo, Consolas, monospace" font-size="150" font-weight="700" fill="#e8ecf4">&gt;_</text>
-  <circle cx="380" cy="150" r="26" fill="url(#amber)"/>
+
+  <rect width="512" height="512" rx="112" fill="url(#plate)" />
+  <rect width="512" height="512" rx="112" fill="url(#glow)" />
+  <rect x="8" y="8" width="496" height="496" rx="104" fill="none" stroke="url(#glassEdge)" stroke-width="16" />
+  <rect x="4" y="4" width="504" height="504" rx="108" fill="none" stroke="#2f3a4c" stroke-width="8" />
+
+  <!-- приглашение командной строки: шеврон нарисован контуром, а не шрифтом,
+       иначе в фавиконе он отрисовался бы случайной подстановкой -->
+  <path
+    d="M150 168l86 88-86 88"
+    fill="none"
+    stroke="url(#amber)"
+    stroke-width="44"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <rect x="268" y="316" width="112" height="34" rx="17" fill="#41c894" />
 </svg>

@@ -2,6 +2,7 @@ import { $ } from "./dom";
 import { ACTS, LESSONS } from "../lessons";
 import type { Lesson } from "../engine/types";
 import type { Progress } from "../engine/progress";
+import { icon } from "../data/ui-icons";
 
 /** Урок открыт, если предыдущий по списку пройден. */
 export function isUnlocked(lesson: Lesson, p: Progress): boolean {
@@ -40,7 +41,8 @@ export function renderRail(
       b.className =
         "ms" + (p.done[l.id] ? " done" : "") + (l.id === curId ? " cur" : "") + (locked ? " lock" : "");
       b.innerHTML =
-        `<span class="b">${p.done[l.id] ? "✓" : locked ? "🔒" : l.id}</span>` + `<span>${l.title}</span>`;
+        `<span class="b">${p.done[l.id] ? icon("check", 14) : locked ? icon("lock", 14) : l.id}</span>` +
+        `<span>${l.title}</span>`;
       b.disabled = locked;
       b.onclick = () => onPick(l.id);
       box.appendChild(b);
@@ -66,7 +68,7 @@ function renderCapstoneCard(p: Progress, curId: string | null, onCapstone: () =>
   b.className =
     "ms" + (passed ? " done" : "") + (curId === "capstone" ? " cur" : "") + (ready ? "" : " lock");
   b.innerHTML =
-    `<span class="b">${passed ? "✓" : ready ? "🎓" : "🔒"}</span>` +
+    `<span class="b">${passed ? icon("check", 14) : ready ? icon("award", 14) : icon("lock", 14)}</span>` +
     `<span>${ready ? "Капстоун на реальном сервере" : "Пройди все уроки и экзамены"}</span>`;
   b.disabled = !ready;
   b.onclick = onCapstone;

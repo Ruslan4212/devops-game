@@ -1,6 +1,7 @@
 import { $, esc } from "./dom";
 import type { LessonRun } from "../engine/lesson-run";
 import { gradeAnswer, type GradeResult } from "../engine/grader";
+import { icon } from "../data/ui-icons";
 
 export interface PanelHandlers {
   onAdvance: () => void;
@@ -50,14 +51,14 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (step.kind === "watch") {
     body =
       (step.text ? `<div class="lp-say">${esc(step.text)}</div>` : "") +
-      `<div class="lp-badge">👀 смотри в терминал слева</div>` +
+      `<div class="lp-badge">${icon("eye", 15)}<span>смотри в терминал слева</span></div>` +
       `<div class="lp-note">${esc(step.note)}</div>` +
       `<button class="lp-next" id="lpNext">Понятно, дальше →</button>`;
   }
 
   if (step.kind === "type") {
     body =
-      `<div class="lp-badge">✍️ теперь ты — набери в терминале</div>` +
+      `<div class="lp-badge">${icon("keyboard", 15)}<span>теперь ты — набери в терминале</span></div>` +
       `<div class="lp-say">${esc(step.text)}</div>` +
       `<div class="lp-cmd">${esc(step.cmd)}</div>` +
       `<button class="lp-fill" id="lpFill">Вставить в строку ввода</button>` +
@@ -66,7 +67,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
 
   if (step.kind === "do") {
     body =
-      `<div class="lp-badge lp-badge-do">🎯 задача — сделай сам в терминале</div>` +
+      `<div class="lp-badge lp-badge-do">${icon("target", 15)}<span>задача — сделай сам в терминале</span></div>` +
       `<div class="lp-say">${esc(step.text)}</div>`;
     if (run.answerRevealed) {
       body +=
@@ -93,21 +94,21 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
 
     if (!st) {
       body =
-        `<div class="lp-badge">🤔 вопрос — ответь своими словами</div>` +
+        `<div class="lp-badge">${icon("brain", 15)}<span>вопрос — ответь своими словами</span></div>` +
         grade +
         `<div class="lp-say">${esc(step.text)}</div>` +
         `<textarea class="lp-quiz-input" id="lpQuizInput" rows="3" placeholder="Напиши ответ сам, своими словами…" autofocus></textarea>` +
         `<button class="lp-next" id="lpQuizSubmit">Ответил — проверить</button>`;
     } else if (st.phase === "grading") {
       body =
-        `<div class="lp-badge">🤔 ${esc(step.text)}</div>` +
+        `<div class="lp-badge">${icon("brain", 15)}<span>${esc(step.text)}</span></div>` +
         grade +
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
         `<div class="lp-tip">🧑‍🏫 Наставник читает ответ…</div>`;
     } else if (st.phase === "graded") {
       const ok = st.result.correct;
       body =
-        `<div class="lp-badge">🤔 ${esc(step.text)}</div>` +
+        `<div class="lp-badge">${icon("brain", 15)}<span>${esc(step.text)}</span></div>` +
         grade +
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
         `<div class="lp-note" style="border-left:3px solid ${ok ? "var(--ok,#3c8)" : "var(--warn,#e94)"};padding-left:10px">` +
@@ -116,7 +117,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<button class="lp-next" id="lpQuizNext">Дальше →</button>`;
     } else {
       body =
-        `<div class="lp-badge">🤔 ${esc(step.text)}</div>` +
+        `<div class="lp-badge">${icon("brain", 15)}<span>${esc(step.text)}</span></div>` +
         grade +
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
         `<div class="lp-cmd">${esc(step.options[step.answer])}</div>` +

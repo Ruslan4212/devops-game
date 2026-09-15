@@ -198,62 +198,76 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     ? '<g><path d="M58 60c0-24 18-38 42-38s42 14 42 38z" fill="#2E8B7A"/><path d="M142 60c14 0 22 4 26 10-12 4-40 4-68 4z" fill="#25705F"/><path d="M66 58c4-16 16-26 30-28" stroke="#25705F" stroke-width="2" fill="none" opacity=".6"/></g>'
     : "";
 
-  /* полный рост: шея, торс, руки, ноги, обувь — с лёгкой светотенью вместо плоской заливки */
+  /* Фигура в полный рост. Прежняя версия собиралась из прямоугольников —
+     руки торчали брусками по бокам, торс был плоской заливкой. Здесь силуэт
+     задан контурами с сужением к талии и запястьям, добавлены светотень,
+     контровой свет по левому краю и тень на полу: именно это отличает
+     персонажа от аппликации. */
   const torsoAccent =
     o.top === "suit"
-      ? '<path d="M78 168l22 22 22-22-8-14h-28z" fill="#E8E4DA"/><path d="M96 170l4 8 4-8-4-6z" fill="#8C2F39"/>'
+      ? '<path d="M80 166l20 24 20-24-9-12h-22z" fill="#EDEAE2"/><path d="M96 172l4 10 4-10-4-7z" fill="#8C2F39"/>'
       : o.top === "hoodie"
-        ? '<path d="M70 172q30 14 60 0v-8q-30 12-60 0z" fill="#000" opacity=".18"/>'
+        ? '<path d="M72 170q28 14 56 0l-1 9q-27 12-54 0z" fill="#000" opacity=".2"/>' +
+          '<path d="M96 158v16M104 158v16" stroke="#000" stroke-width="2" opacity=".25" stroke-linecap="round"/>'
         : o.top === "turtleneck"
-          ? '<path d="M84 150q16 10 32 0v10q-16 8-32 0z" fill="' + sk + '" opacity=".9"/>'
+          ? '<path d="M86 148q14 10 28 0v9q-14 8-28 0z" fill="' + ocDark + '"/>'
           : "";
 
   const body =
-    '<rect x="88" y="126" width="24" height="20" rx="8" fill="' +
+    /* шея с тенью от подбородка */
+    '<path d="M89 122h22v20q-11 8-22 0z" fill="' +
     sk +
     '"/>' +
-    /* руки — тень на внутренней стороне для объёма */
-    '<rect x="52" y="152" width="18" height="86" rx="9" fill="' +
-    oc +
-    '"/><rect x="63" y="152" width="7" height="86" rx="3" fill="' +
-    ocDark +
+    '<path d="M89 124q11 9 22 0v6q-11 8-22 0z" fill="' +
+    skDark +
     '" opacity=".45"/>' +
-    '<rect x="130" y="152" width="18" height="86" rx="9" fill="' +
+    /* торс: плечи, сужение к талии */
+    '<path d="M100 146c-16 0-30 6-36 16l-6 74q42 13 84 0l-6-74c-6-10-20-16-36-16z" fill="' +
     oc +
-    '"/><rect x="130" y="152" width="7" height="86" rx="3" fill="' +
+    '"/>' +
+    /* объём: тень справа и мягкий свет по центру груди */
+    '<path d="M124 152c8 4 14 9 16 14l6 72q-10 3-20 5l4-84z" fill="' +
     ocDark +
-    '" opacity=".45"/>' +
-    '<ellipse cx="61" cy="240" rx="9" ry="10" fill="' +
-    sk +
-    '"/><ellipse cx="139" cy="240" rx="9" ry="10" fill="' +
-    sk +
-    '"/>' +
-    /* торс — вертикальный шов и тень по краю для объёма */
-    '<path d="M64 168q6-16 36-16t36 16l6 76q-42 12-84 0z" fill="' +
+    '" opacity=".35"/>' +
+    '<path d="M86 160q14 8 28 0l-2 70q-12 3-24 0z" fill="#fff" opacity=".05"/>' +
+    torsoAccent +
+    /* руки: сужаются к запястью и слегка отведены от корпуса */
+    '<path d="M64 162c-8 4-11 10-12 18l-4 56q9 4 17 1l7-56z" fill="' +
     oc +
     '"/>' +
-    '<path d="M66 172q4-12 12-16l-8 84q-6-2-10-4z" fill="' +
+    '<path d="M136 162c8 4 11 10 12 18l4 56q-9 4-17 1l-7-56z" fill="' +
+    oc +
+    '"/>' +
+    '<path d="M64 162c-6 4-9 10-10 18l-4 56q4 2 8 2l6-60z" fill="' +
     ocDark +
     '" opacity=".3"/>' +
-    '<path d="M100 156v88" stroke="' +
-    ocDark +
-    '" stroke-width="1.5" opacity=".4"/>' +
-    torsoAccent +
-    /* ноги — внутренний шов и колено */
-    '<rect x="72" y="246" width="22" height="92" rx="8" fill="#3A3F4B"/>' +
-    '<rect x="106" y="246" width="22" height="92" rx="8" fill="#3A3F4B"/>' +
-    '<rect x="87" y="246" width="6" height="92" fill="#2E323C" opacity=".5"/>' +
-    '<rect x="107" y="246" width="6" height="92" fill="#464C59" opacity=".5"/>' +
-    '<ellipse cx="83" cy="296" rx="9" ry="5" fill="#2E323C" opacity=".35"/>' +
-    '<ellipse cx="117" cy="296" rx="9" ry="5" fill="#2E323C" opacity=".35"/>' +
-    /* обувь — подошва отдельным тоном */
-    '<ellipse cx="83" cy="342" rx="16" ry="9" fill="' +
-    sc +
-    '"/><ellipse cx="117" cy="342" rx="16" ry="9" fill="' +
+    '<path d="M136 162c6 4 9 10 10 18l4 56q-4 2-8 2l-6-60z" fill="#fff" opacity=".06"/>' +
+    /* кисти */
+    '<ellipse cx="53" cy="240" rx="9" ry="10.5" fill="' +
+    sk +
+    '"/>' +
+    '<ellipse cx="147" cy="240" rx="9" ry="10.5" fill="' +
+    sk +
+    '"/>' +
+    '<path d="M46 240a9 10.5 0 0 0 14 6z" fill="' +
+    skDark +
+    '" opacity=".3"/>' +
+    /* ноги: сужение к щиколотке, внутренний шов */
+    '<path d="M72 234h24l-2 104h-20z" fill="#39404E"/>' +
+    '<path d="M104 234h24l-2 104h-20z" fill="#39404E"/>' +
+    '<path d="M96 234h4l-1 104h-3z" fill="#2B313C" opacity=".8"/>' +
+    '<path d="M104 234h5l-2 104h-4z" fill="#4A5262" opacity=".5"/>' +
+    '<path d="M72 234h24l-1 12H73z" fill="#000" opacity=".22"/>' +
+    '<path d="M104 234h24l-1 12h-22z" fill="#000" opacity=".22"/>' +
+    /* обувь: носок и подошва разными тонами */
+    '<path d="M70 330h26v10a4 4 0 0 1-4 4H74a4 4 0 0 1-4-4z" fill="' +
     sc +
     '"/>' +
-    '<path d="M68 346a16 5 0 0 0 30 0z" fill="#20242E" opacity=".55"/>' +
-    '<path d="M102 346a16 5 0 0 0 30 0z" fill="#20242E" opacity=".55"/>';
+    '<path d="M104 330h26v10a4 4 0 0 1-4 4h-18a4 4 0 0 1-4-4z" fill="' +
+    sc +
+    '"/>' +
+    '<path d="M68 342h30a3 3 0 0 1-3 4H71a3 3 0 0 1-3-4z" fill="#171B23"/>' +
+    '<path d="M102 342h30a3 3 0 0 1-3 4h-24a3 3 0 0 1-3-4z" fill="#171B23"/>';
 
   const accessory = accessoryOverlay(o.accessory);
 
@@ -275,13 +289,25 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     '" role="img" aria-label="персонаж в полный рост">' +
     '<defs><clipPath id="' +
     id +
-    '"><rect x="0" y="0" width="200" height="360" rx="14"/></clipPath></defs>' +
+    '"><rect x="0" y="0" width="200" height="360" rx="14"/></clipPath>' +
+    '<radialGradient id="g' +
+    id +
+    '" cx="42%" cy="18%" r="78%">' +
+    '<stop offset="0" stop-color="#ffffff" stop-opacity=".10"/>' +
+    '<stop offset="55%" stop-color="#ffffff" stop-opacity="0"/>' +
+    '<stop offset="100%" stop-color="#000000" stop-opacity=".45"/>' +
+    "</radialGradient></defs>" +
     '<g clip-path="url(#' +
     id +
     ')">' +
     '<rect width="200" height="360" fill="' +
     bg +
     '"/>' +
+    /* мягкий верхний свет и виньетка: фигура перестаёт висеть в пустоте */
+    '<rect width="200" height="360" fill="url(#g' +
+    id +
+    ')"/>' +
+    '<ellipse cx="100" cy="344" rx="54" ry="10" fill="#000" opacity=".45"/>' +
     body +
     '<ellipse cx="100" cy="84" rx="40" ry="44" fill="' +
     sk +
