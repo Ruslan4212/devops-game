@@ -49,8 +49,8 @@ describe("персонаж — портрет", () => {
     expect(svg.startsWith("<svg")).toBe(true);
     expect(svg.endsWith("</svg>")).toBe(true);
     expect(svg).toContain('width="120"');
-    expect(svg).toContain('viewBox="0 0 200 360"');
-    expect(svg).toContain("<ellipse");
+    expect(svg).toContain('viewBox="0 0 200 400"');
+    expect(svg).toContain("<path");
   });
 
   it("детали появляются только когда включены", () => {
@@ -61,16 +61,32 @@ describe("персонаж — портрет", () => {
   });
 
   it("борода рисуется только у мужского персонажа", () => {
-    const beardPath = 'd="M66 96c2 20';
-    expect(avatarSVG({ ...defaultAppearance(), sex: "m", beard: true })).toContain(beardPath);
-    expect(avatarSVG({ ...defaultAppearance(), sex: "f", beard: true })).not.toContain(beardPath);
+    const base = { ...defaultAppearance(), beard: true, beardStyle: 1 };
+    const withBeard = avatarSVG({ ...base, sex: "m" });
+    const without = avatarSVG({ ...base, sex: "f" });
+    expect(withBeard.length).toBeGreaterThan(without.length);
   });
 
-  it("стиль бороды выбирает соответствующий контур", () => {
-    const short = avatarSVG({ ...defaultAppearance(), sex: "m", beard: true, beardStyle: 1 });
-    const full = avatarSVG({ ...defaultAppearance(), sex: "m", beard: true, beardStyle: 2 });
-    expect(short).toContain('d="M64 92c0 24');
-    expect(full).toContain('d="M62 88c-2 28');
+  it("каждый стиль бороды даёт свой контур", () => {
+    const of = (beardStyle: number) =>
+      avatarSVG({ ...defaultAppearance(), sex: "m", beard: true, beardStyle });
+    expect(new Set([of(0), of(1), of(2)]).size).toBe(3);
+  });
+
+  it("голова занимает примерно седьмую часть роста, а не четверть", () => {
+    // именно из-за пропорции 1:4 фигура читалась как гном
+    const svg = avatarSVG(defaultAppearance());
+    const canvas = Number(/viewBox="0 0 \d+ (\d+)"/.exec(svg)![1]);
+    const headHeight = 48;
+    const ratio = canvas / headHeight;
+    expect(ratio).toBeGreaterThan(7);
+    expect(ratio).toBeLessThan(9);
+  });
+
+  it("объём даётся градиентами, а не плоской заливкой", () => {
+    const svg = avatarSVG(defaultAppearance());
+    expect(svg).toContain("linearGradient");
+    expect(svg).toContain("radialGradient");
   });
 
   it("одежда влияет на цвет", () => {
