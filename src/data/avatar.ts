@@ -117,7 +117,6 @@ const HIP_Y = Math.round(TOP + HEAD * 3.65);
 const KNEE_Y = Math.round(TOP + HEAD * 5.35);
 const ANKLE_Y = Math.round(TOP + HEAD * 7.2);
 const FLOOR_Y = Math.round(TOP + HEAD * 7.55);
-const SHOULDER_HALF = 33;
 
 /* ------------------------------ волосы и борода ---------------------------- */
 
