@@ -120,9 +120,29 @@ describe("персонаж — портрет", () => {
     expect(avatarSVG(base, { accessory: null })).not.toContain("#1A1F29");
   });
 
-  it("8 причёсок на каждый пол, у всех есть контур", () => {
-    expect(HAIRS_M.length).toBeGreaterThanOrEqual(8);
-    expect(HAIRS_F.length).toBeGreaterThanOrEqual(8);
+  it("по три простые причёски на каждый пол", () => {
+    // намеренно мало: каждая — один чистый силуэт по дуге черепа, без прядей,
+    // которые «летали» рядом с головой
+    expect(HAIRS_M).toHaveLength(3);
+    expect(HAIRS_F).toHaveLength(3);
+  });
+
+  it("сохранённый индекс старой причёски не ломает отрисовку", () => {
+    // в облаке могут лежать индексы 3..7 от прежних восьми стилей
+    expect(avatarSVG({ ...defaultAppearance(), hair: 7 }).startsWith("<svg")).toBe(true);
+  });
+
+  it("борода заканчивается на подбородке, а не уходит в корпус", () => {
+    // у головы подбородок на y=152; ни одна точка бороды не должна лежать ниже
+    for (const beardStyle of [0, 1, 2]) {
+      const svg = avatarSVG({ ...defaultAppearance(), beard: true, beardStyle });
+      const beardPath = /<g fill="[^"]+"><path d="(M[^"]+)"/.exec(svg)![1];
+      // дуга бороды — та же дуга, что у головы: радиусы совпадают
+      expect(beardPath).toContain("A52 56 0 0 0");
+      // верхний край бороды начинается ниже линии глаз (104)
+      const startY = Number(/^M[\d.]+ ([\d.]+)/.exec(beardPath)![1]);
+      expect(startY).toBeGreaterThan(104);
+    }
   });
 
   it("не меньше 6 цветов глаз", () => {
