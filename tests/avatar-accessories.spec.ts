@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { avatarSVG, defaultAppearance, hairStyles } from "../src/data/avatar";
 import { ACCESSORIES } from "../src/data/shop";
+import { readFileSync } from "node:fs";
 
 /**
  * Три аксессуара из восьми (цепочка, кольцо, вкладыши) не рисовались вовсе:
@@ -47,5 +48,15 @@ describe("причёски различаются силуэтом", () => {
         expect(hairIx).toBeGreaterThan(0);
       });
     }
+  });
+});
+
+describe("масса волос и шапка причёски не оставляют шва на макушке", () => {
+  it("верхняя дуга задней массы совпадает с дугой шапки — одна и та же команда A", () => {
+    // Раньше верх задней массы приближался кривыми Безье, чуть отличными от
+    // дуги шапки, и в стыке на макушке проступала полоска кожи головы.
+    const src = readFileSync("src/data/avatar.ts", "utf-8");
+    const maneFn = /function mane\([\s\S]*?\n\}/.exec(src)![0];
+    expect(maneFn).toContain("A${HEAD_RX} ${HEAD_RY} 0 0 1");
   });
 });

@@ -135,20 +135,28 @@ function cap(temple: number, hairline: number): string {
   return `M${CX - x} ${temple}A${HEAD_RX} ${HEAD_RY} 0 0 1 ${CX + x} ${temple}Q${CX} ${ctrl} ${CX - x} ${temple}z`;
 }
 
-/** Масса волос за головой, спускающаяся до высоты `bottom`, чуть шире черепа. */
-function mane(bottom: number): string {
+/**
+ * Масса волос за головой: верхняя дуга — БУКВАЛЬНО та же дуга, что рисует
+ * cap() при том же `temple` (тот же радиус, тот же центр, та же команда A) —
+ * поэтому у шапки и массы волос общий край без шва. Раньше верх массы
+ * рисовался приближением кривыми Безье, чуть отличным от дуги шапки, и в
+ * стыке проступала полоска кожи головы.
+ */
+function mane(temple: number, bottom: number): string {
+  const x = headX(temple);
   return (
-    `M${CX - 56} ${HEAD_CY}C${CX - 56} ${HEAD_CY - 52} ${CX - 30} ${HEAD_CY - 62} ${CX} ${HEAD_CY - 62}` +
-    `S${CX + 56} ${HEAD_CY - 52} ${CX + 56} ${HEAD_CY}L${CX + 58} ${bottom}` +
-    `Q${CX} ${bottom + 14} ${CX - 58} ${bottom}z`
+    `M${CX - x} ${temple}A${HEAD_RX} ${HEAD_RY} 0 0 1 ${CX + x} ${temple}` +
+    `C${CX + x + 6} ${temple + 22} ${CX + 58} ${HEAD_CY} ${CX + 58} ${bottom - 40}` +
+    `L${CX + 58} ${bottom}Q${CX} ${bottom + 14} ${CX - 58} ${bottom}` +
+    `L${CX - 58} ${bottom - 40}C${CX - 58} ${HEAD_CY} ${CX - x - 6} ${temple + 22} ${CX - x} ${temple}z`
   );
 }
 
 const HAIR: Record<string, Hair> = {
   короткие: { front: `<path d="${cap(88, 70)}"/>` },
   ёжик: { front: `<path d="${cap(80, 62)}"/>` },
-  длинные: { back: `<path d="${mane(SHOULDER_Y + 30)}"/>`, front: `<path d="${cap(90, 72)}"/>` },
-  каре: { back: `<path d="${mane(CHIN - 2)}"/>`, front: `<path d="${cap(92, 74)}"/>` },
+  длинные: { back: `<path d="${mane(90, SHOULDER_Y + 30)}"/>`, front: `<path d="${cap(90, 72)}"/>` },
+  каре: { back: `<path d="${mane(92, CHIN - 2)}"/>`, front: `<path d="${cap(92, 74)}"/>` },
   хвост: {
     back:
       `<path d="M${CX + 44} ${HEAD_CY - 24}C${CX + 74} ${HEAD_CY - 10} ${CX + 78} ${HEAD_CY + 50} ${CX + 66} ${HEAD_CY + 86}` +
@@ -163,7 +171,7 @@ function hairOf(sex: Sex, style: number): Hair {
   const name = list[style] ?? list[0];
   // женские «длинные» — та же форма, что мужские, но масса спускается ниже
   if (sex === "f" && name === "длинные") {
-    return { back: `<path d="${mane(BODY_BOTTOM - 40)}"/>`, front: `<path d="${cap(92, 74)}"/>` };
+    return { back: `<path d="${mane(92, BODY_BOTTOM - 40)}"/>`, front: `<path d="${cap(92, 74)}"/>` };
   }
   return HAIR[name] ?? HAIR["короткие"];
 }
