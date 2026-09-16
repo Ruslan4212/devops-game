@@ -1,19 +1,17 @@
 /**
- * Персонаж: фигура в полный рост, собранная контурами SVG.
+ * Персонаж в стилистике обучающих приложений вроде Duolingo.
  *
- * Главное здесь — пропорции. У взрослого человека голова укладывается в рост
- * примерно 7.5 раз; в прежней версии она занимала четверть роста, из-за чего
- * фигура читалась как гном, сколько бы теней ни добавляли. Вся сетка построена
- * от высоты головы (HEAD): плечи на 1.55 головы, талия на 3, бёдра на 3.65,
- * колени на 5.35, пол на 7.55.
+ * Ключ этого стиля — намеренно «детские» пропорции, а не анатомический канон:
+ * голова занимает около трети роста, глаза огромные, конечности короткие и
+ * толстые, все формы сильно скруглены. Правильные 7.5 голов дают сухую
+ * фигуру-манекен; здесь узнаваемость и дружелюбие важнее правдоподобия.
  *
- * Объём даётся не заливкой, а градиентами: свет падает слева сверху, поэтому
- * у каждой формы есть светлая и теневая сторона, а в сгибах — затемнение.
- * Волосы и борода — не один силуэт, а слои: масса, корни, пряди.
+ * Цвет кладётся плоско и насыщенно, без обводок: у формы есть основной тон и
+ * один тон потемнее — он «сажает» объём. Градиентов нет нигде, кроме фона.
  */
 
-export const SKIN = ["#F6D2B0", "#E7B48C", "#CE9468", "#A26F45", "#74492B"];
-export const HAIRC = ["#241C16", "#5A3A22", "#A86B34", "#D8B778", "#9A9A9A", "#B8442F", "#5B4BA8", "#2E8B7A"];
+export const SKIN = ["#FFD9B8", "#F5BC8E", "#D99A68", "#AE7345", "#7E4E2D"];
+export const HAIRC = ["#2A211A", "#6B4224", "#C07C32", "#E7C77A", "#A8A8A8", "#D2503A", "#6B5BD6", "#2FA98C"];
 export const HAIRS_M = [
   "короткие",
   "ёжик",
@@ -25,7 +23,7 @@ export const HAIRS_M = [
   "гладко назад",
 ];
 export const HAIRS_F = ["каре", "хвост", "длинные", "кудри", "пучок", "короткие", "чёлка", "локоны"];
-export const EYESC = ["#4A3326", "#4E7BA6", "#4F7F51", "#6B5B95", "#8E8E8E", "#A9752F"];
+export const EYESC = ["#4A3326", "#3E8ED0", "#4CA85F", "#7B63D6", "#8E8E8E", "#C99A3A"];
 export const FACE = ["спокойное", "улыбка", "серьёзное"];
 /** Стили бороды (используются, только когда beard=true у мужского персонажа). */
 export const BEARDS = ["щетина", "короткая", "окладистая"];
@@ -66,7 +64,7 @@ export function defaultAppearance(): Appearance {
 /** Список причёсок для выбранного пола. */
 export const hairStyles = (sex: Sex): string[] => (sex === "f" ? HAIRS_F : HAIRS_M);
 
-/** Смешивание с чёрным (k>0) или белым (k<0) — тени и блики одной формы. */
+/** Смешивание с чёрным (k>0) или белым (k<0): нижний тон формы и блики. */
 function shade(hex: string, k: number): string {
   const n = parseInt(hex.slice(1), 16);
   const mix = (c: number): number =>
@@ -79,143 +77,114 @@ function shade(hex: string, k: number): string {
   );
 }
 
+/* Цвета одежды намеренно насыщенные: приглушённые тона в этой стилистике
+   выглядят грязно, вся палитра держится на чистом цвете. */
 const OUTFIT: Record<string, string> = {
-  none: "#8892A6",
-  tshirt: "#3F72A4",
-  hoodie: "#4B5563",
-  shirt: "#E4E0D6",
-  suit: "#232B3A",
-  tech: "#1F6F5C",
-  bomber: "#3A4557",
-  turtleneck: "#383C43",
+  none: "#8FA0B8",
+  tshirt: "#2F8FE0",
+  hoodie: "#5A6B80",
+  shirt: "#F0EDE4",
+  suit: "#31415C",
+  tech: "#22A98C",
+  bomber: "#46566E",
+  turtleneck: "#48505C",
 };
-export const outfitColor = (top: string | undefined): string => OUTFIT[top ?? ""] ?? "#3F72A4";
+export const outfitColor = (top: string | undefined): string => OUTFIT[top ?? ""] ?? "#2F8FE0";
 
 const SHOE_COLOR: Record<string, string> = {
-  sneakers_old: "#7C7466",
-  sneakers: "#E4E0D6",
-  boots: "#4B3621",
-  loafers: "#2E2317",
+  sneakers_old: "#8D8577",
+  sneakers: "#F0EDE4",
+  boots: "#6A4A2A",
+  loafers: "#3A2C1E",
 };
 export const shoeColor = (shoes: string | undefined): string =>
   SHOE_COLOR[shoes ?? ""] ?? SHOE_COLOR.sneakers_old;
 
-/* --------------------------- анатомическая сетка --------------------------- */
+/* ---------------------------- сетка пропорций ------------------------------
+   Рост примерно в три головы: голова 40..152, корпус 150..280, ноги до 348,
+   обувь до 372. Это и есть «детская» схема стиля. */
 
 const W = 200;
 const H = 400;
-/** Высота головы: всё остальное — производные, как в академическом каноне. */
-const HEAD = 48;
 const CX = 100;
-const TOP = 16;
-const HEAD_CY = TOP + HEAD / 2;
-const CHIN = TOP + HEAD;
-const SHOULDER_Y = Math.round(TOP + HEAD * 1.55);
-const WAIST_Y = Math.round(TOP + HEAD * 3.05);
-const HIP_Y = Math.round(TOP + HEAD * 3.65);
-const KNEE_Y = Math.round(TOP + HEAD * 5.35);
-const ANKLE_Y = Math.round(TOP + HEAD * 7.2);
-const FLOOR_Y = Math.round(TOP + HEAD * 7.55);
+const HEAD_CY = 96;
+const HEAD_RX = 52;
+const HEAD_RY = 56;
+const CHIN = HEAD_CY + HEAD_RY;
+const SHOULDER_Y = 162;
+const BODY_BOTTOM = 280;
+const LEG_BOTTOM = 348;
+const FLOOR_Y = 372;
+/** Линия глаз: в этом стиле она ниже середины головы. */
+const EY = HEAD_CY + 8;
 
 /* ------------------------------ волосы и борода ---------------------------- */
 
 /**
- * Причёска состоит из двух слоёв:
- *   back  — масса волос ЗА головой (длина, хвост, объём), рисуется до головы;
- *   front — шапка на черепе и чёлка, рисуется после головы.
- * Благодаря этому лицо всегда открыто: волосы обрамляют его, а не накрывают.
- * Голова занимает x 81..119, y 16..61; линия бровей — y 33.
+ * Причёска в двух слоях: масса за головой и шапка поверх. Формы крупные и
+ * скруглённые — мелкие пряди в этой стилистике превращаются в грязь.
  */
 interface Hair {
   back?: string;
   front: string;
 }
 
-/** Шапка волос по черепу: общая основа почти для всех причёсок. */
-const CAP = "M80 42c0-14 9-26 20-26s20 12 20 26c-1-4-2-7-4-9-3 2-7 3-11 3-6 0-12-2-16-6-4 3-7 7-9 12z";
-/** Более низкая линия роста волос — для густых причёсок. */
-const CAP_LOW = "M79 48c0-16 9-32 21-32s21 16 21 32c-1-6-3-10-5-13-4 3-9 4-14 4-7 0-14-2-18-7-3 4-5 9-5 16z";
+const CAP = `M${CX - 52} ${HEAD_CY - 4}c0-31 23-54 52-54s52 23 52 54c-3-13-10-22-20-26-9 6-20 9-32 9s-23-3-32-9c-10 4-17 13-20 26z`;
+const CAP_LOW = `M${CX - 53} ${HEAD_CY + 10}c0-36 23-62 53-62s53 26 53 62c-4-18-11-30-22-35-10 7-20 10-31 10s-21-3-31-10c-11 5-18 17-22 35z`;
 
 const HAIR: Record<string, Hair> = {
-  короткие: {
-    front:
-      `<path d="${CAP}"/>` +
-      '<path d="M82 36q4-6 10-7-6 4-8 10z" opacity=".55"/>' +
-      '<path d="M118 36q-4-6-10-7 6 4 8 10z" opacity=".55"/>',
-  },
+  короткие: { front: `<path d="${CAP}"/>` },
   ёжик: {
-    front: '<path d="M82 33c1-10 8-17 18-17s17 7 18 17c-3-6-9-9-18-9s-15 3-18 9z"/>',
+    front: `<path d="M${CX - 48} ${HEAD_CY - 14}c2-27 22-46 48-46s46 19 48 46c-9-15-26-24-48-24s-39 9-48 24z"/>`,
   },
   "с пробором": {
     front:
-      '<path d="M81 34c0-11 8-18 19-18 3 0 6 1 8 2-6 2-10 6-12 11-3-4-8-5-12-3-2 3-3 5-3 8z"/>' +
-      '<path d="M101 19c8-2 17 3 18 14 0 1 0 2-1 3-1-7-3-12-7-14-3-2-7-3-10-3z"/>',
+      `<path d="M${CX - 52} ${HEAD_CY - 6}c0-31 23-54 52-54 8 0 15 2 21 5-16 5-27 16-31 30-9-10-22-13-31-7-6 7-9 15-11 26z"/>` +
+      `<path d="M${CX + 6} ${HEAD_CY - 48}c22-5 46 9 46 38 0 4-1 7-2 10-3-19-9-32-19-38-8-5-17-8-25-10z"/>`,
   },
   кудри: {
     front:
-      '<path d="M80 34a6 6 0 0 1 2-9 7 7 0 0 1 6-7 7 7 0 0 1 12-2 7 7 0 0 1 12 2 7 7 0 0 1 6 7 6 6 0 0 1 2 9c-1-6-3-9-6-10-4 3-8 4-12 4s-9-1-13-4c-4 1-6 4-7 10z"/>' +
-      '<circle cx="86" cy="26" r="3" opacity=".45"/><circle cx="100" cy="21" r="3" opacity=".45"/>' +
-      '<circle cx="113" cy="26" r="3" opacity=".45"/>',
+      `<path d="M${CX - 54} ${HEAD_CY - 6}a17 17 0 0 1 8-25 19 19 0 0 1 17-18 19 19 0 0 1 29-8 19 19 0 0 1 29 8 19 19 0 0 1 17 18 17 17 0 0 1 8 25c-4-16-10-25-18-28-11 8-21 11-31 11s-20-3-31-11c-8 3-14 12-18 28z"/>` +
+      `<circle cx="${CX - 32}" cy="${HEAD_CY - 32}" r="9" opacity=".35"/>` +
+      `<circle cx="${CX}" cy="${HEAD_CY - 44}" r="9" opacity=".35"/>` +
+      `<circle cx="${CX + 32}" cy="${HEAD_CY - 32}" r="9" opacity=".35"/>`,
   },
   длинные: {
-    back: '<path d="M78 34c0-13 10-21 22-21s22 8 22 21c0 16-1 30-3 42l-9-2c3-15 3-29 1-38-5 5-12 7-19 7s-13-2-17-6c-2 9-2 22 1 37l-9 2c-2-12-3-26-3-42z"/>',
-    front:
-      `<path d="${CAP_LOW}"/>` +
-      '<path d="M82 36q3 14 3 26l-4-1q-2-13-2-25z" opacity=".65"/>' +
-      '<path d="M118 36q-3 14-3 26l4-1q2-13 2-25z" opacity=".65"/>',
+    back: `<path d="M${CX} ${HEAD_CY - 62}c34 0 60 26 60 62 0 96-4 118-10 110a11 11 0 0 1-21-3c5-78 8-100 8-80 0-28-18-48-37-48s-37 20-37 48c0 80 3 100 8 78a11 11 0 0 1-21 3c-6-110-10-118-10-96 0-36 60-62 60-62z"/>`,
+    front: `<path d="${CAP_LOW}"/>`,
   },
   лысина: {
     front:
-      '<path d="M81 36c0-6 2-11 6-15-2 5-3 10-3 16z" opacity=".95"/>' +
-      '<path d="M119 36c0-6-2-11-6-15 2 5 3 10 3 16z" opacity=".95"/>' +
-      '<path d="M84 30q6-5 16-5 10 0 16 5-7-2-16-2-9 0-16 2z" opacity=".3"/>',
+      `<path d="M${CX - 52} ${HEAD_CY + 2}c0-16 5-30 14-40-5 13-8 26-8 42z" opacity=".95"/>` +
+      `<path d="M${CX + 52} ${HEAD_CY + 2}c0-16-5-30-14-40 5 13 8 26 8 42z" opacity=".95"/>`,
   },
   афро: {
-    back: '<circle cx="100" cy="30" r="27"/>',
-    front:
-      '<path d="M73 32a17 17 0 0 1 9-19 16 16 0 0 1 18-6 16 16 0 0 1 18 6 17 17 0 0 1 9 19c-3-10-10-15-18-15s-15 5-18 15z"/>' +
-      '<circle cx="82" cy="22" r="4" opacity=".35"/><circle cx="100" cy="14" r="4" opacity=".35"/>' +
-      '<circle cx="118" cy="22" r="4" opacity=".35"/>',
+    back: `<circle cx="${CX}" cy="${HEAD_CY - 16}" r="72"/>`,
+    front: `<path d="M${CX - 62} ${HEAD_CY - 8}a30 30 0 0 1 18-42 28 28 0 0 1 44-12 28 28 0 0 1 44 12 30 30 0 0 1 18 42c-6-26-24-40-40-40s-34 14-40 40z"/>`,
   },
   "гладко назад": {
     front:
-      '<path d="M82 31c0-10 8-16 18-16s18 6 18 16c0-3-1-5-2-7-4-6-10-8-16-8s-12 2-16 8c-1 2-2 4-2 7z"/>' +
-      '<path d="M86 22q14-6 28 0" fill="none" stroke-width="1.2" opacity=".45"/>' +
-      '<path d="M87 26q13-5 26 0" fill="none" stroke-width="1.2" opacity=".35"/>',
+      `<path d="M${CX - 50} ${HEAD_CY - 16}c0-28 22-48 50-48s50 20 50 48c-8-18-26-28-50-28s-42 10-50 28z"/>` +
+      `<path d="M${CX - 34} ${HEAD_CY - 34}q34-14 68 0" fill="none" stroke-width="3" opacity=".4"/>`,
   },
   каре: {
-    back: '<path d="M78 34c0-13 10-21 22-21s22 8 22 21c0 10-1 19-2 27l-10-1c2-9 2-18 0-24-5 5-12 7-19 7s-13-2-17-6c-2 6-2 15 0 23l-10 1c-1-8-2-17-2-27z"/>',
-    front:
-      `<path d="${CAP_LOW}"/>` +
-      '<path d="M81 36q2 13 2 23l-5-1q-1-12-1-22z" opacity=".7"/>' +
-      '<path d="M119 36q-2 13-2 23l5-1q1-12 1-22z" opacity=".7"/>',
+    back: `<path d="M${CX} ${HEAD_CY - 62}c34 0 60 26 60 62 0 58-4 80-10 72a11 11 0 0 1-21-3c5-40 8-62 8-42 0-28-18-48-37-48s-37 20-37 48c0 42 3 62 8 40a11 11 0 0 1-21 3c-6-72-10-80-10-58 0-36 60-62 60-62z"/>`,
+    front: `<path d="${CAP_LOW}"/>`,
   },
   хвост: {
-    back: '<path d="M119 30c9 3 14 11 14 22 0 9-2 17-6 23l-8-4c4-6 5-13 5-20 0-9-3-16-9-19z"/>',
-    front:
-      `<path d="${CAP}"/>` +
-      '<path d="M86 24q14-6 28 0" fill="none" stroke-width="1.2" opacity=".4"/>' +
-      '<ellipse cx="118" cy="31" rx="5" ry="4"/>',
+    back: `<path d="M${CX + 40} ${HEAD_CY - 16}c22 2 36 18 38 40 2 20-3 38-14 52-7 9-18 10-25 3-6-7-5-17 2-24 7-8 11-18 10-28-1-14-7-24-19-30z"/>`,
+    front: `<path d="${CAP}"/><ellipse cx="${CX + 48}" cy="${HEAD_CY - 6}" rx="14" ry="12"/>`,
   },
   пучок: {
-    front:
-      `<path d="${CAP}"/>` +
-      '<circle cx="100" cy="11" r="8"/>' +
-      '<path d="M86 24q14-6 28 0" fill="none" stroke-width="1.2" opacity=".4"/>',
+    front: `<path d="${CAP}"/><circle cx="${CX}" cy="${HEAD_CY - 66}" r="22"/>`,
   },
   чёлка: {
-    back: '<path d="M78 34c0-13 10-21 22-21s22 8 22 21c0 12-1 22-2 31l-9-1c2-11 2-21 0-28-5 5-12 7-19 7s-13-2-17-6c-2 7-2 17 0 27l-9 1c-1-9-2-19-2-31z"/>',
-    front:
-      `<path d="${CAP_LOW}"/>` +
-      '<path d="M81 33c0-13 9-19 19-19s19 6 19 19c-3-6-9-9-19-9s-16 3-19 9z"/>' +
-      '<path d="M86 33q7 4 14 0" fill="none" stroke-width="1.1" opacity=".4"/>',
+    back: `<path d="M${CX} ${HEAD_CY - 62}c34 0 60 26 60 62 0 74-4 96-10 88a11 11 0 0 1-21-3c5-56 8-78 8-58 0-28-18-48-37-48s-37 20-37 48c0 58 3 78 8 56a11 11 0 0 1-21 3c-6-88-10-96-10-74 0-36 60-62 60-62z"/>`,
+    front: `<path d="${CAP_LOW}"/><path d="M${CX - 50} ${HEAD_CY - 30}q50 24 100 0v13q-50 20-100 0z"/>`,
   },
   локоны: {
-    back: '<path d="M78 34c0-13 10-21 22-21s22 8 22 21c0 14-2 26-4 36-3-2-5-5-5-9 2-8 2-17 0-23-5 5-12 7-19 7s-13-2-17-6c-2 7-2 16 0 24 0 4-2 7-5 9-2-11-4-23-4-38z"/>',
-    front:
-      `<path d="${CAP_LOW}"/>` +
-      '<path d="M81 38q5 6 2 12t2 12l-5 1q-4-7-1-13t-2-11z" opacity=".8"/>' +
-      '<path d="M119 38q-5 6-2 12t-2 12l5 1q4-7 1-13t2-11z" opacity=".8"/>',
+    back: `<path d="M${CX} ${HEAD_CY - 62}c34 0 60 26 60 62 0 88-4 110-10 102a11 11 0 0 1-21-3c5-70 8-92 8-72 0-28-18-48-37-48s-37 20-37 48c0 72 3 92 8 70a11 11 0 0 1-21 3c-6-102-10-110-10-88 0-36 60-62 60-62z"/>`,
+    front: `<path d="${CAP_LOW}"/>`,
   },
 };
 
@@ -229,13 +198,11 @@ export function hairPath(sex: Sex, style: number): string {
   return `<g><path d="${CAP}"/>${hairOf(sex, style).front}</g>`;
 }
 
-/** Борода: масса по линии челюсти плюс усы. Индекс — плотность. */
+/** Борода: крупная скруглённая масса по челюсти. */
 const BEARD_PATHS: string[] = [
-  `<path d="M${CX - 18} ${HEAD_CY + 6}c1 13 8 21 18 21s17-8 18-21c-3 9-9 14-18 14s-15-5-18-14z" opacity=".4"/>`,
-  `<path d="M${CX - 19} ${HEAD_CY + 2}c0 17 8 27 19 27s19-10 19-27c-2 11-8 17-19 17s-17-6-19-17z" opacity=".92"/>` +
-    `<path d="M${CX - 8} ${HEAD_CY + 7}q8 4 16 0-8 6-16 0z" opacity=".9"/>`,
-  `<path d="M${CX - 20} ${HEAD_CY}c-1 22 8 36 20 36s21-14 20-36c-2 3-4 5-6 6 1 15-6 23-14 23s-15-8-14-23c-2-1-4-3-6-6z"/>` +
-    `<path d="M${CX - 9} ${HEAD_CY + 6}q9 5 18 0-9 7-18 0z"/>`,
+  `<path d="M${CX - 44} ${HEAD_CY + 16}c2 30 20 48 44 48s42-18 44-48c-8 20-24 32-44 32s-36-12-44-32z" opacity=".4"/>`,
+  `<path d="M${CX - 46} ${HEAD_CY + 8}c0 38 20 60 46 60s46-22 46-60c-6 26-22 40-46 40s-40-14-46-40z" opacity=".95"/>`,
+  `<path d="M${CX - 48} ${HEAD_CY + 2}c-2 50 20 80 48 80s50-30 48-80c-5 8-10 13-15 15 3 34-14 52-33 52s-36-18-33-52c-5-2-10-7-15-15z"/>`,
 ];
 
 /* --------------------------------- сборка --------------------------------- */
@@ -253,75 +220,62 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
   const s = o.size ?? 200;
   const h = Math.round((s * H) / W);
   const sk = SKIN[a.skin] ?? SKIN[1];
-  const skDark = shade(sk, 0.2);
+  const skDark = shade(sk, 0.16);
   const hc = HAIRC[a.hairc] ?? HAIRC[0];
-  const hcDark = shade(hc, 0.42);
-  const hcLight = shade(hc, -0.4);
+  const hcDark = shade(hc, 0.3);
+  const hcLight = shade(hc, -0.3);
   const ec = EYESC[a.eyes] ?? EYESC[0];
   const oc = outfitColor(o.top);
-  const ocDark = shade(oc, 0.26);
+  const ocDark = shade(oc, 0.18);
   const sc = shoeColor(o.shoes);
-  const scDark = shade(sc, 0.42);
+  const scDark = shade(sc, 0.3);
   const bg = o.bg ?? "#141922";
-  // тёплое пятно света в сцене и цвет контрового света по краю фигуры
-  const accent = "#f0873f";
-  const rim = "#cfd8e6";
-  const mouthC = shade(sk, 0.5);
+  const pants = "#4A5468";
+  const pantsDark = shade(pants, 0.18);
   const id = `av${s}${a.skin}${a.hair}${a.hairc}${a.eyes}${a.face}`;
-  const pants = "#3E4655";
-  const pantsDark = shade(pants, 0.26);
 
-  // В плоском стиле градиент нужен только фону: формы красятся двумя ровными
-  // тонами, а объём задаёт форма теневого пятна, а не растяжка цвета.
   const defs =
-    `<defs>` +
-    `<clipPath id="c${id}"><rect x="0" y="0" width="${W}" height="${H}" rx="16"/></clipPath>` +
-    `<linearGradient id="room${id}" x1="0" y1="0" x2="0.3" y2="1">` +
-    `<stop offset="0" stop-color="${shade(bg, -0.35)}"/>` +
-    `<stop offset="55%" stop-color="${bg}"/>` +
-    `<stop offset="100%" stop-color="${shade(bg, 0.5)}"/></linearGradient>` +
-    `<radialGradient id="spot${id}" cx="50%" cy="22%" r="62%">` +
-    `<stop offset="0" stop-color="${accent}" stop-opacity=".22"/>` +
-    `<stop offset="100%" stop-color="${accent}" stop-opacity="0"/></radialGradient>` +
-    `</defs>`;
+    `<defs><clipPath id="c${id}"><rect x="0" y="0" width="${W}" height="${H}" rx="16"/></clipPath>` +
+    `<radialGradient id="bg${id}" cx="50%" cy="30%" r="75%">` +
+    `<stop offset="0" stop-color="${shade(bg, -0.28)}"/>` +
+    `<stop offset="100%" stop-color="${shade(bg, 0.35)}"/></radialGradient></defs>`;
 
+  const hairStyle = hairOf(a.sex, a.hair);
+
+  /* Голова крупная и сильно скруглённая; тон потемнее снизу заменяет собой
+     всю светотень. */
   const head =
-    `<path d="M100 ${TOP}c11 0 19 9 19 21 0 7-2 13-5 18-3 5-8 8-14 8s-11-3-14-8c-3-5-5-11-5-18 0-12 8-21 19-21z" fill="${sk}"/>` +
-    // теневая половина: граница жёсткая, идёт по средней линии лица
-    `<path d="M103 ${TOP}c9 1 16 10 16 21 0 7-2 13-5 18-3 5-8 8-14 8-1 0-2 0-3-.3 5-1 9-4 12-8 3-5 5-11 5-18 0-10-5-18-11-21z" fill="${skDark}"/>` +
-    `<path d="M${CX - 18.5} ${HEAD_CY - 2}c-3 0-4.5 2-4.5 4.5s1.5 5 3.5 5.5c.8 0 1.5-.7 1.5-1.5z" fill="${sk}"/>` +
-    `<path d="M${CX + 18.5} ${HEAD_CY - 2}c3 0 4.5 2 4.5 4.5s-1.5 5-3.5 5.5c-.8 0-1.5-.7-1.5-1.5z" fill="${skDark}"/>`;
+    `<ellipse cx="${CX}" cy="${HEAD_CY}" rx="${HEAD_RX}" ry="${HEAD_RY}" fill="${sk}"/>` +
+    `<path d="M${CX - 48} ${HEAD_CY + 26}a52 56 0 0 0 96 0 52 56 0 0 1-96 0z" fill="${skDark}" opacity=".5"/>` +
+    `<ellipse cx="${CX - HEAD_RX + 2}" cy="${EY + 4}" rx="9" ry="12" fill="${sk}"/>` +
+    `<ellipse cx="${CX + HEAD_RX - 2}" cy="${EY + 4}" rx="9" ry="12" fill="${skDark}"/>`;
 
-  const EY = HEAD_CY - 1;
-  const MY = HEAD_CY + 14;
-
-  // Глаза — миндалевидные пятна с радужкой. Ни ресниц, ни бликов на склере:
-  // в плоском стиле лишняя деталь сразу превращает лицо в маску.
+  /* Глаза — главный элемент стиля: крупные, с большим зрачком и одним бликом. */
   const eyes =
     `<g>` +
-    `<path d="M${CX - 12.5} ${EY}q5-4.6 10 0-5 4.2-10 0z" fill="#f7f4ef"/>` +
-    `<path d="M${CX + 2.5} ${EY}q5-4.6 10 0-5 4.2-10 0z" fill="#f7f4ef"/>` +
-    `<circle cx="${CX - 7.2}" cy="${EY}" r="2.5" fill="${ec}"/>` +
-    `<circle cx="${CX + 7.8}" cy="${EY}" r="2.5" fill="${ec}"/>` +
-    `<circle cx="${CX - 7.2}" cy="${EY}" r="1.1" fill="#171213"/>` +
-    `<circle cx="${CX + 7.8}" cy="${EY}" r="1.1" fill="#171213"/>` +
+    `<ellipse cx="${CX - 20}" cy="${EY}" rx="15" ry="17" fill="#fff"/>` +
+    `<ellipse cx="${CX + 20}" cy="${EY}" rx="15" ry="17" fill="#fff"/>` +
+    `<circle cx="${CX - 19}" cy="${EY + 1}" r="9.5" fill="${ec}"/>` +
+    `<circle cx="${CX + 21}" cy="${EY + 1}" r="9.5" fill="${ec}"/>` +
+    `<circle cx="${CX - 19}" cy="${EY + 1}" r="5" fill="#1B1414"/>` +
+    `<circle cx="${CX + 21}" cy="${EY + 1}" r="5" fill="#1B1414"/>` +
+    `<circle cx="${CX - 23}" cy="${EY - 4}" r="3.4" fill="#fff"/>` +
+    `<circle cx="${CX + 17}" cy="${EY - 4}" r="3.4" fill="#fff"/>` +
     `</g>`;
 
-  // Брови — короткие плотные мазки: главный носитель выражения в этом стиле.
   const brows =
-    `<path d="M${CX - 13} ${EY - 6}q5-2.6 10-.6" stroke="${hcDark}" stroke-width="1.9" fill="none" stroke-linecap="round"/>` +
-    `<path d="M${CX + 3} ${EY - 6.6}q5-2 10 .6" stroke="${hcDark}" stroke-width="1.9" fill="none" stroke-linecap="round"/>`;
+    `<path d="M${CX - 32} ${EY - 23}q12-8 24-2" stroke="${hcDark}" stroke-width="6" fill="none" stroke-linecap="round"/>` +
+    `<path d="M${CX + 8} ${EY - 25}q12-6 24 2" stroke="${hcDark}" stroke-width="6" fill="none" stroke-linecap="round"/>`;
 
-  // Нос — одно теневое пятно сбоку, без спинки и ноздрей.
-  const nose = `<path d="M${CX + 1} ${EY + 3}q2.6 5 0 7.4-2.6 .6-3.4-1z" fill="${skDark}"/>`;
+  /* Нос — маленькая скруглённая деталь, а не портретная спинка. */
+  const nose = `<path d="M${CX - 5} ${EY + 20}q5 6 10 0" stroke="${skDark}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
 
-  // Рот — одна линия: выражение задаёт её изгиб, а не форма губ.
   const mouth =
     a.face === 1
-      ? `<path d="M${CX - 6} ${MY}q6 5.5 12 0" stroke="${mouthC}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+      ? `<path d="M${CX - 16} ${EY + 30}q16 18 32 0" stroke="#A85348" stroke-width="5" fill="none" stroke-linecap="round"/>`
       : a.face === 2
-        ? `<path d="M${CX - 5.5} ${MY + 1}h11" stroke="${mouthC}" stroke-width="2.2" stroke-linecap="round"/>`
-        : `<path d="M${CX - 5} ${MY + 1}q5 3 10 0" stroke="${mouthC}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+        ? `<path d="M${CX - 13} ${EY + 34}h26" stroke="#A85348" stroke-width="5" stroke-linecap="round"/>`
+        : `<path d="M${CX - 13} ${EY + 32}q13 8 26 0" stroke="#A85348" stroke-width="5" fill="none" stroke-linecap="round"/>`;
 
   const beard =
     a.beard && a.sex === "m"
@@ -329,55 +283,36 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
       : "";
 
   const glasses = a.glasses
-    ? `<g fill="none" stroke="#2A3342" stroke-width="1.8">` +
-      `<rect x="${CX - 14}" y="${EY - 4.5}" width="13" height="9" rx="4"/>` +
-      `<rect x="${CX + 1}" y="${EY - 4.5}" width="13" height="9" rx="4"/>` +
-      `<path d="M${CX - 1} ${EY}h2M${CX - 14} ${EY - 2}l-5-1M${CX + 14} ${EY - 2}l5-1"/></g>` +
-      `<rect x="${CX - 13.4}" y="${EY - 4}" width="12" height="4" rx="2" fill="#fff" opacity=".12"/>`
+    ? `<g fill="none" stroke="#2A3342" stroke-width="5">` +
+      `<rect x="${CX - 38}" y="${EY - 18}" width="36" height="36" rx="14"/>` +
+      `<rect x="${CX + 2}" y="${EY - 18}" width="36" height="36" rx="14"/>` +
+      `<path d="M${CX - 2} ${EY}h4M${CX - 38} ${EY - 6}l-12-3M${CX + 38} ${EY - 6}l12-3"/></g>`
     : "";
-
-  const hairStyle = hairOf(a.sex, a.hair);
-  const hairBack = hairStyle.back ? `<g fill="${hc}">${hairStyle.back}</g>` : "";
-  const hair =
-    `<g fill="${hc}">${hairStyle.front}</g>` +
-    // один блик на массе волос — ровное пятно, без растяжки
-    `<path d="M${CX - 12} ${TOP + 8}q9-5 17-1-8-1-17 5z" fill="${hcLight}" opacity=".45"/>` +
-    `<g fill="none" stroke="${hcLight}" stroke-width="1.1" opacity=".42" stroke-linecap="round">` +
-    `<path d="M${CX - 12} ${TOP + 9}q7-5 15-3"/><path d="M${CX - 6} ${TOP + 6}q8-3 15 1"/>` +
-    `<path d="M${CX - 14} ${TOP + 15}q6-4 12-4"/></g>`;
 
   const cap = a.cap
-    ? `<g><path d="M${CX - 23} ${HEAD_CY - 4}c0-14 10-23 23-23s23 9 23 23z" fill="#2E8B7A"/>` +
-      `<path d="M${CX - 23} ${HEAD_CY - 4}c0-14 10-23 23-23 4 0 7 1 10 2-11 2-19 11-20 21z" fill="#3aa78f" opacity=".7"/>` +
-      `<path d="M${CX} ${HEAD_CY - 4}h26c5 0 8 2 9 5-10 3-24 3-35 3z" fill="#25705F"/></g>`
+    ? `<g><path d="M${CX - 54} ${HEAD_CY - 12}c0-32 24-56 54-56s54 24 54 56z" fill="#2E8B7A"/>` +
+      `<path d="M${CX - 54} ${HEAD_CY - 12}c0-32 24-56 54-56 6 0 12 1 17 3-26 6-44 27-46 53z" fill="#3FB39A"/>` +
+      `<path d="M${CX} ${HEAD_CY - 12}h60c8 0 13 4 15 10-22 6-52 6-75 6z" fill="#24705F"/>` +
+      `<circle cx="${CX}" cy="${HEAD_CY - 68}" r="7" fill="#24705F"/></g>`
     : "";
 
-  const ARM_TOP = SHOULDER_Y + 2;
-  const WRIST_Y = HIP_Y + 12;
+  /* Корпус — одна крупная скруглённая форма. Руки толстые и короткие,
+     кисти-варежки без пальцев: так принято в этой стилистике. */
   const body =
-    `<path d="M${CX - 7} ${CHIN - 8}h14v13q-7 6-14 0z" fill="${skDark}"/>` +
-    /* торс: силуэт и ровно половина в тени, граница по центру */
-    `<path d="M100 ${SHOULDER_Y - 9}c-10 0-19 3-25 8-4 4-6 8-7 13l-3 ${WAIST_Y - SHOULDER_Y - 12}c-1 8 2 13 8 16 8 4 18 6 27 6s19-2 27-6c6-3 9-8 8-16l-3-${WAIST_Y - SHOULDER_Y - 12}c-1-5-3-9-7-13-6-5-15-8-25-8z" fill="${oc}"/>` +
-    `<path d="M${CX + 7} ${SHOULDER_Y - 8}c7 1 13 4 18 8 4 4 6 8 7 13l3 ${WAIST_Y - SHOULDER_Y - 12}c1 8-2 13-8 16-6 3-13 5-20 5.6z" fill="${ocDark}"/>` +
-    /* руки */
-    `<path d="M${CX - 25} ${ARM_TOP}c-8 3-13 9-15 17l-5 26c-1 6 0 10 2 14l3 ${WRIST_Y - ARM_TOP - 57}c1 6 5 8 9 7s6-5 5-10l-2-${WRIST_Y - ARM_TOP - 53}c-1-5-1-9 0-13l5-23z" fill="${oc}"/>` +
-    `<path d="M${CX + 25} ${ARM_TOP}c8 3 13 9 15 17l5 26c1 6 0 10-2 14l-3 ${WRIST_Y - ARM_TOP - 57}c-1 6-5 8-9 7s-6-5-5-10l2-${WRIST_Y - ARM_TOP - 53}c1-5 1-9 0-13l-5-23z" fill="${ocDark}"/>` +
-    /* кисти */
-    `<path d="M${CX - 41} ${WRIST_Y - 2}c5-1 9 3 9 8v6c0 5-4 9-8 9s-8-4-8-9v-6c0-4 3-7 7-8z" fill="${sk}"/>` +
-    `<path d="M${CX + 41} ${WRIST_Y - 2}c-5-1-9 3-9 8v6c0 5 4 9 8 9s8-4 8-9v-6c0-4-3-7-7-8z" fill="${skDark}"/>` +
-    /* ноги */
-    `<path d="M${CX - 27} ${HIP_Y - 12}h27l-2 20c-1 11-3 22-4 33l-2 ${ANKLE_Y - KNEE_Y - 8}h-13l-1-20c-1-11-2-22-3-33z" fill="${pants}"/>` +
-    `<path d="M${CX} ${HIP_Y - 12}h27l-3 20c-1 11-2 22-3 33l-1 ${ANKLE_Y - KNEE_Y - 8}h-13l-2-20c-1-11-3-22-4-33z" fill="${pantsDark}"/>` +
-    /* обувь */
-    `<path d="M${CX - 21} ${ANKLE_Y}h14c0 6 2 10 6 13 3 2 5 4 5 6h-27c-1-7 0-13 2-19z" fill="${sc}"/>` +
-    `<path d="M${CX + 21} ${ANKLE_Y}h-14c0 6-2 10-6 13-3 2-5 4-5 6h27c1-7 0-13-2-19z" fill="${shade(sc, 0.3)}"/>` +
-    `<path d="M${CX - 23} ${FLOOR_Y - 5}h27a3 3 0 0 1 0 6h-25a2 2 0 0 1-2-3z" fill="${scDark}"/>` +
-    `<path d="M${CX - 4} ${FLOOR_Y - 5}h27a2 2 0 0 1-2 6h-25a3 3 0 0 1 0-6z" fill="${scDark}"/>` +
-    /* контровой свет: узкая полоса по левому краю отделяет фигуру от фона */
-    `<g fill="none" stroke="${rim}" stroke-width="2.2" stroke-linecap="round" opacity=".5">` +
-    `<path d="M${CX - 25} ${SHOULDER_Y - 4}c-8 4-13 10-15 18l-5 26"/>` +
-    `<path d="M${CX - 27} ${HIP_Y - 6}c-1 14-2 28-3 42"/>` +
-    `</g>`;
+    `<path d="M${CX - 16} ${CHIN - 14}h32v18q-16 10-32 0z" fill="${skDark}"/>` +
+    `<path d="M${CX} ${SHOULDER_Y - 18}c-26 0-44 14-44 34v56c0 16 20 26 44 26s44-10 44-26v-56c0-20-18-34-44-34z" fill="${oc}"/>` +
+    `<path d="M${CX} ${SHOULDER_Y - 18}c26 0 44 14 44 34v56c0 16-20 26-44 26z" fill="${ocDark}"/>` +
+    `<path d="M${CX - 44} ${BODY_BOTTOM - 34}c0 16 20 26 44 26s44-10 44-26v12c0 16-20 26-44 26s-44-10-44-26z" fill="${ocDark}" opacity=".55"/>` +
+    `<path d="M${CX - 44} ${SHOULDER_Y + 2}c-14 4-22 16-22 32v34c0 11 8 18 18 18s18-7 18-18z" fill="${oc}"/>` +
+    `<path d="M${CX + 44} ${SHOULDER_Y + 2}c14 4 22 16 22 32v34c0 11-8 18-18 18s-18-7-18-18z" fill="${ocDark}"/>` +
+    `<ellipse cx="${CX - 52}" cy="${SHOULDER_Y + 86}" rx="17" ry="18" fill="${sk}"/>` +
+    `<ellipse cx="${CX + 52}" cy="${SHOULDER_Y + 86}" rx="17" ry="18" fill="${skDark}"/>` +
+    `<path d="M${CX - 34} ${BODY_BOTTOM - 8}h30v${LEG_BOTTOM - BODY_BOTTOM}a15 15 0 0 1-30 0z" fill="${pants}"/>` +
+    `<path d="M${CX + 4} ${BODY_BOTTOM - 8}h30v${LEG_BOTTOM - BODY_BOTTOM}a15 15 0 0 1-30 0z" fill="${pantsDark}"/>` +
+    `<path d="M${CX - 36} ${LEG_BOTTOM - 4}h28c4 0 7 3 8 7l2 9c1 6-3 11-9 11h-33c-6 0-10-5-9-11l3-9c1-4 5-7 10-7z" fill="${sc}"/>` +
+    `<path d="M${CX + 8} ${LEG_BOTTOM - 4}h28c5 0 9 3 10 7l3 9c1 6-3 11-9 11h-33c-6 0-10-5-9-11l2-9c1-4 4-7 8-7z" fill="${shade(sc, 0.18)}"/>` +
+    `<path d="M${CX - 45} ${FLOOR_Y - 6}h44a5 5 0 0 1 0 10h-42a5 5 0 0 1-2-10z" fill="${scDark}"/>` +
+    `<path d="M${CX + 1} ${FLOOR_Y - 6}h44a5 5 0 0 1-2 10h-42a5 5 0 0 1 0-10z" fill="${scDark}"/>`;
 
   const accessory = accessoryOverlay(o.accessory);
 
@@ -385,10 +320,9 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     `<svg viewBox="0 0 ${W} ${H}" width="${s}" height="${h}" role="img" aria-label="персонаж в полный рост">` +
     defs +
     `<g clip-path="url(#c${id})">` +
-    `<rect width="${W}" height="${H}" fill="url(#room${id})"/>` +
-    `<rect width="${W}" height="${H}" fill="url(#spot${id})"/>` +
-    `<ellipse cx="${CX}" cy="${FLOOR_Y + 3}" rx="44" ry="6" fill="#000" opacity=".55"/>` +
-    hairBack +
+    `<rect width="${W}" height="${H}" fill="url(#bg${id})"/>` +
+    `<ellipse cx="${CX}" cy="${FLOOR_Y + 6}" rx="56" ry="9" fill="#000" opacity=".45"/>` +
+    (hairStyle.back ? `<g fill="${hc}">${hairStyle.back}</g>` : "") +
     body +
     head +
     beard +
@@ -396,7 +330,8 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     eyes +
     nose +
     mouth +
-    hair +
+    `<g fill="${hc}">${hairStyle.front}</g>` +
+    `<path d="M${CX - 30} ${HEAD_CY - 40}q24-14 46-4-22-2-46 12z" fill="${hcLight}" opacity=".4"/>` +
     glasses +
     cap +
     accessory +
@@ -404,37 +339,36 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
   );
 }
 
-/** Оверлей для аксессуара поверх фигуры: часы/рюкзак/наушники/очки/сумка. */
+/** Оверлей для аксессуара поверх фигуры. */
 function accessoryOverlay(id: string | null | undefined): string {
-  const WRIST = HIP_Y + 16;
   switch (id) {
     case "watch":
       return (
-        `<rect x="${CX - 45}" y="${WRIST - 4}" width="11" height="6" rx="2" fill="#2A3342"/>` +
-        `<circle cx="${CX - 39.5}" cy="${WRIST - 1}" r="3.4" fill="#C8CDD8"/>`
+        `<rect x="${CX - 62}" y="${SHOULDER_Y + 62}" width="20" height="10" rx="5" fill="#2A3342"/>` +
+        `<circle cx="${CX - 52}" cy="${SHOULDER_Y + 67}" r="7" fill="#C8CDD8"/>`
       );
     case "backpack":
       return (
-        `<path d="M${CX - 26} ${SHOULDER_Y + 8}q26-9 52 0l3 42q-29 9-58 0z" fill="#2E8B7A" opacity=".9"/>` +
-        `<path d="M${CX - 16} ${SHOULDER_Y + 6}l2-9h28l2 9" fill="none" stroke="#25705F" stroke-width="3"/>`
+        `<path d="M${CX - 46} ${SHOULDER_Y + 10}q46-16 92 0l5 74q-51 16-102 0z" fill="#2E8B7A" opacity=".92"/>` +
+        `<path d="M${CX - 26} ${SHOULDER_Y + 6}l3-14h46l3 14" fill="none" stroke="#24705F" stroke-width="6"/>`
       );
     case "headphones_neck":
       return (
-        `<path d="M${CX - 15} ${CHIN + 8}a15 15 0 0 1 30 0" fill="none" stroke="#2A3342" stroke-width="4"/>` +
-        `<rect x="${CX - 19}" y="${CHIN + 5}" width="7" height="10" rx="3" fill="#2A3342"/>` +
-        `<rect x="${CX + 12}" y="${CHIN + 5}" width="7" height="10" rx="3" fill="#2A3342"/>`
+        `<path d="M${CX - 26} ${CHIN + 10}a26 26 0 0 1 52 0" fill="none" stroke="#2A3342" stroke-width="8"/>` +
+        `<rect x="${CX - 34}" y="${CHIN + 4}" width="14" height="20" rx="7" fill="#2A3342"/>` +
+        `<rect x="${CX + 20}" y="${CHIN + 4}" width="14" height="20" rx="7" fill="#2A3342"/>`
       );
     case "sunglasses":
       return (
-        `<g><rect x="${CX - 14}" y="${HEAD_CY - 5}" width="13" height="9" rx="3" fill="#1A1F29"/>` +
-        `<rect x="${CX + 1}" y="${HEAD_CY - 5}" width="13" height="9" rx="3" fill="#1A1F29"/>` +
-        `<rect x="${CX - 1}" y="${HEAD_CY - 3}" width="2" height="2.5" fill="#1A1F29"/></g>`
+        `<g><rect x="${CX - 38}" y="${EY - 16}" width="36" height="30" rx="12" fill="#1A1F29"/>` +
+        `<rect x="${CX + 2}" y="${EY - 16}" width="36" height="30" rx="12" fill="#1A1F29"/>` +
+        `<rect x="${CX - 4}" y="${EY - 6}" width="8" height="6" fill="#1A1F29"/></g>`
       );
     case "tote_bag":
       return (
-        `<path d="M${CX + 38} ${HIP_Y}h20v26h-20z" fill="#D9B36B"/>` +
-        `<path d="M${CX + 42} ${HIP_Y}v-7a6 6 0 0 1 12 0v7" fill="none" stroke="#8E6B33" stroke-width="2.5"/>` +
-        `<path d="M${CX + 38} ${HIP_Y}h20v5h-20z" fill="${shade("#D9B36B", 0.25)}"/>`
+        `<path d="M${CX + 54} ${SHOULDER_Y + 40}h40v52h-40z" fill="#D9B36B"/>` +
+        `<path d="M${CX + 62} ${SHOULDER_Y + 40}v-12a12 12 0 0 1 24 0v12" fill="none" stroke="#8E6B33" stroke-width="5"/>` +
+        `<path d="M${CX + 54} ${SHOULDER_Y + 40}h40v10h-40z" fill="${shade("#D9B36B", 0.22)}"/>`
       );
     default:
       return "";

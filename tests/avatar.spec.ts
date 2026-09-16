@@ -75,20 +75,23 @@ describe("персонаж — портрет", () => {
     expect(new Set([of(0), of(1), of(2)]).size).toBe(3);
   });
 
-  it("голова занимает примерно седьмую часть роста, а не четверть", () => {
-    // именно из-за пропорции 1:4 фигура читалась как гном
+  it("пропорции намеренно «детские»: голова около трети роста", () => {
+    // стиль обучающих приложений строится не на анатомии, а на крупной голове
+    // и больших глазах — правильные 7.5 голов дают сухой манекен
     const svg = avatarSVG(defaultAppearance());
+    const headRy = Number(/<ellipse cx="100" cy="96" rx="52" ry="(\d+)"/.exec(svg)![1]);
     const canvas = Number(/viewBox="0 0 \d+ (\d+)"/.exec(svg)![1]);
-    const headHeight = 48;
-    const ratio = canvas / headHeight;
-    expect(ratio).toBeGreaterThan(7);
-    expect(ratio).toBeLessThan(9);
+    const heads = canvas / (headRy * 2);
+    expect(heads).toBeGreaterThan(2.5);
+    expect(heads).toBeLessThan(4);
   });
 
-  it("объём даётся градиентами, а не плоской заливкой", () => {
+  it("фигура красится плоско: градиент только у фона", () => {
     const svg = avatarSVG(defaultAppearance());
-    expect(svg).toContain("linearGradient");
-    expect(svg).toContain("radialGradient");
+    // единственный градиент в документе — подложка сцены
+    expect((svg.match(/Gradient/g) ?? []).length).toBeLessThanOrEqual(2);
+    expect(svg).not.toContain("url(#skin");
+    expect(svg).not.toContain("url(#cloth");
   });
 
   it("одежда влияет на цвет", () => {
