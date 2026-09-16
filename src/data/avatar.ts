@@ -133,21 +133,27 @@ const CAP = `M${CX - 52} ${HEAD_CY - 4}c0-31 23-54 52-54s52 23 52 54c-3-13-10-22
 const CAP_LOW = `M${CX - 53} ${HEAD_CY + 10}c0-36 23-62 53-62s53 26 53 62c-4-18-11-30-22-35-10 7-20 10-31 10s-21-3-31-10c-11 5-18 17-22 35z`;
 
 const HAIR: Record<string, Hair> = {
-  короткие: { front: `<path d="${CAP}"/>` },
+  короткие: {
+    front:
+      `<path d="${CAP}"/>` +
+      `<path d="M${CX - 40} ${HEAD_CY - 6}q5 14 3 26l-8-2q-2-13 5-24z"/>` +
+      `<path d="M${CX + 40} ${HEAD_CY - 6}q-5 14-3 26l8-2q2-13-5-24z"/>`,
+  },
   ёжик: {
-    front: `<path d="M${CX - 48} ${HEAD_CY - 14}c2-27 22-46 48-46s46 19 48 46c-9-15-26-24-48-24s-39 9-48 24z"/>`,
+    front: `<path d="M${CX - 44} ${HEAD_CY - 24}c4-22 22-36 44-36s40 14 44 36c-12-12-27-18-44-18s-32 6-44 18z"/>`,
   },
   "с пробором": {
     front:
-      `<path d="M${CX - 52} ${HEAD_CY - 6}c0-31 23-54 52-54 8 0 15 2 21 5-16 5-27 16-31 30-9-10-22-13-31-7-6 7-9 15-11 26z"/>` +
-      `<path d="M${CX + 6} ${HEAD_CY - 48}c22-5 46 9 46 38 0 4-1 7-2 10-3-19-9-32-19-38-8-5-17-8-25-10z"/>`,
+      `<path d="M${CX - 52} ${HEAD_CY - 4}c0-31 23-54 52-54 6 0 11 1 16 3-20 8-32 22-36 40-8-12-20-16-28-9-3 5-4 12-4 20z"/>` +
+      `<path d="M${CX - 4} ${HEAD_CY - 52}c30-4 56 18 56 48 0 4 0 7-1 10-6-24-16-40-31-47-8-4-16-8-24-11z"/>`,
   },
   кудри: {
+    back: `<circle cx="${CX}" cy="${HEAD_CY - 14}" r="64"/>`,
     front:
-      `<path d="M${CX - 54} ${HEAD_CY - 6}a17 17 0 0 1 8-25 19 19 0 0 1 17-18 19 19 0 0 1 29-8 19 19 0 0 1 29 8 19 19 0 0 1 17 18 17 17 0 0 1 8 25c-4-16-10-25-18-28-11 8-21 11-31 11s-20-3-31-11c-8 3-14 12-18 28z"/>` +
-      `<circle cx="${CX - 32}" cy="${HEAD_CY - 32}" r="9" opacity=".35"/>` +
-      `<circle cx="${CX}" cy="${HEAD_CY - 44}" r="9" opacity=".35"/>` +
-      `<circle cx="${CX + 32}" cy="${HEAD_CY - 32}" r="9" opacity=".35"/>`,
+      `<path d="M${CX - 62} ${HEAD_CY - 6}a20 20 0 0 1 10-28 22 22 0 0 1 20-20 22 22 0 0 1 32-8 22 22 0 0 1 32 8 22 22 0 0 1 20 20 20 20 0 0 1 10 28c-6-20-14-31-24-34-12 9-24 13-38 13s-26-4-38-13c-10 3-18 14-24 34z"/>` +
+      `<circle cx="${CX - 40}" cy="${HEAD_CY - 36}" r="13" opacity=".3"/>` +
+      `<circle cx="${CX}" cy="${HEAD_CY - 52}" r="13" opacity=".3"/>` +
+      `<circle cx="${CX + 40}" cy="${HEAD_CY - 36}" r="13" opacity=".3"/>`,
   },
   длинные: {
     back: `<path d="M${CX} ${HEAD_CY - 62}c34 0 60 26 60 62 0 96-4 118-10 110a11 11 0 0 1-21-3c5-78 8-100 8-80 0-28-18-48-37-48s-37 20-37 48c0 80 3 100 8 78a11 11 0 0 1-21 3c-6-110-10-118-10-96 0-36 60-62 60-62z"/>`,
@@ -155,8 +161,8 @@ const HAIR: Record<string, Hair> = {
   },
   лысина: {
     front:
-      `<path d="M${CX - 52} ${HEAD_CY + 2}c0-16 5-30 14-40-5 13-8 26-8 42z" opacity=".95"/>` +
-      `<path d="M${CX + 52} ${HEAD_CY + 2}c0-16-5-30-14-40 5 13 8 26 8 42z" opacity=".95"/>`,
+      `<path d="M${CX - 52} ${HEAD_CY + 6}c0-20 5-36 15-47-7 16-10 32-10 50z"/>` +
+      `<path d="M${CX + 52} ${HEAD_CY + 6}c0-20-5-36-15-47 7 16 10 32 10 50z"/>`,
   },
   афро: {
     back: `<circle cx="${CX}" cy="${HEAD_CY - 16}" r="72"/>`,
@@ -164,8 +170,8 @@ const HAIR: Record<string, Hair> = {
   },
   "гладко назад": {
     front:
-      `<path d="M${CX - 50} ${HEAD_CY - 16}c0-28 22-48 50-48s50 20 50 48c-8-18-26-28-50-28s-42 10-50 28z"/>` +
-      `<path d="M${CX - 34} ${HEAD_CY - 34}q34-14 68 0" fill="none" stroke-width="3" opacity=".4"/>`,
+      `<path d="M${CX - 48} ${HEAD_CY - 26}c2-26 24-44 48-44s46 18 48 44c-12-16-28-24-48-24s-36 8-48 24z"/>` +
+      `<path d="M${CX - 34} ${HEAD_CY - 44}q34-12 68 0" fill="none" stroke-width="4" opacity=".35"/>`,
   },
   каре: {
     back: `<path d="M${CX} ${HEAD_CY - 62}c34 0 60 26 60 62 0 58-4 80-10 72a11 11 0 0 1-21-3c5-40 8-62 8-42 0-28-18-48-37-48s-37 20-37 48c0 42 3 62 8 40a11 11 0 0 1-21 3c-6-72-10-80-10-58 0-36 60-62 60-62z"/>`,
@@ -339,36 +345,78 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
   );
 }
 
-/** Оверлей для аксессуара поверх фигуры. */
+/**
+ * Аксессуар поверх фигуры. Ключевое — посадка по месту: часы на запястье,
+ * кольцо на кисти, вкладыши в ушах, лямки рюкзака на плечах. Раньше часть
+ * предметов висела рядом с фигурой, а цепочка, кольцо и вкладыши не рисовались
+ * вовсе — их можно было купить и не увидеть на персонаже.
+ */
 function accessoryOverlay(id: string | null | undefined): string {
+  /* Ориентиры фигуры: кисти — эллипсы в (CX∓52, HAND_Y); запястье чуть выше;
+     уши — в (CX∓50, EY+4); вырез горловины — на уровне SHOULDER_Y. */
+  const HAND_Y = SHOULDER_Y + 86;
+  const WRIST_Y = HAND_Y - 22;
+  const EAR_Y = EY + 4;
   switch (id) {
     case "watch":
       return (
-        `<rect x="${CX - 62}" y="${SHOULDER_Y + 62}" width="20" height="10" rx="5" fill="#2A3342"/>` +
-        `<circle cx="${CX - 52}" cy="${SHOULDER_Y + 67}" r="7" fill="#C8CDD8"/>`
+        `<rect x="${CX - 62}" y="${WRIST_Y - 6}" width="21" height="13" rx="6" fill="#2A3342"/>` +
+        `<circle cx="${CX - 51.5}" cy="${WRIST_Y}" r="8" fill="#C8CDD8"/>` +
+        `<circle cx="${CX - 51.5}" cy="${WRIST_Y}" r="5.5" fill="#1B2230"/>` +
+        `<path d="M${CX - 51.5} ${WRIST_Y}v-3.5M${CX - 51.5} ${WRIST_Y}l2.5 2" stroke="#E4E8F0" stroke-width="1.4" stroke-linecap="round"/>`
       );
-    case "backpack":
+    case "ring":
       return (
-        `<path d="M${CX - 46} ${SHOULDER_Y + 10}q46-16 92 0l5 74q-51 16-102 0z" fill="#2E8B7A" opacity=".92"/>` +
-        `<path d="M${CX - 26} ${SHOULDER_Y + 6}l3-14h46l3 14" fill="none" stroke="#24705F" stroke-width="6"/>`
+        `<circle cx="${CX - 58}" cy="${HAND_Y + 4}" r="6" fill="none" stroke="#E0B455" stroke-width="3.4"/>` +
+        `<rect x="${CX - 63}" y="${HAND_Y - 4}" width="10" height="8" rx="3" fill="#F0CB72"/>`
+      );
+    case "necklace":
+      /* цепочка лежит по вырезу горловины дугой от плеча до плеча */
+      return (
+        `<path d="M${CX - 26} ${SHOULDER_Y - 8}q26 30 52 0" fill="none" stroke="#E0B455" stroke-width="3.4" stroke-linecap="round"/>` +
+        `<path d="M${CX} ${SHOULDER_Y + 10}l6 8-6 8-6-8z" fill="#F0CB72"/>`
+      );
+    case "earbuds":
+      /* вкладыши сидят в ушах, ножка уходит вниз вдоль челюсти */
+      return (
+        `<g fill="#F2F0EA">` +
+        `<circle cx="${CX - 50}" cy="${EAR_Y}" r="7"/><circle cx="${CX + 50}" cy="${EAR_Y}" r="7"/>` +
+        `<path d="M${CX - 54} ${EAR_Y + 4}h7v13a3.5 3.5 0 0 1-7 0z"/>` +
+        `<path d="M${CX + 47} ${EAR_Y + 4}h7v13a3.5 3.5 0 0 1-7 0z"/></g>` +
+        `<circle cx="${CX - 50}" cy="${EAR_Y}" r="3" fill="#8FA3B8"/>` +
+        `<circle cx="${CX + 50}" cy="${EAR_Y}" r="3" fill="#8FA3B8"/>`
       );
     case "headphones_neck":
+      /* дужка лежит на плечах, чашки — по сторонам шеи */
       return (
-        `<path d="M${CX - 26} ${CHIN + 10}a26 26 0 0 1 52 0" fill="none" stroke="#2A3342" stroke-width="8"/>` +
-        `<rect x="${CX - 34}" y="${CHIN + 4}" width="14" height="20" rx="7" fill="#2A3342"/>` +
-        `<rect x="${CX + 20}" y="${CHIN + 4}" width="14" height="20" rx="7" fill="#2A3342"/>`
+        `<path d="M${CX - 34} ${SHOULDER_Y - 4}a34 30 0 0 1 68 0" fill="none" stroke="#2A3342" stroke-width="9"/>` +
+        `<rect x="${CX - 44}" y="${SHOULDER_Y - 14}" width="18" height="26" rx="9" fill="#3A4557"/>` +
+        `<rect x="${CX + 26}" y="${SHOULDER_Y - 14}" width="18" height="26" rx="9" fill="#3A4557"/>` +
+        `<rect x="${CX - 40}" y="${SHOULDER_Y - 9}" width="10" height="16" rx="5" fill="#C8CDD8"/>` +
+        `<rect x="${CX + 30}" y="${SHOULDER_Y - 9}" width="10" height="16" rx="5" fill="#C8CDD8"/>`
+      );
+    case "backpack":
+      /* рюкзак за спиной: видно лямки на плечах и край мешка сбоку */
+      return (
+        `<path d="M${CX - 46} ${SHOULDER_Y + 6}q-12 6-12 22v34q0 10 10 12l4-64z" fill="#24705F"/>` +
+        `<path d="M${CX + 46} ${SHOULDER_Y + 6}q12 6 12 22v34q0 10-10 12l-4-64z" fill="#2E8B7A"/>` +
+        `<path d="M${CX - 26} ${SHOULDER_Y - 10}q-8 30-6 62" fill="none" stroke="#2E8B7A" stroke-width="10" stroke-linecap="round"/>` +
+        `<path d="M${CX + 26} ${SHOULDER_Y - 10}q8 30 6 62" fill="none" stroke="#24705F" stroke-width="10" stroke-linecap="round"/>`
+      );
+    case "tote_bag":
+      /* сумка висит на кисти: ручка обхватывает руку, мешок уходит вниз */
+      return (
+        `<path d="M${CX + 44} ${HAND_Y - 12}a10 10 0 0 1 18 0" fill="none" stroke="#8E6B33" stroke-width="4"/>` +
+        `<path d="M${CX + 38} ${HAND_Y - 2}h30v40a6 6 0 0 1-6 6h-18a6 6 0 0 1-6-6z" fill="#D9B36B"/>` +
+        `<path d="M${CX + 56} ${HAND_Y - 2}h12v40a6 6 0 0 1-6 6h-6z" fill="${shade("#D9B36B", 0.2)}"/>` +
+        `<rect x="${CX + 45}" y="${HAND_Y + 12}" width="16" height="12" rx="3" fill="#2E8B7A"/>`
       );
     case "sunglasses":
       return (
         `<g><rect x="${CX - 38}" y="${EY - 16}" width="36" height="30" rx="12" fill="#1A1F29"/>` +
         `<rect x="${CX + 2}" y="${EY - 16}" width="36" height="30" rx="12" fill="#1A1F29"/>` +
-        `<rect x="${CX - 4}" y="${EY - 6}" width="8" height="6" fill="#1A1F29"/></g>`
-      );
-    case "tote_bag":
-      return (
-        `<path d="M${CX + 54} ${SHOULDER_Y + 40}h40v52h-40z" fill="#D9B36B"/>` +
-        `<path d="M${CX + 62} ${SHOULDER_Y + 40}v-12a12 12 0 0 1 24 0v12" fill="none" stroke="#8E6B33" stroke-width="5"/>` +
-        `<path d="M${CX + 54} ${SHOULDER_Y + 40}h40v10h-40z" fill="${shade("#D9B36B", 0.22)}"/>`
+        `<rect x="${CX - 4}" y="${EY - 6}" width="8" height="6" fill="#1A1F29"/>` +
+        `<path d="M${CX - 38} ${EY - 8}l-12-4M${CX + 38} ${EY - 8}l12-4" stroke="#1A1F29" stroke-width="5" stroke-linecap="round"/></g>`
       );
     default:
       return "";
