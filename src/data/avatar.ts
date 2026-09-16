@@ -109,7 +109,6 @@ const HEAD = 48;
 const CX = 100;
 const TOP = 16;
 const HEAD_CY = TOP + HEAD / 2;
-const HEAD_RX = 19;
 const CHIN = TOP + HEAD;
 const SHOULDER_Y = Math.round(TOP + HEAD * 1.55);
 const WAIST_Y = Math.round(TOP + HEAD * 3.05);
@@ -133,9 +132,9 @@ interface Hair {
 }
 
 /** Шапка волос по черепу: общая основа почти для всех причёсок. */
-const CAP = "M81 37c0-12 8-21 19-21s19 9 19 21c-4-7-11-10-19-10s-15 3-19 10z";
+const CAP = "M80 42c0-14 9-26 20-26s20 12 20 26c-1-4-2-7-4-9-3 2-7 3-11 3-6 0-12-2-16-6-4 3-7 7-9 12z";
 /** Более низкая линия роста волос — для густых причёсок. */
-const CAP_LOW = "M80 42c0-14 9-26 20-26s20 12 20 26c-4-9-11-13-20-13s-16 4-20 13z";
+const CAP_LOW = "M79 48c0-16 9-32 21-32s21 16 21 32c-1-6-3-10-5-13-4 3-9 4-14 4-7 0-14-2-18-7-3 4-5 9-5 16z";
 
 const HAIR: Record<string, Hair> = {
   короткие: {
@@ -254,91 +253,79 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
   const s = o.size ?? 200;
   const h = Math.round((s * H) / W);
   const sk = SKIN[a.skin] ?? SKIN[1];
-  const skDark = shade(sk, 0.22);
-  const skDeep = shade(sk, 0.4);
-  const skLight = shade(sk, -0.3);
+  const skDark = shade(sk, 0.2);
   const hc = HAIRC[a.hairc] ?? HAIRC[0];
   const hcDark = shade(hc, 0.42);
   const hcLight = shade(hc, -0.4);
   const ec = EYESC[a.eyes] ?? EYESC[0];
   const oc = outfitColor(o.top);
-  const ocDark = shade(oc, 0.3);
-  const ocDeep = shade(oc, 0.5);
-  const ocLight = shade(oc, -0.16);
+  const ocDark = shade(oc, 0.26);
   const sc = shoeColor(o.shoes);
   const scDark = shade(sc, 0.42);
   const bg = o.bg ?? "#141922";
+  // тёплое пятно света в сцене и цвет контрового света по краю фигуры
+  const accent = "#f0873f";
+  const rim = "#cfd8e6";
+  const mouthC = shade(sk, 0.5);
   const id = `av${s}${a.skin}${a.hair}${a.hairc}${a.eyes}${a.face}`;
-  const pants = "#39404E";
-  const pantsDark = shade(pants, 0.32);
-  const pantsLight = shade(pants, -0.14);
+  const pants = "#3E4655";
+  const pantsDark = shade(pants, 0.26);
 
+  // В плоском стиле градиент нужен только фону: формы красятся двумя ровными
+  // тонами, а объём задаёт форма теневого пятна, а не растяжка цвета.
   const defs =
     `<defs>` +
     `<clipPath id="c${id}"><rect x="0" y="0" width="${W}" height="${H}" rx="16"/></clipPath>` +
-    `<radialGradient id="room${id}" cx="38%" cy="16%" r="82%">` +
-    `<stop offset="0" stop-color="#ffffff" stop-opacity=".10"/>` +
-    `<stop offset="58%" stop-color="#ffffff" stop-opacity="0"/>` +
-    `<stop offset="100%" stop-color="#000000" stop-opacity=".5"/></radialGradient>` +
-    `<linearGradient id="skin${id}" x1="0" y1="0" x2="1" y2="0.4">` +
-    `<stop offset="0" stop-color="${skLight}"/><stop offset="52%" stop-color="${sk}"/>` +
-    `<stop offset="100%" stop-color="${skDark}"/></linearGradient>` +
-    `<linearGradient id="cloth${id}" x1="0" y1="0" x2="1" y2="0.3">` +
-    `<stop offset="0" stop-color="${ocLight}"/><stop offset="55%" stop-color="${oc}"/>` +
-    `<stop offset="100%" stop-color="${ocDark}"/></linearGradient>` +
-    `<linearGradient id="pants${id}" x1="0" y1="0" x2="1" y2="0.2">` +
-    `<stop offset="0" stop-color="${pantsLight}"/><stop offset="60%" stop-color="${pants}"/>` +
-    `<stop offset="100%" stop-color="${pantsDark}"/></linearGradient>` +
-    `<linearGradient id="hair${id}" x1="0.1" y1="0" x2="0.9" y2="1">` +
-    `<stop offset="0" stop-color="${hcLight}"/><stop offset="45%" stop-color="${hc}"/>` +
-    `<stop offset="100%" stop-color="${hcDark}"/></linearGradient>` +
-    `<radialGradient id="iris${id}" cx="50%" cy="38%" r="62%">` +
-    `<stop offset="0" stop-color="${shade(ec, -0.35)}"/><stop offset="100%" stop-color="${shade(ec, 0.35)}"/>` +
-    `</radialGradient></defs>`;
+    `<linearGradient id="room${id}" x1="0" y1="0" x2="0.3" y2="1">` +
+    `<stop offset="0" stop-color="${shade(bg, -0.35)}"/>` +
+    `<stop offset="55%" stop-color="${bg}"/>` +
+    `<stop offset="100%" stop-color="${shade(bg, 0.5)}"/></linearGradient>` +
+    `<radialGradient id="spot${id}" cx="50%" cy="22%" r="62%">` +
+    `<stop offset="0" stop-color="${accent}" stop-opacity=".22"/>` +
+    `<stop offset="100%" stop-color="${accent}" stop-opacity="0"/></radialGradient>` +
+    `</defs>`;
+
+  const head =
+    `<path d="M100 ${TOP}c11 0 19 9 19 21 0 7-2 13-5 18-3 5-8 8-14 8s-11-3-14-8c-3-5-5-11-5-18 0-12 8-21 19-21z" fill="${sk}"/>` +
+    // теневая половина: граница жёсткая, идёт по средней линии лица
+    `<path d="M103 ${TOP}c9 1 16 10 16 21 0 7-2 13-5 18-3 5-8 8-14 8-1 0-2 0-3-.3 5-1 9-4 12-8 3-5 5-11 5-18 0-10-5-18-11-21z" fill="${skDark}"/>` +
+    `<path d="M${CX - 18.5} ${HEAD_CY - 2}c-3 0-4.5 2-4.5 4.5s1.5 5 3.5 5.5c.8 0 1.5-.7 1.5-1.5z" fill="${sk}"/>` +
+    `<path d="M${CX + 18.5} ${HEAD_CY - 2}c3 0 4.5 2 4.5 4.5s-1.5 5-3.5 5.5c-.8 0-1.5-.7-1.5-1.5z" fill="${skDark}"/>`;
 
   const EY = HEAD_CY - 1;
   const MY = HEAD_CY + 14;
 
-  const head =
-    // овал черепа с сужением к подбородку
-    `<path d="M100 ${TOP}c11 0 19 9 19 21 0 8-2 15-5 20-3 5-8 8-14 8s-11-3-14-8c-3-5-5-12-5-20 0-12 8-21 19-21z" fill="url(#skin${id})"/>` +
-    `<path d="M${CX + 8} ${HEAD_CY - 8}c4 4 6 10 6 16 0 7-3 13-8 16 6-1 10-5 12-10 2-6 2-15-1-22z" fill="${skDeep}" opacity=".22"/>` +
-    `<ellipse cx="${CX - HEAD_RX}" cy="${HEAD_CY + 1}" rx="3.2" ry="5" fill="${sk}"/>` +
-    `<ellipse cx="${CX + HEAD_RX}" cy="${HEAD_CY + 1}" rx="3.2" ry="5" fill="${sk}"/>`;
-
+  // Глаза — миндалевидные пятна с радужкой. Ни ресниц, ни бликов на склере:
+  // в плоском стиле лишняя деталь сразу превращает лицо в маску.
   const eyes =
     `<g>` +
-    `<ellipse cx="${CX - 7.5}" cy="${EY}" rx="5" ry="3.3" fill="#fbfbfa"/>` +
-    `<ellipse cx="${CX + 7.5}" cy="${EY}" rx="5" ry="3.3" fill="#fbfbfa"/>` +
-    `<circle cx="${CX - 7.2}" cy="${EY}" r="2.6" fill="url(#iris${id})"/>` +
-    `<circle cx="${CX + 7.8}" cy="${EY}" r="2.6" fill="url(#iris${id})"/>` +
-    `<circle cx="${CX - 7.2}" cy="${EY}" r="1.1" fill="#140f0c"/>` +
-    `<circle cx="${CX + 7.8}" cy="${EY}" r="1.1" fill="#140f0c"/>` +
-    `<circle cx="${CX - 8.3}" cy="${EY - 1.2}" r=".75" fill="#fff"/>` +
-    `<circle cx="${CX + 6.7}" cy="${EY - 1.2}" r=".75" fill="#fff"/>` +
-    // верхнее веко: без него глаз читается пуговицей
-    `<path d="M${CX - 12.5} ${EY - 1.8}q5-3.6 10 0" stroke="${skDeep}" stroke-width="1.3" fill="none" stroke-linecap="round"/>` +
-    `<path d="M${CX + 2.5} ${EY - 1.8}q5-3.6 10 0" stroke="${skDeep}" stroke-width="1.3" fill="none" stroke-linecap="round"/>` +
+    `<path d="M${CX - 12.5} ${EY}q5-4.6 10 0-5 4.2-10 0z" fill="#f7f4ef"/>` +
+    `<path d="M${CX + 2.5} ${EY}q5-4.6 10 0-5 4.2-10 0z" fill="#f7f4ef"/>` +
+    `<circle cx="${CX - 7.2}" cy="${EY}" r="2.5" fill="${ec}"/>` +
+    `<circle cx="${CX + 7.8}" cy="${EY}" r="2.5" fill="${ec}"/>` +
+    `<circle cx="${CX - 7.2}" cy="${EY}" r="1.1" fill="#171213"/>` +
+    `<circle cx="${CX + 7.8}" cy="${EY}" r="1.1" fill="#171213"/>` +
     `</g>`;
 
+  // Брови — короткие плотные мазки: главный носитель выражения в этом стиле.
   const brows =
-    `<path d="M${CX - 13} ${EY - 5.6}q5-3.2 10-1.2" stroke="${hcDark}" stroke-width="2" fill="none" stroke-linecap="round"/>` +
-    `<path d="M${CX + 3} ${EY - 6.8}q5-2 10 1.2" stroke="${hcDark}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+    `<path d="M${CX - 13} ${EY - 6}q5-2.6 10-.6" stroke="${hcDark}" stroke-width="1.9" fill="none" stroke-linecap="round"/>` +
+    `<path d="M${CX + 3} ${EY - 6.6}q5-2 10 .6" stroke="${hcDark}" stroke-width="1.9" fill="none" stroke-linecap="round"/>`;
 
-  const nose =
-    `<path d="M${CX - 0.5} ${EY + 2}q-1.6 6 0.5 8.5" stroke="${skDeep}" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".7"/>` +
-    `<path d="M${CX - 3} ${EY + 10.5}q3 2 6 0" stroke="${skDeep}" stroke-width="1.1" fill="none" stroke-linecap="round" opacity=".5"/>`;
+  // Нос — одно теневое пятно сбоку, без спинки и ноздрей.
+  const nose = `<path d="M${CX + 1} ${EY + 3}q2.6 5 0 7.4-2.6 .6-3.4-1z" fill="${skDark}"/>`;
 
+  // Рот — одна линия: выражение задаёт её изгиб, а не форма губ.
   const mouth =
     a.face === 1
-      ? `<path d="M${CX - 6} ${MY}q6 5.5 12 0q-6 2.4-12 0z" fill="#8f4b43"/>`
+      ? `<path d="M${CX - 6} ${MY}q6 5.5 12 0" stroke="${mouthC}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
       : a.face === 2
-        ? `<path d="M${CX - 5.5} ${MY + 1}h11" stroke="#8f4b43" stroke-width="1.9" stroke-linecap="round"/>`
-        : `<path d="M${CX - 5} ${MY}q5 3 10 0" stroke="#8f4b43" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
+        ? `<path d="M${CX - 5.5} ${MY + 1}h11" stroke="${mouthC}" stroke-width="2.2" stroke-linecap="round"/>`
+        : `<path d="M${CX - 5} ${MY + 1}q5 3 10 0" stroke="${mouthC}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
 
   const beard =
     a.beard && a.sex === "m"
-      ? `<g fill="url(#hair${id})">${BEARD_PATHS[a.beardStyle ?? 1] ?? BEARD_PATHS[1]}</g>`
+      ? `<g fill="${hcDark}">${BEARD_PATHS[a.beardStyle ?? 1] ?? BEARD_PATHS[1]}</g>`
       : "";
 
   const glasses = a.glasses
@@ -350,9 +337,11 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     : "";
 
   const hairStyle = hairOf(a.sex, a.hair);
-  const hairBack = hairStyle.back ? `<g fill="url(#hair${id})">${hairStyle.back}</g>` : "";
+  const hairBack = hairStyle.back ? `<g fill="${hc}">${hairStyle.back}</g>` : "";
   const hair =
-    `<g fill="url(#hair${id})" stroke="${hcLight}" stroke-width="0">${hairStyle.front}</g>` +
+    `<g fill="${hc}">${hairStyle.front}</g>` +
+    // один блик на массе волос — ровное пятно, без растяжки
+    `<path d="M${CX - 12} ${TOP + 8}q9-5 17-1-8-1-17 5z" fill="${hcLight}" opacity=".45"/>` +
     `<g fill="none" stroke="${hcLight}" stroke-width="1.1" opacity=".42" stroke-linecap="round">` +
     `<path d="M${CX - 12} ${TOP + 9}q7-5 15-3"/><path d="M${CX - 6} ${TOP + 6}q8-3 15 1"/>` +
     `<path d="M${CX - 14} ${TOP + 15}q6-4 12-4"/></g>`;
@@ -363,35 +352,32 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
       `<path d="M${CX} ${HEAD_CY - 4}h26c5 0 8 2 9 5-10 3-24 3-35 3z" fill="#25705F"/></g>`
     : "";
 
-  const ARM_TOP = SHOULDER_Y + 4;
-  const WRIST_Y = HIP_Y + 8;
+  const ARM_TOP = SHOULDER_Y + 2;
+  const WRIST_Y = HIP_Y + 12;
   const body =
-    `<path d="M${CX - 6.5} ${CHIN - 6}h13v13q-6.5 5-13 0z" fill="${skDark}"/>` +
-    `<path d="M${CX - 6.5} ${CHIN - 6}q6.5 7 13 0v4q-6.5 6-13 0z" fill="${skDeep}" opacity=".55"/>` +
-    // торс: плечи -> талия -> бёдра, силуэт задан кривыми, а не прямоугольником
-    `<path d="M100 ${SHOULDER_Y - 8}c-13 0-26 5-31 13l-4 ${WAIST_Y - SHOULDER_Y}c-1 8 8 12 17 13h36c9-1 18-5 17-13l-4-${WAIST_Y - SHOULDER_Y}c-5-8-18-13-31-13z" fill="url(#cloth${id})"/>` +
-    `<path d="M${CX + 10} ${SHOULDER_Y - 5}c10 2 18 7 21 12l4 ${WAIST_Y - SHOULDER_Y}c1 7-6 11-14 12l-3-${WAIST_Y - SHOULDER_Y + 10}z" fill="${ocDeep}" opacity=".3"/>` +
-    `<path d="M${CX - 20} ${SHOULDER_Y + 12}q6 26 3 48" stroke="${ocDeep}" stroke-width="1.4" fill="none" opacity=".25"/>` +
-    `<path d="M${CX + 15} ${SHOULDER_Y + 16}q-4 24-2 42" stroke="${ocDeep}" stroke-width="1.4" fill="none" opacity=".2"/>` +
-    // руки с сужением к запястью
-    `<path d="M${CX - 24} ${SHOULDER_Y - 6}c-9 2-15 8-17 17l-5 ${WRIST_Y - ARM_TOP - 18}c-1 7 2 11 7 11s8-4 9-10l8-${WRIST_Y - ARM_TOP - 22}z" fill="url(#cloth${id})"/>` +
-    `<path d="M${CX + 24} ${SHOULDER_Y - 6}c9 2 15 8 17 17l5 ${WRIST_Y - ARM_TOP - 18}c1 7-2 11-7 11s-8-4-9-10l-8-${WRIST_Y - ARM_TOP - 22}z" fill="url(#cloth${id})"/>` +
-    `<path d="M${CX + 26} ${SHOULDER_Y - 4}c8 3 13 9 15 17l5 ${WRIST_Y - ARM_TOP - 18}c1 6-1 9-5 10l-6-${WRIST_Y - ARM_TOP - 14}z" fill="${ocDeep}" opacity=".3"/>` +
-    // кисти
-    `<path d="M${CX - 41} ${WRIST_Y - 2}c5-1 9 2 9 7l1 6c0 5-3 8-7 8s-7-3-7-8z" fill="url(#skin${id})"/>` +
-    `<path d="M${CX + 41} ${WRIST_Y - 2}c-5-1-9 2-9 7l-1 6c0 5 3 8 7 8s7-3 7-8z" fill="url(#skin${id})"/>` +
-    // ноги: бедро -> колено -> щиколотка
-    `<path d="M${CX - 27} ${HIP_Y - 10}h26l-2 16c-2 8-4 16-5 25l-3 ${ANKLE_Y - KNEE_Y}h-15l-2-${ANKLE_Y - KNEE_Y}c-1-9-2-17-4-25z" fill="url(#pants${id})"/>` +
-    `<path d="M${CX + 1} ${HIP_Y - 10}h26l-3 16c-2 8-3 16-4 25l-2 ${ANKLE_Y - KNEE_Y}h-15l-3-${ANKLE_Y - KNEE_Y}c-1-9-3-17-5-25z" fill="url(#pants${id})"/>` +
-    `<path d="M${CX} ${HIP_Y - 8}v${ANKLE_Y - HIP_Y - 6}" stroke="${pantsDark}" stroke-width="1.6" opacity=".7"/>` +
-    `<path d="M${CX - 19} ${HIP_Y + 8}q3 20 1 38" stroke="${pantsLight}" stroke-width="1.6" fill="none" opacity=".32"/>` +
-    `<path d="M${CX - 18} ${KNEE_Y}q7 3 13 0" stroke="${pantsDark}" stroke-width="1.3" fill="none" opacity=".5"/>` +
-    `<path d="M${CX + 5} ${KNEE_Y}q7 3 13 0" stroke="${pantsDark}" stroke-width="1.3" fill="none" opacity=".5"/>` +
-    // обувь: верх, носок, подошва
-    `<path d="M${CX - 21} ${ANKLE_Y}h15l1 9c5 2 9 5 9 8h-27c-1-6 1-12 2-17z" fill="${sc}"/>` +
-    `<path d="M${CX + 6} ${ANKLE_Y}h15l2 17h-27c0-3 4-6 9-8z" fill="${sc}"/>` +
-    `<path d="M${CX - 24} ${FLOOR_Y - 4}h28v4a2 2 0 0 1-2 2h-24a2 2 0 0 1-2-2z" fill="${scDark}"/>` +
-    `<path d="M${CX - 4} ${FLOOR_Y - 4}h28v4a2 2 0 0 1-2 2h-24a2 2 0 0 1-2-2z" fill="${scDark}"/>`;
+    `<path d="M${CX - 7} ${CHIN - 8}h14v13q-7 6-14 0z" fill="${skDark}"/>` +
+    /* торс: силуэт и ровно половина в тени, граница по центру */
+    `<path d="M100 ${SHOULDER_Y - 9}c-10 0-19 3-25 8-4 4-6 8-7 13l-3 ${WAIST_Y - SHOULDER_Y - 12}c-1 8 2 13 8 16 8 4 18 6 27 6s19-2 27-6c6-3 9-8 8-16l-3-${WAIST_Y - SHOULDER_Y - 12}c-1-5-3-9-7-13-6-5-15-8-25-8z" fill="${oc}"/>` +
+    `<path d="M${CX + 7} ${SHOULDER_Y - 8}c7 1 13 4 18 8 4 4 6 8 7 13l3 ${WAIST_Y - SHOULDER_Y - 12}c1 8-2 13-8 16-6 3-13 5-20 5.6z" fill="${ocDark}"/>` +
+    /* руки */
+    `<path d="M${CX - 25} ${ARM_TOP}c-8 3-13 9-15 17l-5 26c-1 6 0 10 2 14l3 ${WRIST_Y - ARM_TOP - 57}c1 6 5 8 9 7s6-5 5-10l-2-${WRIST_Y - ARM_TOP - 53}c-1-5-1-9 0-13l5-23z" fill="${oc}"/>` +
+    `<path d="M${CX + 25} ${ARM_TOP}c8 3 13 9 15 17l5 26c1 6 0 10-2 14l-3 ${WRIST_Y - ARM_TOP - 57}c-1 6-5 8-9 7s-6-5-5-10l2-${WRIST_Y - ARM_TOP - 53}c1-5 1-9 0-13l-5-23z" fill="${ocDark}"/>` +
+    /* кисти */
+    `<path d="M${CX - 41} ${WRIST_Y - 2}c5-1 9 3 9 8v6c0 5-4 9-8 9s-8-4-8-9v-6c0-4 3-7 7-8z" fill="${sk}"/>` +
+    `<path d="M${CX + 41} ${WRIST_Y - 2}c-5-1-9 3-9 8v6c0 5 4 9 8 9s8-4 8-9v-6c0-4-3-7-7-8z" fill="${skDark}"/>` +
+    /* ноги */
+    `<path d="M${CX - 27} ${HIP_Y - 12}h27l-2 20c-1 11-3 22-4 33l-2 ${ANKLE_Y - KNEE_Y - 8}h-13l-1-20c-1-11-2-22-3-33z" fill="${pants}"/>` +
+    `<path d="M${CX} ${HIP_Y - 12}h27l-3 20c-1 11-2 22-3 33l-1 ${ANKLE_Y - KNEE_Y - 8}h-13l-2-20c-1-11-3-22-4-33z" fill="${pantsDark}"/>` +
+    /* обувь */
+    `<path d="M${CX - 21} ${ANKLE_Y}h14c0 6 2 10 6 13 3 2 5 4 5 6h-27c-1-7 0-13 2-19z" fill="${sc}"/>` +
+    `<path d="M${CX + 21} ${ANKLE_Y}h-14c0 6-2 10-6 13-3 2-5 4-5 6h27c1-7 0-13-2-19z" fill="${shade(sc, 0.3)}"/>` +
+    `<path d="M${CX - 23} ${FLOOR_Y - 5}h27a3 3 0 0 1 0 6h-25a2 2 0 0 1-2-3z" fill="${scDark}"/>` +
+    `<path d="M${CX - 4} ${FLOOR_Y - 5}h27a2 2 0 0 1-2 6h-25a3 3 0 0 1 0-6z" fill="${scDark}"/>` +
+    /* контровой свет: узкая полоса по левому краю отделяет фигуру от фона */
+    `<g fill="none" stroke="${rim}" stroke-width="2.2" stroke-linecap="round" opacity=".5">` +
+    `<path d="M${CX - 25} ${SHOULDER_Y - 4}c-8 4-13 10-15 18l-5 26"/>` +
+    `<path d="M${CX - 27} ${HIP_Y - 6}c-1 14-2 28-3 42"/>` +
+    `</g>`;
 
   const accessory = accessoryOverlay(o.accessory);
 
@@ -399,9 +385,9 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     `<svg viewBox="0 0 ${W} ${H}" width="${s}" height="${h}" role="img" aria-label="персонаж в полный рост">` +
     defs +
     `<g clip-path="url(#c${id})">` +
-    `<rect width="${W}" height="${H}" fill="${bg}"/>` +
     `<rect width="${W}" height="${H}" fill="url(#room${id})"/>` +
-    `<ellipse cx="${CX}" cy="${FLOOR_Y + 3}" rx="46" ry="7" fill="#000" opacity=".5"/>` +
+    `<rect width="${W}" height="${H}" fill="url(#spot${id})"/>` +
+    `<ellipse cx="${CX}" cy="${FLOOR_Y + 3}" rx="44" ry="6" fill="#000" opacity=".55"/>` +
     hairBack +
     body +
     head +
