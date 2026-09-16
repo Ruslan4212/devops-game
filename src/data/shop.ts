@@ -671,8 +671,8 @@ export const NO_JOB_FACTOR = 0.35;
  */
 export const LESSON_PERIODS_PER_MONTH = 10;
 
-/** Игровые сутки идут вдвое быстрее реальных. */
-export const GAME_DAYS_PER_REAL_DAY = 2;
+/** Игровые сутки идут в семь раз быстрее реальных: 1 реальный день = 1 игровая неделя. */
+export const GAME_DAYS_PER_REAL_DAY = 7;
 /** Длина игрового «месяца», за который платят месячную зарплату. */
 export const GAME_DAYS_PER_MONTH = 30;
 /**
