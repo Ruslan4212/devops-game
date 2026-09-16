@@ -209,7 +209,6 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
   const skDark = shade(sk, 0.16);
   const hc = HAIRC[a.hairc] ?? HAIRC[0];
   const hcDark = shade(hc, 0.3);
-  const hcLight = shade(hc, -0.3);
   const ec = EYESC[a.eyes] ?? EYESC[0];
   const oc = outfitColor(o.top);
   const ocDark = shade(oc, 0.18);
