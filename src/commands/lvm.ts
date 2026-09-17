@@ -74,6 +74,128 @@ def("lvcreate", (a, w) => {
   return O('Logical volume "' + lvName + '" created.');
 });
 
+def("pvs", (_a, w) => {
+  const lvm = initLvm(w);
+  const disks = initDisks(w);
+  if (!lvm.pvs.length) return O("PV VG Fmt Attr PSize PFree");
+  return O(
+    "PV       VG        Fmt  Attr PSize  PFree\n" +
+      lvm.pvs
+        .map((pv) => {
+          const disk = disks.find((d) => d.name === pv);
+          const sizeG = disk ? sizeToGb(disk.size) || 0 : 0;
+          const vg = lvm.vgs.find((v) => v.pvs.includes(pv));
+          const free = vg ? Math.max(0, vg.sizeG - vg.usedG) : sizeG;
+          return (
+            ("/dev/" + pv).padEnd(9) +
+            (vg ? vg.name : "").padEnd(10) +
+            "lvm2".padEnd(5) +
+            "---  " +
+            sizeG +
+            "G".padEnd(4) +
+            " " +
+            free +
+            "G"
+          );
+        })
+        .join("\n"),
+  );
+});
+
+def("vgs", (_a, w) => {
+  const lvm = initLvm(w);
+  if (!lvm.vgs.length) return O("VG #PV #LV #SN Attr VSize VFree");
+  return O(
+    "VG        #PV #LV #SN Attr   VSize  VFree\n" +
+      lvm.vgs
+        .map(
+          (vg) =>
+            vg.name.padEnd(10) +
+            String(vg.pvs.length).padEnd(4) +
+            String(lvm.lvs.filter((l) => l.vg === vg.name).length).padEnd(4) +
+            "0".padEnd(4) +
+            "wz--n- " +
+            vg.sizeG +
+            "G".padEnd(4) +
+            " " +
+            Math.max(0, vg.sizeG - vg.usedG) +
+            "G",
+        )
+        .join("\n"),
+  );
+});
+
+def("lvs", (_a, w) => {
+  const lvm = initLvm(w);
+  if (!lvm.lvs.length) return O("LV VG Attr LSize");
+  return O(
+    "LV        VG        Attr       LSize\n" +
+      lvm.lvs.map((lv) => lv.name.padEnd(10) + lv.vg.padEnd(10) + "-wi-a----- " + lv.sizeG + "G").join("\n"),
+  );
+});
+
+def("vgextend", (a, w) => {
+  const lvm = initLvm(w);
+  const disks = initDisks(w);
+  const ps = a.filter((x) => !x.startsWith("-"));
+  if (ps.length < 2) return E("vgextend: нужно: vgextend ИМЯ_ГРУППЫ /dev/УСТРОЙСТВО");
+  const [vgName, devArg] = ps;
+  const vg = lvm.vgs.find((v) => v.name === vgName);
+  if (!vg) return E("vgextend: группа " + vgName + " не найдена");
+  const devName = devArg.replace(/^\/dev\//, "");
+  if (!lvm.pvs.includes(devName))
+    return E("vgextend: /dev/" + devName + " не физический том — сначала pvcreate");
+  if (vg.pvs.includes(devName)) return E("vgextend: /dev/" + devName + " уже в группе " + vgName);
+  const disk = disks.find((d) => d.name === devName);
+  vg.pvs.push(devName);
+  vg.sizeG += disk ? sizeToGb(disk.size) || 0 : 0;
+  return O('Volume group "' + vgName + '" successfully extended');
+});
+
+def("lvextend", (a, w) => {
+  const lvm = initLvm(w);
+  const lIdx = a.indexOf("-L");
+  if (lIdx < 0) return E("lvextend: нужно: lvextend -L +РАЗМЕРG /dev/ГРУППА/ТОМ");
+  const sizeArg = a[lIdx + 1] || "";
+  const devArg = a.filter((x) => !x.startsWith("-") && x !== a[lIdx + 1])[0];
+  const m = (devArg || "").match(/^\/dev\/([\w-]+)\/([\w-]+)$/);
+  if (!m) return E("lvextend: укажи том вида /dev/группа/том");
+  const grow = sizeArg.startsWith("+");
+  const deltaG = sizeToGb(sizeArg.replace(/^\+/, ""));
+  if (deltaG == null) return E("lvextend: укажи размер в гигабайтах, например -L +20G");
+  const vg = lvm.vgs.find((v) => v.name === m[1]);
+  const lv = lvm.lvs.find((l) => l.vg === m[1] && l.name === m[2]);
+  if (!vg || !lv) return E("lvextend: том " + devArg + " не найден");
+  const newSize = grow ? lv.sizeG + deltaG : deltaG;
+  const delta = newSize - lv.sizeG;
+  if (delta > 0 && vg.sizeG - vg.usedG < delta)
+    return E("lvextend: недостаточно места в " + vg.name + " — свободно " + (vg.sizeG - vg.usedG) + "G");
+  vg.usedG += delta;
+  lv.sizeG = newSize;
+  return O(
+    "Size of logical volume " +
+      m[1] +
+      "/" +
+      m[2] +
+      " changed to " +
+      newSize +
+      ".00 GiB.\nLogical volume " +
+      m[1] +
+      "/" +
+      m[2] +
+      " successfully resized.",
+  );
+});
+
+def("resize2fs", (a, w) => {
+  const devArg = a.filter((x) => !x.startsWith("-"))[0];
+  const m = (devArg || "").match(/^\/dev\/([\w-]+)\/([\w-]+)$/);
+  if (!m || !w.lvm) return E("resize2fs: укажи устройство вида /dev/группа/том");
+  const lv = w.lvm.lvs.find((l) => l.vg === m[1] && l.name === m[2]);
+  if (!lv) return E("resize2fs: " + devArg + ": не найдено");
+  return O("resize2fs: файловая система на " + devArg + " расширена до " + lv.sizeG + "G");
+});
+
 def("mkfs.ext4", (a, w) => {
   const lvm = initLvm(w);
   const devArg = a.filter((x) => !x.startsWith("-"))[0];
