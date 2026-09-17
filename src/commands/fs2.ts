@@ -77,13 +77,33 @@ def("chmod", (a, w) => {
     "1": "--x",
     "0": "---",
   };
-  if (/^[0-7]{3}$/.test(m))
+  if (/^[0-7]{3}$/.test(m)) {
     n.mode = m
       .split("")
       .map((d) => map[d])
       .join("");
-  else if (/\+x/.test(m)) n.mode = n.mode.replace(/^(..)./, "$1x");
-  else return E("chmod: непонятные права: " + m);
+    return O();
+  }
+  // буквенная запись: u/g/o/a  +/-/=  rwx  (можно через запятую: u+x,go-w)
+  const parts = m.split(",");
+  if (!parts.every((p) => /^[ugoa]*[+\-=][rwx]*$/.test(p))) return E("chmod: непонятные права: " + m);
+  const bits = n.mode.split("");
+  for (const p of parts) {
+    const who = /^[ugoa]*/.exec(p)?.[0] || "a";
+    const sign = p.replace(/^[ugoa]*/, "")[0];
+    const what = p.slice(p.indexOf(sign) + 1);
+    const triads = (who === "a" || who === "" ? "ugo" : who)
+      .split("")
+      .map((c) => ({ u: 0, g: 1, o: 2 })[c] as number);
+    for (const t of triads) {
+      for (const [idx, letter] of ["r", "w", "x"].entries()) {
+        const pos = t * 3 + idx;
+        if (sign === "=") bits[pos] = what.includes(letter) ? letter : "-";
+        else if (what.includes(letter)) bits[pos] = sign === "+" ? letter : "-";
+      }
+    }
+  }
+  n.mode = bits.join("");
   return O();
 });
 

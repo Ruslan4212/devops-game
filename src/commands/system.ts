@@ -8,9 +8,24 @@ def("id", (_a, w) =>
 );
 def("uname", (a) => O(a.includes("-a") ? "Linux ops-01 5.15.0 #1 SMP x86_64 GNU/Linux" : "Linux"));
 def("date", () => O(new Date().toString()));
-def("free", () =>
-  O("               всего       занято     свободно\nПамять:         3.8Gi        1.9Gi        1.9Gi"),
-);
+def("free", (a) => {
+  // -h (human) — гигабайты, иначе килобайты, как у настоящего free
+  const human = a.includes("-h");
+  const row = (name: string, v: number[]): string =>
+    name.padEnd(8) +
+    v.map((x) => (human ? (x / 1024 / 1024).toFixed(1) + "Gi" : String(x)).padStart(12)).join("");
+  // всего, занято, свободно, буферы/кэш, доступно  (в килобайтах)
+  const mem = [3_932_160, 1_992_294, 419_430, 1_520_436, 1_887_436];
+  const swap = [0, 0, 0];
+  return O(
+    "".padEnd(8) +
+      ["всего", "занято", "свободно", "буф/кэш", "доступно"].map((h) => h.padStart(12)).join("") +
+      "\n" +
+      row("Память:", mem) +
+      "\n" +
+      row("Подкачка:", swap),
+  );
+});
 
 def("df", (_a, w) => {
   const pct = w.disk ?? 55;
