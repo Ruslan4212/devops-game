@@ -219,10 +219,15 @@ button {
 
 .wrap {
   display: grid;
-  grid-template-columns: 238px minmax(0, 1fr) 312px;
+  grid-template-columns: 216px minmax(0, 1fr) minmax(360px, 34vw);
   gap: 12px;
   padding: 12px;
   height: calc(100vh - 53px);
+}
+@media (min-width: 1500px) {
+  .wrap {
+    grid-template-columns: 236px minmax(0, 1fr) minmax(420px, 30vw);
+  }
 }
 .col {
   min-width: 0;
@@ -1319,6 +1324,20 @@ button {
   line-height: 1.7;
   white-space: pre-wrap;
   margin-bottom: 16px;
+}
+/* Текст с ASCII-схемой (стрелки, псевдографика рамок) — моноширинным шрифтом
+   и без переноса строк, иначе схема съезжает и превращается в кашу. */
+.lp-say-diagram {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-x: auto;
+  background: #0b1220;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 10px 0 16px;
 }
 .lp-note {
   font-size: 13.5px;

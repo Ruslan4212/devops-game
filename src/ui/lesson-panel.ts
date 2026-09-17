@@ -34,6 +34,15 @@ let quizState: { key: string; state: QuizPhase } | null = null;
 type ExplainPhase = { phase: "loading" } | { phase: "done"; text: string } | { phase: "error" };
 let explainState: { key: string; state: ExplainPhase } | null = null;
 
+/** Есть ли в тексте псевдографика (рамки, стрелки схем) — её рвёт перенос строк в обычном шрифте. */
+const HAS_DIAGRAM = /[┌┐└┘├┤┬┴┼─│↑↓→←]/;
+
+/** Блок текста say/watch: моноширинный без переноса, если внутри ASCII-схема, иначе обычный. */
+function sayBlock(text: string): string {
+  const cls = HAS_DIAGRAM.test(text) ? "lp-say-diagram" : "lp-say";
+  return `<div class="${cls}">${esc(text)}</div>`;
+}
+
 /** Краткая тема шага для запроса подробного объяснения — то, что уже показано игроку. */
 function stepTopic(lesson: Lesson, step: Step): { topic: string; context: string } {
   switch (step.kind) {
@@ -70,13 +79,12 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   let body = "";
 
   if (step.kind === "say") {
-    body =
-      `<div class="lp-say">${esc(step.text)}</div>` + `<button class="lp-next" id="lpNext">Дальше →</button>`;
+    body = sayBlock(step.text) + `<button class="lp-next" id="lpNext">Дальше →</button>`;
   }
 
   if (step.kind === "watch") {
     body =
-      (step.text ? `<div class="lp-say">${esc(step.text)}</div>` : "") +
+      (step.text ? sayBlock(step.text) : "") +
       `<div class="lp-badge">${icon("eye", 15)}<span>смотри в терминал слева</span></div>` +
       `<div class="lp-note">${esc(step.note)}</div>` +
       `<button class="lp-next" id="lpNext">Понятно, дальше →</button>`;
@@ -85,7 +93,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (step.kind === "type") {
     body =
       `<div class="lp-badge">${icon("keyboard", 15)}<span>теперь ты — набери в терминале</span></div>` +
-      `<div class="lp-say">${esc(step.text)}</div>` +
+      sayBlock(step.text) +
       `<div class="lp-cmd">${esc(step.cmd)}</div>` +
       `<button class="lp-fill" id="lpFill">Вставить в строку ввода</button>` +
       `<div class="lp-tip">Курсор мигает в чёрном окне внизу. Напечатай команду и нажми Enter.</div>`;
@@ -94,7 +102,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (step.kind === "do") {
     body =
       `<div class="lp-badge lp-badge-do">${icon("target", 15)}<span>задача — сделай сам в терминале</span></div>` +
-      `<div class="lp-say">${esc(step.text)}</div>`;
+      sayBlock(step.text);
     if (run.answerRevealed) {
       body +=
         `<div class="lp-answer"><b>Ответ:</b> набери в терминале:</div>` +
