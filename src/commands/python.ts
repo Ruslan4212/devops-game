@@ -217,6 +217,23 @@ function analyze(src: string, args: string[], w: World): { out: string; code: nu
     }
   }
 
+  /* logging: уровни, отметка времени и имя модуля вместо голого print */
+  const LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
+  if (/\blogging\./.test(src)) {
+    const configured = (src.match(/basicConfig\([^)]*level\s*=\s*logging\.(\w+)/) || [])[1];
+    /* без basicConfig у Python порог по умолчанию — WARNING */
+    const min = Math.max(0, LEVELS.indexOf(configured || "WARNING"));
+    let shown = 0;
+    for (const m of src.matchAll(/\b\w*log\w*\.(debug|info|warning|error|critical)\(\s*([^)]*)\)/g)) {
+      const lvl = m[1].toUpperCase();
+      if (LEVELS.indexOf(lvl) < min) continue;
+      shown += 1;
+      out.push(`2024-05-14 03:12:07,441 ${lvl.padEnd(8)} __main__: ${evalPrint(m[2])}`);
+    }
+    if (!configured && shown === 0 && /\b\w*log\w*\.(debug|info)\(/.test(src))
+      out.push("(logging без basicConfig: порог по умолчанию WARNING — записи debug/info никуда не попали)");
+  }
+
   /* subprocess: вызов внешних команд */
   if (usesSubprocess) {
     const listForm = /subprocess\.\w+\(\s*\[/.test(src);
