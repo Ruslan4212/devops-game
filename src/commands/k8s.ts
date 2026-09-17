@@ -28,6 +28,33 @@ export function syncPods(w: World): void {
 }
 
 /**
+ * Ключи из блока data: / stringData: манифеста ConfigMap или Secret.
+ * Значения намеренно не сохраняем: в уроках важно, ЧТО подключено к поду,
+ * а не что лежит внутри (у Secret показывать значения и вовсе вредная привычка).
+ */
+export function dataKeys(y: string): string[] {
+  const lines = y.split("\n");
+  const keys: string[] = [];
+  let inside = false;
+  let blockIndent = 0;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const indent = line.length - line.trimStart().length;
+    if (/^\s*(?:string)?[Dd]ata:\s*$/.test(line)) {
+      inside = true;
+      blockIndent = indent;
+      continue;
+    }
+    if (!inside) continue;
+    // блок закончился — вернулись на тот же или меньший отступ
+    if (indent <= blockIndent) break;
+    const m = line.match(/^\s*([\w.-]+)\s*:/);
+    if (m) keys.push(m[1]);
+  }
+  return keys;
+}
+
+/**
  * Разбор и применение одного YAML-манифеста по полю kind — общее ядро для
  * kubectl apply -f и для helm install/upgrade (шаблон Helm рендерится в такой
  * же текст манифеста и применяется тем же способом).
@@ -92,6 +119,22 @@ export function applyManifest(y: string, k: K8sState, w: World): CmdResult {
       targetCpu: Number((y.match(/averageUtilization:\s*(\d+)/) || [])[1] || 80),
     });
     return O("horizontalpodautoscaler.autoscaling/" + name + " created");
+  }
+  if (kind === "ConfigMap") {
+    k.configMaps = k.configMaps || [];
+    const keys = dataKeys(y);
+    const prev = k.configMaps.find((c) => c.name === name);
+    if (prev) prev.keys = keys;
+    else k.configMaps.push({ name, keys });
+    return O("configmap/" + name + (prev ? " configured" : " created"));
+  }
+  if (kind === "Secret") {
+    k.secrets = k.secrets || [];
+    const keys = dataKeys(y);
+    const prev = k.secrets.find((s) => s.name === name);
+    if (prev) prev.keys = keys;
+    else k.secrets.push({ name, keys });
+    return O("secret/" + name + (prev ? " configured" : " created"));
   }
   if (kind === "ServiceAccount") {
     k.serviceAccounts = k.serviceAccounts || [];
@@ -202,6 +245,23 @@ def("kubectl", (a, w) => {
             })
             .join("\n") || "(нет)"),
       );
+    if (/^cm$|^configmaps?$/.test(what))
+      return O(
+        "NAME            DATA   KEYS\n" +
+          ((k.configMaps || [])
+            .map((c) => c.name.padEnd(16) + String(c.keys.length).padEnd(7) + c.keys.join(","))
+            .join("\n") || "(нет)"),
+      );
+    if (/^secrets?$/.test(what))
+      return O(
+        "NAME            TYPE     DATA   KEYS\n" +
+          ((k.secrets || [])
+            .map(
+              (s) =>
+                s.name.padEnd(16) + "Opaque".padEnd(9) + String(s.keys.length).padEnd(7) + s.keys.join(","),
+            )
+            .join("\n") || "(нет)"),
+      );
     if (/^pvc$|^persistentvolumeclaims?$/.test(what))
       return O(
         "NAME       STATUS   CAPACITY\n" +
@@ -216,7 +276,9 @@ def("kubectl", (a, w) => {
             .map((i) => i.name.padEnd(16) + i.host.padEnd(18) + i.service.padEnd(15) + i.port)
             .join("\n") || "(нет)"),
       );
-    return E("kubectl get: укажи ресурс — pods | deployments | services | ingress | jobs");
+    return E(
+      "kubectl get: укажи ресурс — pods | deployments | services | ingress | jobs | configmaps | secrets",
+    );
   }
 
   if (sub === "describe") {

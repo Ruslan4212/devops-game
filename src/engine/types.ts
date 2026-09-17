@@ -135,6 +135,10 @@ export interface K8sState {
   roles?: { name: string; verbs: string[]; resources: string[] }[];
   /** RBAC: связка ServiceAccount -> Role */
   roleBindings?: { name: string; role: string; serviceAccount: string }[];
+  /** несекретные настройки, вынесенные из образа: имя -> список ключей */
+  configMaps?: { name: string; keys: string[] }[];
+  /** секреты (пароли, токены): хранятся отдельно от ConfigMap, значения не показываем */
+  secrets?: { name: string; keys: string[] }[];
   /** постоянное хранилище, переживающее пересоздание пода */
   pvcs?: { name: string; size: string; bound: boolean }[];
   /** автомасштабирование по нагрузке — следит за Deployment из deployment */
