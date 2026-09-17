@@ -54,6 +54,8 @@ export function promShortValue(expr: string, p: PromState): string {
   }
   if (/histogram_quantile\s*\(\s*0\.99/.test(e)) return "0.41";
   if (/histogram_quantile\s*\(\s*0\.95/.test(e)) return "0.213";
+  if (/histogram_quantile\s*\(\s*0\.5/.test(e)) return "0.087";
+  if (/job:http_errors:rate5m/.test(e)) return "0.06";
   if (/sum\s*\(\s*rate\s*\(\s*http_requests_total/.test(e)) {
     return /status\s*=~?\s*"5/.test(e) ? "0.06" : "124.8";
   }
@@ -136,6 +138,10 @@ def("promql", (a, w, _stdin, raw) => {
     return O('node_filesystem_avail_bytes{mountpoint="/"}   8589934592   (8 ГиБ)');
   if (/histogram_quantile\s*\(\s*0\.99/.test(expr)) return O('{job="app"}   0.41   (p99 = 410 мс)');
   if (/histogram_quantile\s*\(\s*0\.95/.test(expr)) return O('{job="app"}   0.213   (p95 = 213 мс)');
+  if (/histogram_quantile\s*\(\s*0\.5/.test(expr))
+    return O('{job="app"}   0.087   (p50 = 87 мс — «типичный» запрос выглядит отлично)');
+  if (/job:http_errors:rate5m/.test(expr))
+    return O('job:http_errors:rate5m{job="app"}   0.06   (готовое значение recording rule)');
   if (/sum\s*\(\s*rate\s*\(\s*http_requests_total/.test(expr)) {
     // sum() схлопывает лейблы (например instance) — один ряд вместо нескольких
     if (/status\s*=~?\s*"5/.test(expr)) return O("{}   0.06   (суммарно 0.06 ошибки/с по всем инстансам)");
@@ -146,6 +152,13 @@ def("promql", (a, w, _stdin, raw) => {
       return O('{status="500"}   6   (всего 6 ошибок за окно, не в секунду)');
     return O('{status="200"}   12390   (всего 12390 запросов за окно, не в секунду)');
   }
+  if (/rate\s*\(\s*node_cpu_seconds_total/.test(expr)) {
+    if (/mode\s*=\s*"idle"/.test(expr))
+      return O('{cpu="0", mode="idle"}   0.95   (95% времени простой → загрузка CPU ≈ 5%)');
+    return O('{cpu="0", mode="user"}   0.04   (4% процессорного времени в этом режиме)');
+  }
+  if (/rate\s*\(\s*node_network_receive_bytes_total/.test(expr))
+    return O('{device="eth0"}   184320   (≈184 КБ/с входящего трафика)');
   if (/rate\s*\(\s*http_requests_total/.test(expr)) {
     if (/status\s*=\s*"5\d\d"/.test(expr))
       return O('{method="GET", status="500"}   0.02   (0.02 ошибки в секунду)');
