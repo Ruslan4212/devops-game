@@ -76,7 +76,13 @@ function pickProvider() {
 
 /** Модели по убыванию пригодности: русский язык и следование инструкции. */
 const PREFERRED = {
-  groq: ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b", "groq/compound"],
+  groq: [
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.8-27b",
+    "qwen/qwen3.6-27b",
+    "openai/gpt-oss-20b",
+    "groq/compound",
+  ],
   gemini: ["gemini-2.0-flash", "gemini-1.5-flash"],
   openrouter: ["meta-llama/llama-3.3-70b-instruct:free", "qwen/qwen-2.5-72b-instruct:free"],
   anthropic: [],
@@ -182,9 +188,15 @@ app.post("/grade", async (req, res) => {
     "Ты строгий, но справедливый экзаменатор по DevOps. Твоя задача — проверить, " +
     "СОВПАДАЕТ ЛИ ПО СМЫСЛУ ответ ученика с верной мыслью. Ты не пересказываешь верный " +
     "ответ и не хвалишь за старание — ты выносишь вердикт.\n\n" +
-    "ОТВЕТ УЧЕНИКА (именно его надо оценить): " + userAnswer + "\n\n" +
-    "ВОПРОС: " + question + "\n\n" +
-    "ВЕРНАЯ МЫСЛЬ: " + expected + "\n\n" +
+    "ОТВЕТ УЧЕНИКА (именно его надо оценить): " +
+    userAnswer +
+    "\n\n" +
+    "ВОПРОС: " +
+    question +
+    "\n\n" +
+    "ВЕРНАЯ МЫСЛЬ: " +
+    expected +
+    "\n\n" +
     (explain ? "ПОЯСНЕНИЕ: " + explain + "\n\n" : "") +
     (wrong.length ? "ЗАВЕДОМО НЕВЕРНЫЕ ВАРИАНТЫ: " + wrong.join(" | ") + "\n\n" : "") +
     "Порядок работы:\n" +
@@ -273,10 +285,16 @@ app.post("/command", async (req, res) => {
   const prompt =
     "Ты преподаватель Linux и DevOps, проверяешь практическое задание в тренажёре-терминале.\n\n" +
     (lesson ? "УРОК: " + lesson + "\n" : "") +
-    "ЗАДАНИЕ: " + task + "\n\n" +
+    "ЗАДАНИЕ: " +
+    task +
+    "\n\n" +
     (expected ? "ЭТАЛОННОЕ РЕШЕНИЕ (один из вариантов, НЕ единственно верный): " + expected + "\n\n" : "") +
-    "УЧЕНИК ВВЁЛ: " + command + "\n\n" +
-    "ВЫВОД ТЕРМИНАЛА:\n" + String(output || "(пусто)").slice(0, 1500) + "\n\n" +
+    "УЧЕНИК ВВЁЛ: " +
+    command +
+    "\n\n" +
+    "ВЫВОД ТЕРМИНАЛА:\n" +
+    String(output || "(пусто)").slice(0, 1500) +
+    "\n\n" +
     "Главное правило: засчитывай ЛЮБОЕ решение, которое выполняет задание, даже если оно " +
     "не совпадает с эталонным. Другие флаги, другой порядок, другая утилита с тем же " +
     "результатом, более точный или более подробный вариант — всё это верно. Например, " +
@@ -333,8 +351,89 @@ app.post("/command", async (req, res) => {
   res.json({ correct: parsed.correct, feedback: parsed.feedback });
 });
 
+/* --------- подробное объяснение темы шага, если штатного текста мало ------
+   Кнопка в игре: «не хватает информации — объясни подробнее». Модель не
+   пересказывает то, что уже показано (оно передаётся как context), а
+   раскрывает тему глубже и обязательно даёт несколько РАЗНЫХ примеров —
+   не вариации одного и того же, а разные ситуации применения.
+   ------------------------------------------------------------------------ */
+app.post("/explain", async (req, res) => {
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+  if (rateLimited(ip)) return res.status(429).json({ error: "слишком много запросов, подожди немного" });
+
+  const { lesson, topic, context } = req.body || {};
+  if (typeof topic !== "string" || !topic.trim()) {
+    return res.status(400).json({ error: "нужно поле topic (строка)" });
+  }
+  if (topic.length > 1500 || String(context || "").length > 1500) {
+    return res.status(400).json({ error: "слишком длинный текст" });
+  }
+
+  const prompt =
+    "Ты опытный DevOps-наставник. Ученик проходит урок и открыл шаг ниже, но " +
+    "штатного объяснения ему не хватило — он попросил рассказать подробнее.\n\n" +
+    (lesson ? "УРОК: " + lesson + "\n\n" : "") +
+    "ТЕМА ШАГА: " +
+    topic +
+    "\n\n" +
+    (context ? "УЖЕ БЫЛО ПОКАЗАНО В УРОКЕ (не повторяй это дословно, иди глубже): " + context + "\n\n" : "") +
+    "Требования к ответу:\n" +
+    "1. Объясни суть темы своими словами — понятнее и подробнее, чем то, что уже показано.\n" +
+    "2. Обязательно приведи минимум 3 РАЗНЫХ практических примера: не вариации одного и того " +
+    "же случая, а разные ситуации, где это применяется или встречается на практике.\n" +
+    "3. Если у темы есть типичная ошибка новичка, коротко её назови.\n" +
+    "4. Пиши простым языком, без канцелярита, на ты.\n" +
+    "5. Чистый текст без markdown-разметки (без **, #, дефисов-маркеров в начале строк): " +
+    "абзацы и примеры разделяй просто пустой строкой.\n\n" +
+    "Верни СТРОГО один JSON-объект без markdown:\n" +
+    '{"explanation": "текст подробного объяснения с примерами, по-русски"}';
+
+  const isAnthropic = PROVIDER.name === "anthropic";
+  const headers = isAnthropic
+    ? { "content-type": "application/json", "x-api-key": PROVIDER.key, "anthropic-version": "2023-06-01" }
+    : { "content-type": "application/json", authorization: "Bearer " + PROVIDER.key };
+  const body = isAnthropic
+    ? { model: PROVIDER.model, max_tokens: 1200, messages: [{ role: "user", content: prompt }] }
+    : {
+        model: PROVIDER.model,
+        max_tokens: 1200,
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+        messages: [{ role: "user", content: prompt }],
+      };
+
+  let apiRes;
+  try {
+    apiRes = await fetch(PROVIDER.url, { method: "POST", headers, body: JSON.stringify(body) });
+    // строгий json-режим иногда упирается в лимит токенов и отдаёт 400 —
+    // тогда просим то же самое обычным текстом и достаём JSON регуляркой
+    if (!apiRes.ok && body.response_format) {
+      const retry = { ...body };
+      delete retry.response_format;
+      apiRes = await fetch(PROVIDER.url, { method: "POST", headers, body: JSON.stringify(retry) });
+    }
+  } catch (e) {
+    console.error(PROVIDER.name + " недоступен:", e.message);
+    return res.status(502).json({ error: "объяснение временно недоступно" });
+  }
+  if (!apiRes.ok) {
+    console.error(PROVIDER.name + " вернул ошибку:", apiRes.status, await apiRes.text());
+    return res.status(502).json({ error: "объяснение временно недоступно" });
+  }
+  const data = await apiRes.json();
+  const text = isAnthropic ? data?.content?.[0]?.text || "" : data?.choices?.[0]?.message?.content || "";
+  const parsed = extractJson(text);
+  if (!parsed || typeof parsed.explanation !== "string" || !parsed.explanation.trim()) {
+    console.error("Не удалось разобрать ответ модели:", text);
+    return res.status(502).json({ error: "не удалось разобрать объяснение" });
+  }
+  res.json({ explanation: parsed.explanation });
+});
+
 app.listen(PORT, () => {
-  console.log("Grader server слушает порт " + PORT + ", проверяет через " + PROVIDER.name + " (" + PROVIDER.model + ")");
+  console.log(
+    "Grader server слушает порт " + PORT + ", проверяет через " + PROVIDER.name + " (" + PROVIDER.model + ")",
+  );
   console.log(
     "Разрешённые origin: " +
       (ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(", ") : "любой (ALLOWED_ORIGINS не задан)"),

@@ -509,9 +509,13 @@ export function localGrade(input: GradeInput): GradeResult {
 /** Адрес проверки на сервере: там настоящая модель, а не подсчёт слов. */
 const GRADER_URL = "https://72.56.16.8.nip.io/grader/grade";
 const COMMAND_URL = "https://72.56.16.8.nip.io/grader/command";
+const EXPLAIN_URL = "https://72.56.16.8.nip.io/grader/explain";
 
 /** Сколько ждём сервер, прежде чем проверить локально: игрок не должен смотреть в пустоту. */
 const GRADER_TIMEOUT_MS = 12_000;
+
+/** Подробное объяснение с примерами генерируется дольше короткого вердикта. */
+const EXPLAIN_TIMEOUT_MS = 20_000;
 
 async function remoteGrade(input: GradeInput): Promise<GradeResult | null> {
   const ctrl = new AbortController();
@@ -579,6 +583,42 @@ export async function judgeCommand(input: CommandJudgeInput): Promise<GradeResul
     const data = (await res.json()) as Partial<GradeResult>;
     if (typeof data.correct !== "boolean" || typeof data.feedback !== "string") return null;
     return { correct: data.correct, feedback: data.feedback };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export interface ExplainInput {
+  /** название урока — контекст для наставника */
+  lesson?: string;
+  /** тема текущего шага, которую нужно раскрыть подробнее */
+  topic: string;
+  /** текст, уже показанный игроку на этом шаге — модель не должна его пересказывать */
+  context?: string;
+}
+
+/**
+ * Просит модель подробно раскрыть тему шага с несколькими разными примерами,
+ * когда штатного текста игроку не хватило. null — сервер недоступен или ответ
+ * не разобрать; кнопку в этом случае показываем как временно недоступную,
+ * локального запасного варианта здесь нет — выдумывать примеры без модели нельзя.
+ */
+export async function explainTopic(input: ExplainInput): Promise<string | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), EXPLAIN_TIMEOUT_MS);
+  try {
+    const res = await fetch(EXPLAIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { explanation?: unknown };
+    if (typeof data.explanation !== "string" || !data.explanation.trim()) return null;
+    return data.explanation;
   } catch {
     return null;
   } finally {

@@ -1,7 +1,8 @@
 import { $, esc } from "./dom";
 import type { LessonRun } from "../engine/lesson-run";
-import { gradeAnswer, type GradeResult } from "../engine/grader";
+import { gradeAnswer, explainTopic, type GradeResult } from "../engine/grader";
 import { icon } from "../data/ui-icons";
+import type { Lesson, Step } from "../engine/types";
 
 export interface PanelHandlers {
   onAdvance: () => void;
@@ -26,6 +27,30 @@ type QuizPhase =
 let quizState: { key: string; state: QuizPhase } | null = null;
 
 /**
+ * Раскрытие темы шага подробнее с примерами — по запросу игрока, когда
+ * штатного текста не хватило. Ключ тот же, что у quizState (урок+шаг),
+ * своё состояние: idle не храним, только пока грузится/готово/ошибка.
+ */
+type ExplainPhase = { phase: "loading" } | { phase: "done"; text: string } | { phase: "error" };
+let explainState: { key: string; state: ExplainPhase } | null = null;
+
+/** Краткая тема шага для запроса подробного объяснения — то, что уже показано игроку. */
+function stepTopic(lesson: Lesson, step: Step): { topic: string; context: string } {
+  switch (step.kind) {
+    case "say":
+      return { topic: lesson.title, context: step.text };
+    case "watch":
+      return { topic: lesson.title, context: (step.text ? step.text + "\n" : "") + step.note };
+    case "type":
+      return { topic: lesson.title, context: step.text + "\nкоманда: " + step.cmd };
+    case "do":
+      return { topic: lesson.title, context: step.text };
+    case "quiz":
+      return { topic: lesson.title, context: step.text + "\n" + step.explain };
+  }
+}
+
+/**
  * Правая колонка: ОДИН текущий шаг урока, крупно.
  * Никаких списков из шести пунктов — только то, что делать прямо сейчас.
  */
@@ -34,6 +59,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   const step = run.step;
   const { i, n } = run.position;
   const lesson = run.lesson;
+  const stepKey = lesson.id + ":" + i;
 
   const head =
     `<div class="eyebrow">Акт ${lesson.act} · урок ${lesson.id}</div>` +
@@ -81,7 +107,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
     }
   }
 
-  const quizKey = lesson.id + ":" + i;
+  const quizKey = stepKey;
   if (step.kind === "quiz") {
     const grade =
       typeof step.d === "number"
@@ -128,6 +154,19 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<button class="lp-reveal" id="lpQuizWrong">❌ Я ошибся, повторить вопрос</button>` +
         `</div>`;
     }
+  }
+
+  const es = explainState && explainState.key === stepKey ? explainState.state : null;
+  if (!es) {
+    body += `<button class="lp-explain" id="lpExplain">${icon("mentor", 15)}<span>Не хватает информации — объясни подробнее</span></button>`;
+  } else if (es.phase === "loading") {
+    body += `<div class="lp-explain-loading">🧑‍🏫 Наставник готовит подробный разбор с примерами…</div>`;
+  } else if (es.phase === "done") {
+    body += `<div class="lp-explain-box"><div class="lp-explain-text">${esc(es.text)}</div></div>`;
+  } else {
+    body +=
+      `<div class="lp-explain-box lp-explain-error">Не удалось связаться с наставником, попробуй ещё раз.</div>` +
+      `<button class="lp-explain" id="lpExplain">${icon("mentor", 15)}<span>Объяснить подробнее</span></button>`;
   }
 
   el.innerHTML = head + body;
@@ -191,4 +230,22 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
       const wrongAnswer = (step as { answer: number }).answer;
       h.onQuiz(wrongAnswer === 0 ? -1 : 0);
     };
+
+  const explainBtn = document.getElementById("lpExplain");
+  if (explainBtn) {
+    explainBtn.onclick = () => {
+      const { topic, context } = stepTopic(lesson, step);
+      explainState = { key: stepKey, state: { phase: "loading" } };
+      renderLessonPanel(run, h);
+      explainTopic({ lesson: lesson.title, topic, context })
+        .then((text) => {
+          explainState = { key: stepKey, state: text ? { phase: "done", text } : { phase: "error" } };
+          renderLessonPanel(run, h);
+        })
+        .catch(() => {
+          explainState = { key: stepKey, state: { phase: "error" } };
+          renderLessonPanel(run, h);
+        });
+    };
+  }
 }
