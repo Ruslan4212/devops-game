@@ -42,10 +42,16 @@ def("find", (a, w) => {
   const pat = i >= 0 ? a[i + 1] : null;
   // экранируем всё, затем возвращаем `*` его смысл маски: экранированная `\*` -> `.*`
   const rx = pat ? new RegExp("^" + escapeRegex(pat).replace(/\\\*/g, ".*") + "$") : null;
+  // -type f — только файлы, -type d — только каталоги; всё остальное отсеиваем как ошибку
+  const ti = a.indexOf("-type");
+  const kind = ti >= 0 ? a[ti + 1] : null;
+  if (kind && kind !== "f" && kind !== "d")
+    return E("find: неизвестный тип «" + kind + "»: бывает -type f (файлы) или -type d (каталоги)");
   const res: string[] = [];
   const walk = (node: FSNode | null, path: string): void => {
     if (!node) return;
-    if (!rx || rx.test(splitPath(path).pop() || "/")) res.push(path);
+    const typeOk = !kind || (kind === "d" ? node.type === "dir" : node.type === "file");
+    if (typeOk && (!rx || rx.test(splitPath(path).pop() || "/"))) res.push(path);
     if (node.type === "dir")
       for (const k of Object.keys(node.children).sort())
         walk(node.children[k], path === "/" ? "/" + k : path + "/" + k);
