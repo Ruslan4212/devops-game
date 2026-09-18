@@ -41,5 +41,19 @@ export function initEditor(): void {
       t.value = t.value.slice(0, s) + "  " + t.value.slice(t.selectionEnd);
       t.selectionStart = t.selectionEnd = s + 2;
     }
+    // Перенос строки раньше отдавался на откуп браузеру по умолчанию — в части
+    // окружений (виртуальные раскладки, некоторые методы ввода при наборе
+    // кириллицы, автоматизация) Enter в textarea не вставлял \n, и две строки
+    // задания слипались в одну ("#!/bin/bashecho ..."), из-за чего проверка
+    // шебанга не проходила и урок было невозможно пройти. Вставляем перенос
+    // строки явно, не полагаясь на нативное поведение поля.
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      const t = e.target as HTMLTextAreaElement;
+      const s = t.selectionStart;
+      const en = t.selectionEnd;
+      t.value = t.value.slice(0, s) + "\n" + t.value.slice(en);
+      t.selectionStart = t.selectionEnd = s + 1;
+    }
   });
 }
