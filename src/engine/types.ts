@@ -234,6 +234,8 @@ export interface World {
   ports: Record<number, string>;
   firewall: Record<number, boolean>;
   git: GitState | null;
+  /** настройки git (user.name, user.email) — акт «Git» */
+  gitConfig?: Record<string, string>;
   docker: { images: DockerImage[]; containers: Container[] };
   registry: string[];
   ci: CiState;

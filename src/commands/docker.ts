@@ -144,12 +144,31 @@ def("docker", (a, w) => {
     return O(c.name);
   }
 
+  if (sub === "start") {
+    const nm = rest.filter((x) => !x.startsWith("-")).pop();
+    const c = d.containers.find((x) => x.name === nm);
+    if (!c) return E("Error: No such container: " + nm);
+    c.state = "running";
+    return O(c.name);
+  }
+
   if (sub === "rm") {
+    const force = rest.includes("-f") || rest.includes("--force");
     const nm = rest.filter((x) => !x.startsWith("-")).pop();
     const i = d.containers.findIndex((x) => x.name === nm);
-    if (i < 0) return E("Error: No such container");
+    if (i < 0) return E("Error: No such container: " + nm);
+    if (d.containers[i].state === "running" && !force)
+      return E(
+        "Error response from daemon: cannot remove container '" +
+          nm +
+          "': container is running — сначала docker stop " +
+          nm +
+          " (или docker rm -f " +
+          nm +
+          ")",
+      );
     d.containers.splice(i, 1);
-    return O(nm);
+    return O(nm ?? "");
   }
 
   if (sub === "tag") {

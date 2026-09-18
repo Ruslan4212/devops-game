@@ -15,8 +15,54 @@ def("git", (a, w) => {
     return O("Инициализирован пустой репозиторий Git в " + w.cwd + "/.git/");
   }
 
+  if (sub === "clone") {
+    const url = rest.filter((x) => !x.startsWith("-"))[0];
+    if (!url) return E("fatal: укажи адрес репозитория: git clone URL");
+    const name = (url.split("/").pop() || "repo").replace(/\.git$/, "");
+    mkdirp(w, resolvePath(w, name));
+    mkdirp(w, resolvePath(w, name + "/.git"));
+    w.git = {
+      branch: "main",
+      branches: ["main"],
+      staged: [],
+      commits: [{ msg: "первый коммит", files: [], branch: "main", hash: hash() }],
+      remote: url,
+      pushed: 1,
+    };
+    return O("Клонирование в «" + name + "»...\nremote: Enumerating objects... done.\nГотово.");
+  }
+
   const g = w.git;
   if (!g) return E("fatal: не является репозиторием git (сначала git init)");
+
+  if (sub === "config") {
+    const key = rest.filter((x) => !x.startsWith("-"))[0];
+    if (!key) return E("git config: укажи параметр, например user.name");
+    const val = rest
+      .filter((x) => !x.startsWith("-"))
+      .slice(1)
+      .join(" ");
+    w.gitConfig = w.gitConfig || {};
+    if (!val) return O(w.gitConfig[key] || "");
+    w.gitConfig[key] = val;
+    return O();
+  }
+
+  if (sub === "pull") {
+    if (!g.remote) return E("fatal: не настроен удалённый репозиторий (git remote add origin URL)");
+    if (g.staged.length)
+      return {
+        out:
+          "error: Your local changes to the following files would be overwritten by merge:\n        " +
+          g.staged.join("\n        ") +
+          "\nPlease commit your changes or stash them before you merge.",
+        code: 1,
+        err: true,
+      };
+    return O(
+      "From " + g.remote + "\n * branch            " + g.branch + "     -> FETCH_HEAD\nAlready up to date.",
+    );
+  }
 
   if (sub === "status") {
     const cur = getNode(w, w.cwd) as DirNode | null;
