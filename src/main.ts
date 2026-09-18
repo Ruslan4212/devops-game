@@ -263,8 +263,10 @@ function renderPanel(): void {
       renderPanel();
     },
     onFill: (cmd) => {
-      const i = $<HTMLInputElement>("#cmd");
+      const i = $<HTMLTextAreaElement>("#cmd");
       i.value = cmd;
+      i.style.height = "auto";
+      i.style.height = `${i.scrollHeight}px`;
       i.focus();
     },
   });
@@ -428,31 +430,61 @@ async function askMentor(
   applyResult(verdict ? { ...fallback, feedback: "🧑‍🏫 " + verdict.feedback } : fallback);
 }
 
-const input = $<HTMLInputElement>("#cmd");
+const input = $<HTMLTextAreaElement>("#cmd");
+const resizeInput = (): void => {
+  input.style.height = "auto";
+  input.style.height = `${input.scrollHeight}px`;
+};
 const submit = (): void => {
   const v = input.value;
   input.value = "";
+  resizeInput();
   handleInput(v);
 };
 $<HTMLFormElement>("#cmdForm").addEventListener("submit", (e) => {
   e.preventDefault();
   submit();
 });
+input.addEventListener("input", resizeInput);
 input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
+  // Plain Enter отправляет команду — как в обычном терминале. Shift+Enter
+  // вставляет перенос строки: часть заданий ждёт многострочный ответ прямо
+  // в командной строке (не только через отдельный редактор edit/nano), и
+  // раньше это было физически невозможно — #cmd был однострочным <input>,
+  // который переносы строк просто не может содержать вне зависимости от
+  // того, как обрабатывать нажатия клавиш.
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     submit();
     return;
   }
-  if (e.key === "ArrowUp") {
+  if (e.key === "Enter" && e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    const s = input.selectionStart;
+    const en = input.selectionEnd;
+    input.value = input.value.slice(0, s) + "\n" + input.value.slice(en);
+    input.selectionStart = input.selectionEnd = s + 1;
+    resizeInput();
+    return;
+  }
+  // История команд по стрелкам — только когда курсор уже на первой/последней
+  // строке многострочного содержимого, иначе стрелки листают строки внутри
+  // самого поля, как в любом обычном многострочном текстовом поле.
+  if (e.key === "ArrowUp" && !input.value.slice(0, input.selectionStart).includes("\n")) {
     e.preventDefault();
     const v = history.prev();
-    if (v !== null) input.value = v;
+    if (v !== null) {
+      input.value = v;
+      resizeInput();
+    }
   }
-  if (e.key === "ArrowDown") {
+  if (e.key === "ArrowDown" && !input.value.slice(input.selectionEnd).includes("\n")) {
     e.preventDefault();
     const v = history.next();
-    if (v !== null) input.value = v;
+    if (v !== null) {
+      input.value = v;
+      resizeInput();
+    }
   }
 });
 $("#out").addEventListener("click", () => {
