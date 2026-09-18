@@ -6,6 +6,20 @@ def("terraform", (a, w) => {
   const tf = w.tf;
   const src = readFile(w, resolvePath(w, "main.tf"));
 
+  if (sub === "version") {
+    return O(
+      "Terraform v1.7.5\non linux_amd64\n\n" +
+        "+ provider registry.terraform.io/hashicorp/local v2.4.1\n\n" +
+        "Версия самого Terraform и версии провайдеров — разные вещи.\n" +
+        "Провайдеры зафиксированы в .terraform.lock.hcl.",
+    );
+  }
+
+  if (sub === "fmt") {
+    if (src == null) return E("Ошибка: в каталоге нет .tf файлов (создай: edit main.tf)");
+    return O("main.tf\n\nФорматирование приведено к каноническому виду (отступы, выравнивание =).");
+  }
+
   if (sub === "init") {
     if (src == null) return E("Ошибка: в каталоге нет .tf файлов (создай: edit main.tf)");
     tf.inited = true;
@@ -80,8 +94,35 @@ def("terraform", (a, w) => {
     return O("Ресурс " + nm + " помечен tainted — при следующем apply будет уничтожен и создан заново.");
   }
 
+  if (sub === "untaint") {
+    const nm = rest.filter((x) => !x.startsWith("-"))[0];
+    if (!nm) return E("terraform untaint: укажи ресурс, например  terraform untaint local_file.config");
+    if (!(tf.tainted || []).includes(nm))
+      return E("terraform untaint: ресурс " + nm + " не помечен как tainted");
+    tf.tainted = (tf.tainted || []).filter((n) => n !== nm);
+    return O("С ресурса " + nm + " снята пометка tainted — пересоздания не будет.");
+  }
+
   if (sub === "state") {
     if (rest[0] === "list") return O(tf.applied.length ? tf.applied.join("\n") : "(состояние пусто)");
+    if (rest[0] === "show") {
+      const nm = rest[1];
+      if (!nm || !tf.applied.includes(nm))
+        return E("terraform state show: ресурс " + nm + " не найден в состоянии");
+      return O(
+        "# " +
+          nm +
+          ":\nresource " +
+          nm
+            .split(".")
+            .map((p) => '"' + p + '"')
+            .join(" ") +
+          " {\n" +
+          '    id       = "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3"\n' +
+          '    filename = "app.conf"\n' +
+          "}\n\nЭто атрибуты РЕСУРСА ИЗ СОСТОЯНИЯ, а не из main.tf. Команда только читает.",
+      );
+    }
     if (rest[0] === "rm") {
       const nm = rest[1];
       if (!nm || !tf.applied.includes(nm))
@@ -103,5 +144,7 @@ def("terraform", (a, w) => {
     tf.plan = null;
     return O("Destroy complete! Ресурсов уничтожено: " + n + ".");
   }
-  return E("terraform: init | validate | plan | apply | taint | state list|rm | destroy");
+  return E(
+    "terraform: version | fmt | init | validate | plan | apply | taint | untaint | state list|show|rm | destroy",
+  );
 });
