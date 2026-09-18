@@ -33,6 +33,24 @@ def("tar", (a, w) => {
     return O((strippedSlash ? "tar: Removing leading `/' from member names\n" : "") + sources.join("\n"));
   }
 
+  // -t (list) — «посмотреть, что внутри, ничего не распаковывая». В жизни именно так
+  // проверяют бэкап: архив может существовать и при этом быть пустым.
+  if (flagsTok.includes("t")) {
+    const archiveNode = getNode(w, archiveAbs);
+    if (!archiveNode || archiveNode.type !== "file" || !archiveNode.content.startsWith(TAR_MAGIC))
+      return E("tar: " + archiveArg + ": не является архивом (или он повреждён)");
+    const entries: Record<string, FSNode> = JSON.parse(archiveNode.content.slice(TAR_MAGIC.length));
+    const listed: string[] = [];
+    const walk = (prefix: string, node: FSNode): void => {
+      if (node.type === "dir") {
+        listed.push(prefix + "/");
+        for (const [name, child] of Object.entries(node.children)) walk(prefix + "/" + name, child);
+      } else listed.push(prefix);
+    };
+    for (const [name, node] of Object.entries(entries)) walk(name, node);
+    return O(listed.join("\n"));
+  }
+
   if (flagsTok.includes("x")) {
     const archiveNode = getNode(w, archiveAbs);
     if (!archiveNode || archiveNode.type !== "file" || !archiveNode.content.startsWith(TAR_MAGIC))

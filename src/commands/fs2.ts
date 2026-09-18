@@ -116,3 +116,39 @@ def("chown", (a, w) => {
   if (n.type === "file") n.owner = ps[0].split(":")[0];
   return O();
 });
+
+/** "rw-r-----" -> "640". Обратное к таблице chmod: каждая тройка — своя цифра. */
+function modeToOctal(mode: string): string {
+  const triads = [mode.slice(0, 3), mode.slice(3, 6), mode.slice(6, 9)];
+  return triads.map((t) => (t[0] === "r" ? 4 : 0) + (t[1] === "w" ? 2 : 0) + (t[2] === "x" ? 1 : 0)).join("");
+}
+
+def("stat", (a, w) => {
+  const ps = a.filter((x) => !x.startsWith("-"));
+  if (!ps.length) return E("stat: нужно: stat ФАЙЛ");
+  const abs = resolvePath(w, ps[0]);
+  const n = getNode(w, abs);
+  if (!n) return E("stat: не удалось выполнить stat для '" + ps[0] + "': Нет такого файла");
+  const isDir = n.type === "dir";
+  const mode = isDir ? "rwxr-xr-x" : n.mode;
+  const owner = (isDir ? w.user : n.owner || w.user) || w.user;
+  const size = isDir ? 4096 : n.content.length;
+  return O(
+    "  Файл: " +
+      abs +
+      "\n  Размер: " +
+      size +
+      "\t Тип: " +
+      (isDir ? "каталог" : "обычный файл") +
+      "\nДоступ: (0" +
+      modeToOctal(mode) +
+      "/" +
+      (isDir ? "d" : "-") +
+      mode +
+      ")  Uid: ( " +
+      owner +
+      " )   Gid: ( " +
+      owner +
+      " )",
+  );
+});

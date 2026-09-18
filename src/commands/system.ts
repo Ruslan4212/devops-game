@@ -1,11 +1,44 @@
-import { def, E, O } from "./registry";
-import { readFile } from "../engine/vfs";
+import { CMDS, def, E, O } from "./registry";
+import { getNode, readFile, resolvePath } from "../engine/vfs";
 import type { Service, World } from "../engine/types";
 
 def("whoami", (_a, w) => O(w.user));
+
+/**
+ * which — «а где лежит эта программа?». Ищет только по системным каталогам из PATH,
+ * ровно как настоящая: файл в текущем каталоге она НЕ находит, и именно это делает
+ * наглядным разговор про  ./script.sh  в уроке 3.3.
+ */
+def("which", (a, _w) => {
+  const name = a.filter((x) => !x.startsWith("-"))[0];
+  if (!name) return E("which: укажи имя команды, например: which ls");
+  if (CMDS[name]) return O("/usr/bin/" + name);
+  return { out: "", code: 1 };
+});
+
+/**
+ * file — «что это вообще за файл?». Настоящая утилита смотрит внутрь, а не на
+ * расширение: именно так видно, что скрипт без шебанга — просто текст.
+ */
+def("file", (a, w) => {
+  const arg = a.filter((x) => !x.startsWith("-"))[0];
+  if (!arg) return E("file: укажи файл, например: file hello.sh");
+  const abs = resolvePath(w, arg);
+  const n = getNode(w, abs);
+  if (!n) return E("file: " + arg + ": Нет такого файла или каталога");
+  if (n.type === "dir") return O(arg + ": directory");
+  const execBit = /x/.test(n.mode.slice(0, 3));
+  const shebang = n.content.match(/^#!\s*(\S+)/);
+  if (shebang) {
+    const kind = /python/.test(shebang[1]) ? "Python script" : "Bourne-Again shell script";
+    return O(arg + ": " + kind + ", ASCII text" + (execBit ? ", executable" : ""));
+  }
+  return O(arg + ": ASCII text");
+});
 def("id", (_a, w) =>
   O("uid=1000(" + w.user + ") gid=1000(" + w.user + ") groups=1000(" + w.user + "),27(sudo)"),
 );
+def("groups", (_a, w) => O(w.user + " sudo deploy"));
 def("uname", (a) => O(a.includes("-a") ? "Linux ops-01 5.15.0 #1 SMP x86_64 GNU/Linux" : "Linux"));
 def("date", () => O(new Date().toString()));
 def("free", (a) => {
