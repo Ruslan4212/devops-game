@@ -16,7 +16,7 @@ export function toast(text: string): void {
  * иначе набранный текст молча уходит в невидимое поле.
  */
 export function lockInput(on: boolean): void {
-  const i = $<HTMLInputElement>("#cmd");
+  const i = $<HTMLTextAreaElement>("#cmd");
   if (!i) return;
   i.disabled = on;
   if (!on) setTimeout(() => i.focus(), 30);
