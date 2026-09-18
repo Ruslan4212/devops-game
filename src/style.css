@@ -219,14 +219,19 @@ button {
 
 .wrap {
   display: grid;
-  grid-template-columns: 216px minmax(0, 1fr) minmax(360px, 34vw);
+  grid-template-columns: 200px minmax(0, 1fr) minmax(440px, 42vw);
   gap: 12px;
   padding: 12px;
   height: calc(100vh - 53px);
 }
 @media (min-width: 1500px) {
   .wrap {
-    grid-template-columns: 236px minmax(0, 1fr) minmax(420px, 30vw);
+    grid-template-columns: 216px minmax(0, 1fr) minmax(560px, 40vw);
+  }
+}
+@media (min-width: 1900px) {
+  .wrap {
+    grid-template-columns: 236px minmax(0, 1fr) minmax(680px, 38vw);
   }
 }
 .col {
