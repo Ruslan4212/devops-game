@@ -38,6 +38,10 @@ export default defineConfig(({ mode }) => {
               globPatterns: ["**/*.{js,css,html,svg,woff2}"],
               navigateFallback: "index.html",
               cleanupOutdatedCaches: true,
+              // Весь курс (826+ уроков) в одном JS-бандле давно перевалил за
+              // дефолтный лимит workbox в 2 МиБ — поднимаем лимит явно, иначе
+              // сборка PWA падает по мере роста контента курса.
+              maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
             },
           }),
         ],

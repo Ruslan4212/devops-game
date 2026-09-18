@@ -4,7 +4,15 @@ import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "dist-single/**", "dev-dist/**", "node_modules/**", "sandbox-server/**", "play/**"],
+    ignores: [
+      "dist/**",
+      "dist-single/**",
+      "dev-dist/**",
+      "node_modules/**",
+      "sandbox-server/**",
+      "grader-server/**",
+      "play/**",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
