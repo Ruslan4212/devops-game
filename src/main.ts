@@ -269,6 +269,7 @@ function renderPanel(): void {
       i.style.height = `${i.scrollHeight}px`;
       i.focus();
     },
+    onFillEditor: (path, content) => openFileEditor(path, content),
   });
 }
 
@@ -381,14 +382,7 @@ function handleInput(line: string): void {
   if (step.kind === "do" && /^(edit|nano|vim)\s+\S/.test(trimmed)) {
     const r = execLine(run.world, trimmed);
     if (r.edit) {
-      lockInput(true);
-      openEditor(run.world, r.edit, (path, content) => {
-        lockInput(false);
-        const edited = run!.applyEdit(path, content);
-        // то же правило, что и для команд: верных вариантов файла больше одного
-        if (edited.status === "advance") applyResult(edited);
-        else void askMentor(step.text, (step as DoStep).answer, "сохранил файл " + path, content, edited);
-      });
+      openFileEditor(r.edit);
       return;
     }
   }
@@ -401,6 +395,29 @@ function handleInput(line: string): void {
   // её настоящий вывод и засчитывает любое решение, которое делает дело.
   if (res.status === "advance") return applyResult(res);
   void askMentor(step.text, (step as DoStep).answer, line, res.out ?? "", res);
+}
+
+/**
+ * Открыть редактор файла и сохранить результат через тот же путь, что и при
+ * ручном "edit <файл>" в терминале. Опциональный preset — готовый ответ,
+ * который подставляют кнопкой "Открыть редактор с готовым ответом": раньше
+ * эта кнопка вместо этого вставляла содержимое файла (может быть в несколько
+ * строк) в ОБЫЧНУЮ командную строку терминала — там это никогда не было
+ * осмысленной командой, задача не засчитывалась никогда, и человек застревал
+ * в цикле "файл сохранён, но задача не закрыта", даже точно скопировав ответ.
+ */
+function openFileEditor(path: string, preset?: string): void {
+  if (!run) return;
+  const step = run.step;
+  lockInput(true);
+  openEditor(run.world, path, (p, content) => {
+    lockInput(false);
+    const edited = run!.applyEdit(p, content);
+    if (edited.status === "advance") applyResult(edited);
+    else if (step.kind === "do")
+      void askMentor(step.text, step.answer, "сохранил файл " + p, content, edited);
+  });
+  if (preset !== undefined) $<HTMLTextAreaElement>("#edText").value = preset;
 }
 
 /** Второе мнение по практическому заданию: судит модель, а не совпадение строк. */

@@ -10,6 +10,8 @@ export interface PanelHandlers {
   onReveal: () => void;
   /** вставить готовую команду в строку ввода терминала */
   onFill: (cmd: string) => void;
+  /** для задач, решаемых через edit/nano: открыть редактор файла сразу с готовым ответом внутри */
+  onFillEditor: (path: string, content: string) => void;
 }
 
 /**
@@ -104,10 +106,23 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
       `<div class="lp-badge lp-badge-do">${icon("target", 15)}<span>задача — сделай сам в терминале</span></div>` +
       sayBlock(step.text);
     if (run.answerRevealed) {
-      body +=
-        `<div class="lp-answer"><b>Ответ:</b> набери в терминале:</div>` +
-        `<div class="lp-cmd">${esc(step.answer)}</div>` +
-        `<button class="lp-fill" id="lpFill">Вставить в строку ввода</button>`;
+      // Задачи через edit/nano решаются в отдельном редакторе файла, а не
+      // командной строкой — "Вставить в строку ввода" туда содержимое файла
+      // не доставит (раньше доставляло НЕ ТУДА: ответ утекал в командную
+      // строку терминала, где эта многострочная "команда" не значит ничего
+      // и задача никогда не засчитывалась — человек застревал в петле "файл
+      // сохранён, но задача не закрыта", даже набрав всё верно вручную).
+      if (step.editFile) {
+        body +=
+          `<div class="lp-answer"><b>Ответ:</b> впиши в редактор ${esc(step.editFile)}:</div>` +
+          `<div class="lp-cmd">${esc(step.answer)}</div>` +
+          `<button class="lp-fill" id="lpFillEditor">Открыть редактор с готовым ответом</button>`;
+      } else {
+        body +=
+          `<div class="lp-answer"><b>Ответ:</b> набери в терминале:</div>` +
+          `<div class="lp-cmd">${esc(step.answer)}</div>` +
+          `<button class="lp-fill" id="lpFill">Вставить в строку ввода</button>`;
+      }
     } else if (run.canReveal) {
       body += `<button class="lp-reveal" id="lpReveal">Не получается — показать ответ</button>`;
     } else {
@@ -186,6 +201,11 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (fill) {
     fill.onclick = () =>
       h.onFill(step.kind === "do" ? (step as { answer: string }).answer : (step as { cmd: string }).cmd);
+  }
+
+  const fillEditor = document.getElementById("lpFillEditor");
+  if (fillEditor && step.kind === "do" && step.editFile) {
+    fillEditor.onclick = () => h.onFillEditor(step.editFile as string, step.answer);
   }
 
   const reveal = document.getElementById("lpReveal");
