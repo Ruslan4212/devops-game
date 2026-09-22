@@ -121,6 +121,7 @@ function run(title: string, questions: TechQuestion[]): void {
         `<div class="lp-tip">🧑‍🏫 Наставник проверяет ответ…</div>`;
       gradeAnswer({ question: q.q, options: q.options, answerIx: q.answer, explain: q.why, userAnswer: mine })
         .then((result) => {
+          if (result.local && !result.correct) return fallbackToSelfGrade();
           $("#modBody").innerHTML =
             `<h1>${esc(title)}</h1>` +
             `<div class="cr-q">${esc(q.options[q.answer])}</div>` +

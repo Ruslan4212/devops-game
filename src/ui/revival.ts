@@ -145,6 +145,13 @@ export function openRevivalExam(d: RevivalDeps): void {
       $("#modBody").innerHTML = header() + `<div class="iv-chat">${transcript.join("")}</div>`;
       gradeAnswer({ question: q.q, options: q.options, answerIx: q.answer, explain: q.why, userAnswer: mine })
         .then((result) => {
+          // Локальный разбор (сервер недоступен) — это подсчёт по словарю
+          // синонимов, а не понимание смысла: законный пересказ своими
+          // словами он может не узнать. Цена ошибки здесь — весь прогресс,
+          // поэтому отрицательный вердикт ИМЕННО локального разбора не
+          // окончательный: игроку дают слово, а не молча засчитывают провал
+          // машинной эвристики как истину в последней инстанции.
+          if (result.local && !result.correct) return fallbackToSelfGrade();
           transcript.pop();
           transcript.push(
             bubble("sys", `<b>${result.correct ? "Верно." : "Не совсем."}</b> ${esc(result.feedback)}`),
