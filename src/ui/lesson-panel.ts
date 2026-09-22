@@ -227,7 +227,15 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         userAnswer: myAnswer,
       })
         .then((result) => {
-          quizState = { key: quizKey, state: { phase: "graded", myAnswer, result } };
+          // local=true значит и сервер, и бесплатный ИИ (Puter.js) оказались
+          // недоступны, и вердикт вынес подсчёт по словарю синонимов — он может
+          // ошибочно отклонить законный пересказ своими словами. Отрицательный
+          // вердикт именно в этом случае не окончательный: даём слово игроку,
+          // а не молча засчитываем провал эвристики как истину.
+          quizState =
+            result.local && !result.correct
+              ? { key: quizKey, state: { phase: "error", myAnswer } }
+              : { key: quizKey, state: { phase: "graded", myAnswer, result } };
           renderLessonPanel(run, h);
         })
         .catch(() => {

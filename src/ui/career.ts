@@ -247,6 +247,10 @@ function runInterview(job: Job, d: CareerDeps): void {
       scrollChatToEnd();
       gradeAnswer({ question: q.q, options: q.options, answerIx: q.answer, explain: q.why, userAnswer: mine })
         .then((result) => {
+          // local=true — и сервер, и бесплатный ИИ недоступны, вердикт вынес
+          // подсчёт по словарю синонимов. Отрицательный вердикт в этом случае
+          // не окончательный: даём слово игроку вместо молчаливого провала.
+          if (result.local && !result.correct) return fallbackToSelfGrade();
           transcript.pop();
           transcript.push(
             bubble("lead", `<b>${result.correct ? "Верно." : "Не совсем."}</b> ${esc(result.feedback)}`),
