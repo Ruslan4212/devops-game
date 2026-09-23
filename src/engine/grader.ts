@@ -636,17 +636,21 @@ export async function explainTopic(input: ExplainInput): Promise<string | null> 
   }
 }
 
+/** Публичный keyless-эндпоинт Pollinations.ai — без регистрации, без всплывающих окон согласия. */
+const FREE_AI_URL = "https://text.pollinations.ai/openai";
+
 /**
- * Бесплатный ИИ-разбор прямо из браузера через Puter.js — без ключей и без
- * своего сервера. Используется вторым, когда свой grader-server недоступен:
- * это настоящая модель, а не подсчёт слов, поэтому предпочтительнее локального
- * разбора и не требует от игрока самому судить себя.
+ * Бесплатный ИИ-разбор через публичный анонимный эндпоинт Pollinations.ai —
+ * без ключей, без аккаунта, без модалок согласия стороннего сервиса (в
+ * отличие от Puter.js, который на первом вызове требовал логин в Puter —
+ * от этого варианта отказались). Используется вторым, когда свой
+ * grader-server недоступен: это настоящая модель, а не подсчёт слов,
+ * поэтому предпочтительнее локального разбора и не требует от игрока
+ * самому судить себя.
  */
-async function puterGrade(input: GradeInput): Promise<GradeResult | null> {
-  const w = window as unknown as {
-    puter?: { ai?: { chat?: (prompt: string) => Promise<unknown> } };
-  };
-  if (!w.puter?.ai?.chat) return null;
+async function freeAiGrade(input: GradeInput): Promise<GradeResult | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
   const prompt =
     `Ты — преподаватель Linux/DevOps, проверяешь ответ ученика по смыслу, не требуя дословного совпадения.\n` +
     `Вопрос: ${input.question}\n` +
@@ -656,26 +660,31 @@ async function puterGrade(input: GradeInput): Promise<GradeResult | null> {
     `Ответь СТРОГО одним JSON-объектом без markdown и без пояснений вокруг: ` +
     `{"correct": true или false, "feedback": "разбор на русском, 1-2 предложения"}`;
   try {
-    const res = await w.puter.ai.chat(prompt);
-    const text =
-      typeof res === "string"
-        ? res
-        : ((res as { message?: { content?: string }; text?: string })?.message?.content ??
-          (res as { text?: string })?.text ??
-          "");
+    const res = await fetch(FREE_AI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify({ model: "openai", messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const text = data.choices?.[0]?.message?.content;
+    if (typeof text !== "string") return null;
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return null;
-    const data = JSON.parse(match[0]) as Partial<GradeResult>;
-    if (typeof data.correct !== "boolean" || typeof data.feedback !== "string") return null;
-    return { correct: data.correct, feedback: data.feedback };
+    const parsed = JSON.parse(match[0]) as Partial<GradeResult>;
+    if (typeof parsed.correct !== "boolean" || typeof parsed.feedback !== "string") return null;
+    return { correct: parsed.correct, feedback: parsed.feedback };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 /**
  * Точка входа для UI. Порядок проверки: свой сервер (быстрее и настроен под
- * игру) → бесплатный ИИ через Puter.js в браузере (сервер лёг — модель всё
+ * игру) → бесплатный анонимный ИИ (Pollinations.ai — сервер лёг, модель всё
  * равно понимает смысл) → локальный разбор по словам последним резервом,
  * когда оба варианта с настоящей моделью недоступны.
  */
@@ -683,7 +692,7 @@ export async function gradeAnswer(input: GradeInput): Promise<GradeResult> {
   if (!input.userAnswer.trim()) return { ...localGrade(input), local: true };
   const remote = await remoteGrade(input);
   if (remote) return remote;
-  const free = await puterGrade(input);
+  const free = await freeAiGrade(input);
   if (free) return free;
   return { ...localGrade(input), local: true };
 }
