@@ -638,14 +638,13 @@ async function freeAiJudgeCommand(input: CommandJudgeInput): Promise<GradeResult
 /**
  * Судит практическое задание в терминале. Прибитая проверка шага знает один
  * верный ответ, а их почти всегда больше: «ss -tlpn sport :80» решает задачу
- * не хуже «ss -ltn», а местами и точнее. Порядок: свой сервер → бесплатный
- * анонимный ИИ (Pollinations.ai) → null, если оба недоступны — тогда UI
- * показывает обычную подсказку по шагу вместо вердикта.
+ * не хуже «ss -ltn», а местами и точнее. Свой сервер и бесплатный анонимный
+ * ИИ (Pollinations.ai) спрашиваются одновременно — берётся первый вменяемый
+ * ответ (см. firstValid). null — оба недоступны, тогда UI показывает обычную
+ * подсказку по шагу вместо вердикта.
  */
 export async function judgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
-  const server = await serverJudgeCommand(input);
-  if (server) return server;
-  return freeAiJudgeCommand(input);
+  return firstValid([serverJudgeCommand(input), freeAiJudgeCommand(input)]);
 }
 
 export interface ExplainInput {
@@ -736,11 +735,30 @@ async function freeAiGrade(input: GradeInput): Promise<GradeResult | null> {
  * равно понимает смысл) → локальный разбор по словам последним резервом,
  * когда оба варианта с настоящей моделью недоступны.
  */
+/**
+ * Запускает несколько источников вердикта ОДНОВРЕМЕННО и берёт первый непустой
+ * результат вместо ожидания по очереди. Свой сервер сейчас недоступен и висит
+ * все 12 секунд таймаута; если ждать его целиком перед тем, как попробовать
+ * бесплатный ИИ (обычно отвечает за 3-5 секунд), игрок ждёт вердикт ~17-20
+ * секунд и решает, что игра зависла. Параллельный запуск ограничивает
+ * ожидание временем самого медленного источника, а не их суммой.
+ */
+async function firstValid<T>(sources: Promise<T | null>[]): Promise<T | null> {
+  return new Promise((resolve) => {
+    let left = sources.length;
+    for (const p of sources) {
+      p.then((v) => {
+        left--;
+        if (v) resolve(v);
+        else if (left === 0) resolve(null);
+      });
+    }
+  });
+}
+
 export async function gradeAnswer(input: GradeInput): Promise<GradeResult> {
   if (!input.userAnswer.trim()) return { ...localGrade(input), local: true };
-  const remote = await remoteGrade(input);
-  if (remote) return remote;
-  const free = await freeAiGrade(input);
-  if (free) return free;
+  const ai = await firstValid([remoteGrade(input), freeAiGrade(input)]);
+  if (ai) return ai;
   return { ...localGrade(input), local: true };
 }
