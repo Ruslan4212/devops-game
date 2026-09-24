@@ -573,13 +573,7 @@ export interface CommandJudgeInput {
   output: string;
 }
 
-/**
- * Судит практическое задание в терминале. Прибитая проверка шага знает один
- * верный ответ, а их почти всегда больше: «ss -tlpn sport :80» решает задачу
- * не хуже «ss -ltn», а местами и точнее. Поэтому решает модель, видя команду
- * и её настоящий вывод. null — сервер недоступен, вердикта нет.
- */
-export async function judgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
+async function serverJudgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
   try {
@@ -598,6 +592,60 @@ export async function judgeCommand(input: CommandJudgeInput): Promise<GradeResul
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Тот же бесплатный анонимный ИИ (Pollinations.ai), что и в gradeAnswer, но
+ * для практических заданий в терминале: судит по реальной команде и её
+ * настоящему выводу, а не по прибитому единственному эталону.
+ */
+async function freeAiJudgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
+  const prompt =
+    `Ты — преподаватель Linux/DevOps, проверяешь практическое задание в терминале.\n` +
+    `Урок: ${input.lesson}\n` +
+    `Задача: ${input.task}\n` +
+    `Один из верных вариантов решения (не единственный): ${input.expected}\n` +
+    `Что набрал ученик: ${input.command}\n` +
+    `Что вывел терминал: ${input.output}\n` +
+    `Реальных решений задачи обычно больше одного — засчитай любое, которое делает дело. ` +
+    `Ответь СТРОГО одним JSON-объектом без markdown и без пояснений вокруг: ` +
+    `{"correct": true или false, "feedback": "разбор на русском, 1-2 предложения"}`;
+  try {
+    const res = await fetch(FREE_AI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify({ model: "openai", messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const text = data.choices?.[0]?.message?.content;
+    if (typeof text !== "string") return null;
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]) as Partial<GradeResult>;
+    if (typeof parsed.correct !== "boolean" || typeof parsed.feedback !== "string") return null;
+    return { correct: parsed.correct, feedback: parsed.feedback };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Судит практическое задание в терминале. Прибитая проверка шага знает один
+ * верный ответ, а их почти всегда больше: «ss -tlpn sport :80» решает задачу
+ * не хуже «ss -ltn», а местами и точнее. Порядок: свой сервер → бесплатный
+ * анонимный ИИ (Pollinations.ai) → null, если оба недоступны — тогда UI
+ * показывает обычную подсказку по шагу вместо вердикта.
+ */
+export async function judgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
+  const server = await serverJudgeCommand(input);
+  if (server) return server;
+  return freeAiJudgeCommand(input);
 }
 
 export interface ExplainInput {
