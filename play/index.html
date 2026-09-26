@@ -2863,8 +2863,17 @@ echo деплой завершён`},{kind:"do",text:"Шаг 2. Разреши �
   tar -czf backup.tar.gz /var/www   ← правильно
   tar -cfz backup.tar.gz /var/www   ← tar решит, что архив называется «z»
 
-Отсюда и совет запоминать как слово: «цзеф» для создания, «икс-зеф» для распаковки.`},{kind:"do",text:`Задача: архив на том же диске, что и сайт — если диск умрёт, погибнут оба.
-Скопируй архив в отдельную папку  backups  утилитой rsync.`,check:Qe("/home/devops/backups/site-backup.tar.gz"),answer:"rsync -a site-backup.tar.gz backups/",hint:"rsync -a site-backup.tar.gz backups/"},{kind:"say",text:`Почему именно  rsync , а не привычный  cp ?
+Отсюда и совет запоминать как слово: «цзеф» для создания, «икс-зеф» для распаковки.`},{kind:"say",text:`Копирование — команда  rsync :
+
+  rsync -a ИСТОЧНИК ПРИЁМНИК/
+
+  -a — archive: копирует файл ВМЕСТЕ с правами, владельцем и датой изменения,
+  а не только байты содержимого. ПРИЁМНИК — это папка назначения; слэш на конце
+  напоминает, что это каталог, а не новое имя для файла.
+
+Папка  backups  уже создана — она лежит рядом, в  /home/devops/backups .`},{kind:"do",text:`Задача: архив на том же диске, что и сайт — если диск умрёт, погибнут оба.
+Скопируй архив (site-backup.tar.gz, он уже лежит в текущей папке) в отдельную
+папку  backups  утилитой  rsync -a .`,check:Qe("/home/devops/backups/site-backup.tar.gz"),answer:"rsync -a site-backup.tar.gz backups/",hint:"rsync -a site-backup.tar.gz backups/"},{kind:"say",text:`Почему именно  rsync , а не привычный  cp ?
 
 Флаг  -a  (archive) означает «скопируй ВМЕСТЕ с правами, владельцем и датами».
 Для бэкапа это принципиально: восстановленный конфиг с правами  rw-rw-rw- 
