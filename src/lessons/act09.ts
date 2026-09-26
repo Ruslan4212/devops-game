@@ -2188,8 +2188,23 @@ export const act09: Lesson[] = [
         hint: "kubectl apply -f rolebinding.yaml",
       },
       {
+        kind: "say",
+        text:
+          "Проверить права можно не заходя в реальный под, а прямо с рабочей машины —\n" +
+          "командой  kubectl auth can-i :\n\n" +
+          "  kubectl auth can-i ГЛАГОЛ РЕСУРС --as=ЛИЧНОСТЬ\n\n" +
+          "  can-i    — «а мне/ему можно?», ответ yes или no\n" +
+          "  --as=    — «проверь, как будто я вот этот ServiceAccount»\n\n" +
+          "Полное имя ServiceAccount для  --as=  выглядит так:\n\n" +
+          "  system:serviceaccount:НЕЙМСПЕЙС:ИМЯ\n\n" +
+          "Для monitoring-sa в namespace default это будет\n" +
+          "  system:serviceaccount:default:monitoring-sa",
+      },
+      {
         kind: "do",
-        text: "Задача: проверь права напрямую — может ли monitoring-sa читать поды (get pods)?",
+        text:
+          "Задача: проверь права напрямую — может ли monitoring-sa читать поды (get pods)?\n" +
+          "Используй  kubectl auth can-i get pods --as=system:serviceaccount:default:monitoring-sa",
         check: ran(/^kubectl\s+auth\s+can-i\s+get\s+pods\s+--as=.*monitoring-sa/),
         answer: "kubectl auth can-i get pods --as=system:serviceaccount:default:monitoring-sa",
         hint: "kubectl auth can-i get pods --as=system:serviceaccount:default:monitoring-sa",
@@ -2573,6 +2588,14 @@ export const act09: Lesson[] = [
         hint: "kubectl get deployments — сравни replicas и image со значениями из values.yaml",
       },
       {
+        kind: "say",
+        text:
+          "Helm ведёт собственный учёт того, что он поставил в кластер. Список\n" +
+          "установленных релизов смотрят командой:\n\n" +
+          "  helm list\n\n" +
+          "list  — «покажи все релизы Helm в этом окружении» (как  kubectl get , но для релизов).",
+      },
+      {
         kind: "do",
         text: "Задача: посмотри список установленных релизов.",
         check: ran(/^helm\s+list/),
@@ -2586,8 +2609,16 @@ export const act09: Lesson[] = [
           "(например, values-prod.yaml с replicas: 5). Шаблон в templates/ остаётся один и тот же.",
       },
       {
+        kind: "say",
+        text:
+          "Удаляют релиз симметричной командой —  helm uninstall :\n\n" +
+          "  helm uninstall shop-release\n\n" +
+          "Она уберёт из кластера ВСЕ ресурсы, которые Helm создал при  install  для этого\n" +
+          "релиза (Deployment, Service и так далее) — не нужно удалять их по одному вручную.",
+      },
+      {
         kind: "do",
-        text: "Задача: релиз больше не нужен — удали его вместе со всеми его ресурсами одной командой.",
+        text: "Задача: релиз shop-release больше не нужен — удали его вместе со всеми его ресурсами одной командой.",
         check: (w) => !w.k8s?.deploys.some((d) => d.name === "shop"),
         answer: "helm uninstall shop-release",
         hint: "helm uninstall shop-release",

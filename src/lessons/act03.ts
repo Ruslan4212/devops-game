@@ -979,11 +979,19 @@ export const act03: Lesson[] = [
           "Это прообраз настоящего мониторинга — им ты займёшься в последних актах.",
       },
       {
+        kind: "say",
+        text:
+          "Для поиска ошибок нам понадобится новый флаг у  grep  —  -i  (ignore case,\n" +
+          "«игнорировать регистр»). Без него  grep error  найдёт только слово error\n" +
+          "строчными буквами и пропустит  Error  или  ERROR  в журнале.\n\n" +
+          "  grep -i error файл   — найдёт error, Error, ERROR — любой регистр",
+      },
+      {
         kind: "do",
         text:
           "Шаг 1. Напиши скрипт. Набери в терминале:\n" +
           "edit healthcheck.sh\n" +
-          "В редакторе будет подсказка — сотри её и напиши три строки: шебанг, echo и grep по /var/log/app.log",
+          "В редакторе будет подсказка — сотри её и напиши три строки: шебанг, echo и  grep -i error /var/log/app.log",
         check: (w) =>
           has("/home/devops/healthcheck.sh", /^#!\/bin\/(ba)?sh/)(w) &&
           has("/home/devops/healthcheck.sh", /grep[^\n]*error[^\n]*app\.log/i)(w),
@@ -2397,8 +2405,16 @@ export const act03: Lesson[] = [
         hint: "sudo apt install rsync",
       },
       {
+        kind: "say",
+        text:
+          "apt — это удобный фасад, а сам учёт установленного ведёт программа\n" +
+          "пониже уровнем —  dpkg . Флаг  -l  (list) печатает список ВСЕХ пакетов,\n" +
+          "которые сейчас стоят в системе, вместе с версиями.\n\n" +
+          "  dpkg -l   — весь список установленного разом",
+      },
+      {
         kind: "do",
-        text: "Задача: проверь список установленных пакетов через dpkg.",
+        text: "Задача: проверь список установленных пакетов командой  dpkg -l .",
         check: ran(/^dpkg -l/),
         answer: "dpkg -l",
         hint: "dpkg -l",
