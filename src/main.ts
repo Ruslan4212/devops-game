@@ -27,6 +27,7 @@ import {
   xpEarnBonusPct,
 } from "./engine/life";
 import { JOBS, parseSalary } from "./data/careers";
+import { pickReviewSlice } from "./data/interview";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
@@ -290,6 +291,66 @@ function afterStep(): void {
   else enterStep();
 }
 
+/** Раз в столько пройденных уроков — обязательное повторение старого материала. */
+const REVIEW_EVERY_LESSONS = 10;
+/** Сколько вопросов в одной сессии повторения (10-20, чтобы не растягивать надолго). */
+const REVIEW_SESSION_SIZE = 15;
+
+/** Самый поздний акт, до которого игрок реально дошёл — дальше спрашивать нечестно. */
+function reachedAct(): number {
+  return Math.max(1, ...LESSONS.filter((l) => P.done[l.id]).map((l) => l.act));
+}
+
+function showNextLessonScreen(
+  lesson: (typeof LESSONS)[number],
+  next: (typeof LESSONS)[number] | undefined,
+): void {
+  const el = $("#brief");
+  if (next) {
+    el.innerHTML =
+      `<div class="lp-done">🎉</div>` +
+      `<div class="lp-say">Урок «${lesson.title}» пройден.\n\nСледующий: ${next.id} — ${next.title}</div>` +
+      `<button class="lp-next" id="lpGoNext">Следующий урок →</button>`;
+    document.getElementById("lpGoNext")!.onclick = () => startLesson(next.id);
+  } else {
+    el.innerHTML =
+      `<div class="lp-done">🏆</div>` +
+      `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>`;
+  }
+}
+
+/** Обязательное повторение: без него материал первых актов забывается задолго до конца курса. */
+function maybeShowMandatoryReview(
+  lesson: (typeof LESSONS)[number],
+  next: (typeof LESSONS)[number] | undefined,
+): void {
+  if (!next || (P.lessonsSinceReview ?? 0) < REVIEW_EVERY_LESSONS) {
+    showNextLessonScreen(lesson, next);
+    return;
+  }
+  const el = $("#brief");
+  el.innerHTML =
+    `<div class="lp-done">🔄</div>` +
+    `<div class="lp-say">Урок «${lesson.title}» пройден.\n\n` +
+    `Пройдено ${REVIEW_EVERY_LESSONS} уроков — самое время освежить старый материал, пока он не забылся.</div>` +
+    `<button class="lp-next" id="lpGoReview">Начать повторение →</button>`;
+  document.getElementById("lpGoReview")!.onclick = () => {
+    const { questions, nextCursor } = pickReviewSlice(reachedAct(), P.reviewCursor ?? 0, REVIEW_SESSION_SIZE);
+    void import("./ui/review").then(({ openReviewSession }) => {
+      openReviewSession({
+        questions,
+        mandatory: true,
+        onDone: () => {
+          P.lessonsSinceReview = 0;
+          P.reviewCursor = nextCursor;
+          persist();
+          showNextLessonScreen(lesson, next);
+        },
+      });
+    });
+  };
+}
+
 function completeLesson(): void {
   if (!run) return;
   // урок закончен — сохранённый снимок незаконченного прохождения больше не нужен
@@ -299,6 +360,7 @@ function completeLesson(): void {
   let credited = 0;
   if (!P.done[lesson.id]) {
     P.done[lesson.id] = true;
+    P.lessonsSinceReview = (P.lessonsSinceReview ?? 0) + 1;
     if (!P.life) P.life = defaultLife();
     // «жизнь»: бонус к XP от техники/настроения + подработка за урок
     const bonus = Math.max(0, Math.round((lesson.xp * xpEarnBonusPct(P.life)) / 100));
@@ -320,18 +382,7 @@ function completeLesson(): void {
   lockInput(true);
 
   const next = LESSONS[LESSONS.indexOf(lesson) + 1];
-  const el = $("#brief");
-  if (next) {
-    el.innerHTML =
-      `<div class="lp-done">🎉</div>` +
-      `<div class="lp-say">Урок «${lesson.title}» пройден.\n\nСледующий: ${next.id} — ${next.title}</div>` +
-      `<button class="lp-next" id="lpGoNext">Следующий урок →</button>`;
-    document.getElementById("lpGoNext")!.onclick = () => startLesson(next.id);
-  } else {
-    el.innerHTML =
-      `<div class="lp-done">🏆</div>` +
-      `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>`;
-  }
+  maybeShowMandatoryReview(lesson, next);
   renderRail(P, lesson.id, startLesson, openCapstoneFlow);
   renderHud();
 }
@@ -577,9 +628,24 @@ $("#ratingBtn").onclick = () => {
   void import("./ui/leaderboard").then(({ openLeaderboard }) => void openLeaderboard());
 };
 $("#ivBtn").onclick = () => {
-  // самый поздний акт, до которого игрок реально дошёл: дальше спрашивать нечестно
-  const reached = Math.max(1, ...LESSONS.filter((l) => P.done[l.id]).map((l) => l.act));
-  void import("./ui/interview").then(({ openInterview }) => openInterview(reached));
+  void import("./ui/interview").then(({ openInterview }) => openInterview(reachedAct()));
+};
+$("#reviewBtn").onclick = () => {
+  const { questions, nextCursor } = pickReviewSlice(reachedAct(), P.reviewCursor ?? 0, REVIEW_SESSION_SIZE);
+  if (!questions.length) {
+    toast("Пока нечего повторять — пройди хотя бы один урок");
+    return;
+  }
+  void import("./ui/review").then(({ openReviewSession }) => {
+    openReviewSession({
+      questions,
+      mandatory: false,
+      onDone: () => {
+        P.reviewCursor = nextCursor;
+        persist();
+      },
+    });
+  });
 };
 $("#certBtn").onclick = () => {
   if (!allLessonsDone(P)) {
@@ -607,6 +673,7 @@ for (const [id, name] of [
   ["careerBtn", "briefcase"],
   ["ratingBtn", "medal"],
   ["ivBtn", "chat"],
+  ["reviewBtn", "repeat"],
   ["certBtn", "award"],
   ["howBtn", "help"],
   ["resetBtn", "reset"],

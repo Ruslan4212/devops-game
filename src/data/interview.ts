@@ -933,6 +933,45 @@ export const TECH_TOPICS: TechTopic[] = [
 ];
 
 /**
+ * Весь банк вопросов в порядке прохождения курса: темы в TECH_TOPICS уже лежат
+ * в порядке актов (linux -> net -> git -> ... -> python), а вопрос ещё и
+ * фильтруется по act, чтобы не спрашивать то, что игрок не проходил.
+ * Используется для обязательного повторения "от старого к новому" — в отличие
+ * от pickTechQuestions, здесь порядок хронологический, а не перемешанный.
+ */
+function orderedReviewPool(maxAct: number): TechQuestion[] {
+  const pool: TechQuestion[] = [];
+  for (const topic of TECH_TOPICS) {
+    for (const q of topic.questions) if (q.act <= maxAct) pool.push(q);
+  }
+  return pool;
+}
+
+/**
+ * Срез пула повторения по курсору с зацикливанием: следующий вызов продолжает
+ * ровно с того места, где остановился прошлый (курсор хранится в прогрессе),
+ * а не начинает каждый раз с одних и тех же первых тем. Так за несколько
+ * повторений игрок проходит весь пройденный материал по кругу, а не только
+ * актуальный.
+ */
+export function pickReviewSlice(
+  maxAct: number,
+  cursor: number,
+  n: number,
+): { questions: TechQuestion[]; nextCursor: number } {
+  const pool = orderedReviewPool(maxAct);
+  if (!pool.length) return { questions: [], nextCursor: 0 };
+  let i = ((cursor % pool.length) + pool.length) % pool.length;
+  const questions: TechQuestion[] = [];
+  const take = Math.min(n, pool.length);
+  for (let k = 0; k < take; k++) {
+    questions.push(pool[i]);
+    i = (i + 1) % pool.length;
+  }
+  return { questions, nextCursor: i };
+}
+
+/**
  * Собирает подборку технических вопросов по списку тем.
  * n — сколько всего, rnd — источник случайности (для тестов детерминизм).
  */

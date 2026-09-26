@@ -26,6 +26,10 @@ export interface Progress {
   examAttempts?: number;
   /** снимок незаконченного текущего урока — чтобы перезагрузка/синхронизация не откатывали его к шагу 1 */
   lessonState?: LessonState;
+  /** сколько уроков пройдено с последнего обязательного повторения — триггер на REVIEW_EVERY */
+  lessonsSinceReview?: number;
+  /** курсор в хронологическом пуле вопросов повторения — чтобы следующая сессия продолжала, а не начинала сначала */
+  reviewCursor?: number;
 }
 
 const KEY = "devops_terminal_rpg_v1";
