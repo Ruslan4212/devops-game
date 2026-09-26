@@ -600,8 +600,6 @@ async function serverJudgeCommand(input: CommandJudgeInput): Promise<GradeResult
  * настоящему выводу, а не по прибитому единственному эталону.
  */
 async function freeAiJudgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
   const prompt =
     `Ты — преподаватель Linux/DevOps, проверяешь практическое задание в терминале.\n` +
     `Урок: ${input.lesson}\n` +
@@ -612,27 +610,8 @@ async function freeAiJudgeCommand(input: CommandJudgeInput): Promise<GradeResult
     `Реальных решений задачи обычно больше одного — засчитай любое, которое делает дело. ` +
     `Ответь СТРОГО одним JSON-объектом без markdown и без пояснений вокруг: ` +
     `{"correct": true или false, "feedback": "разбор на русском, 1-2 предложения"}`;
-  try {
-    const res = await fetch(FREE_AI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: ctrl.signal,
-      body: JSON.stringify({ model: "openai", messages: [{ role: "user", content: prompt }] }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const text = data.choices?.[0]?.message?.content;
-    if (typeof text !== "string") return null;
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    const parsed = JSON.parse(match[0]) as Partial<GradeResult>;
-    if (typeof parsed.correct !== "boolean" || typeof parsed.feedback !== "string") return null;
-    return { correct: parsed.correct, feedback: parsed.feedback };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  const text = await callFreeAiWithRetry(prompt, GRADER_TIMEOUT_MS);
+  return text ? parseGradeJSON(text) : null;
 }
 
 /**
@@ -686,6 +665,54 @@ export async function explainTopic(input: ExplainInput): Promise<string | null> 
 /** Публичный keyless-эндпоинт Pollinations.ai — без регистрации, без всплывающих окон согласия. */
 const FREE_AI_URL = "https://text.pollinations.ai/openai";
 
+async function fetchFreeAi(prompt: string, signal: AbortSignal): Promise<string | null> {
+  const res = await fetch(FREE_AI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal,
+    body: JSON.stringify({ model: "openai", messages: [{ role: "user", content: prompt }] }),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const text = data.choices?.[0]?.message?.content;
+  return typeof text === "string" ? text : null;
+}
+
+function parseGradeJSON(text: string): GradeResult | null {
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[0]) as Partial<GradeResult>;
+    if (typeof parsed.correct !== "boolean" || typeof parsed.feedback !== "string") return null;
+    return { correct: parsed.correct, feedback: parsed.feedback };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pollinations — публичный бесплатный сервис без SLA: под анонимной нагрузкой
+ * время от времени отвечает 500 или рвёт соединение, хотя обычно отвечает за
+ * 3-5 секунд. Один быстрый повтор превращает такой транзиентный сбой в
+ * редкость, а не в постоянный откат на грубый локальный разбор по словам.
+ */
+async function callFreeAiWithRetry(prompt: string, timeoutMs: number): Promise<string | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const text = await fetchFreeAi(prompt, ctrl.signal);
+      if (text) return text;
+    } catch {
+      /* переходим к повтору ниже или сдаёмся после второй попытки */
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
+  }
+  return null;
+}
+
 /**
  * Бесплатный ИИ-разбор через публичный анонимный эндпоинт Pollinations.ai —
  * без ключей, без аккаунта, без модалок согласия стороннего сервиса (в
@@ -696,8 +723,6 @@ const FREE_AI_URL = "https://text.pollinations.ai/openai";
  * самому судить себя.
  */
 async function freeAiGrade(input: GradeInput): Promise<GradeResult | null> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
   const prompt =
     `Ты — преподаватель Linux/DevOps, проверяешь ответ ученика по смыслу, не требуя дословного совпадения.\n` +
     `Вопрос: ${input.question}\n` +
@@ -706,27 +731,8 @@ async function freeAiGrade(input: GradeInput): Promise<GradeResult | null> {
     `Ответ ученика: ${input.userAnswer}\n` +
     `Ответь СТРОГО одним JSON-объектом без markdown и без пояснений вокруг: ` +
     `{"correct": true или false, "feedback": "разбор на русском, 1-2 предложения"}`;
-  try {
-    const res = await fetch(FREE_AI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: ctrl.signal,
-      body: JSON.stringify({ model: "openai", messages: [{ role: "user", content: prompt }] }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const text = data.choices?.[0]?.message?.content;
-    if (typeof text !== "string") return null;
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    const parsed = JSON.parse(match[0]) as Partial<GradeResult>;
-    if (typeof parsed.correct !== "boolean" || typeof parsed.feedback !== "string") return null;
-    return { correct: parsed.correct, feedback: parsed.feedback };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  const text = await callFreeAiWithRetry(prompt, GRADER_TIMEOUT_MS);
+  return text ? parseGradeJSON(text) : null;
 }
 
 /**
