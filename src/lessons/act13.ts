@@ -1169,6 +1169,14 @@ export const act13: Lesson[] = [
         hint: 'Команда  zabbix trigger add "Диск заполнен" "last(vfs.fs.size[/,pfree])<10" average',
       },
       {
+        kind: "say",
+        text:
+          "Посмотреть все заведённые триггеры хоста можно командой:\n\n" +
+          "  zabbix trigger list\n\n" +
+          "Выводит имя, выражение и важность каждого триггера — удобно свериться,\n" +
+          "что ничего не потерялось и не задвоилось.",
+      },
+      {
         kind: "do",
         text: "Задача: посмотри список заведённых триггеров.",
         check: ran(/^zabbix\s+trigger\s+list/),
