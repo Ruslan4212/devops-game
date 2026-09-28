@@ -36,6 +36,32 @@ let quizState: { key: string; state: QuizPhase } | null = null;
 type ExplainPhase = { phase: "loading" } | { phase: "done"; text: string } | { phase: "error" };
 let explainState: { key: string; state: ExplainPhase } | null = null;
 
+/**
+ * Статус проверки практического задания — виден прямо в карточке задачи,
+ * а не только строкой в терминале: студент смотрит на условие, и там же
+ * должно быть видно, ждёт ли задача решения, проверяется ли она и почему
+ * последняя попытка не засчитана. Засчитанная задача сразу сменяется
+ * следующим шагом, поэтому отдельного состояния «пройдено» здесь нет.
+ */
+export type TaskStatus = { kind: "checking" } | { kind: "failed"; reason: string };
+let taskStatus: { key: string; status: TaskStatus } | null = null;
+
+export function setTaskStatus(run: LessonRun, status: TaskStatus | null): void {
+  const key = run.lesson.id + ":" + run.position.i;
+  taskStatus = status ? { key, status } : null;
+}
+
+function taskStatusBlock(key: string): string {
+  const st = taskStatus && taskStatus.key === key ? taskStatus.status : null;
+  if (!st) return `<div class="task-status"><span class="dot"></span>Ожидает решения</div>`;
+  if (st.kind === "checking")
+    return `<div class="task-status task-checking" role="status"><span class="dot"></span>Проверяю решение…</div>`;
+  return (
+    `<div class="task-status task-failed" role="status"><span class="dot"></span>Не засчитано</div>` +
+    `<div class="callout callout-warning">${esc(st.reason)}</div>`
+  );
+}
+
 /** Есть ли в тексте псевдографика (рамки, стрелки схем) — её рвёт перенос строк в обычном шрифте. */
 const HAS_DIAGRAM = /[┌┐└┘├┤┬┴┼─│↑↓→←]/;
 
@@ -104,7 +130,8 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (step.kind === "do") {
     body =
       `<div class="lp-badge lp-badge-do">${icon("target", 15)}<span>задача — сделай сам в терминале</span></div>` +
-      sayBlock(step.text);
+      sayBlock(step.text) +
+      taskStatusBlock(stepKey);
     if (run.answerRevealed) {
       // Задачи через edit/nano решаются в отдельном редакторе файла, а не
       // командной строкой — "Вставить в строку ввода" туда содержимое файла

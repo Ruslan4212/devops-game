@@ -29,7 +29,7 @@ import {
 import { JOBS, parseSalary } from "./data/careers";
 import { pickReviewSlice } from "./data/interview";
 import { initThemeSwitch } from "./ui/theme";
-import { renderLessonPanel } from "./ui/lesson-panel";
+import { renderLessonPanel, setTaskStatus } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
 import { judgeCommand } from "./engine/grader";
@@ -283,6 +283,7 @@ function applyResult(res: StepResult): void {
     afterStep();
   } else {
     print(res.feedback, "warn");
+    if (run) setTaskStatus(run, { kind: "failed", reason: res.feedback.replace(/^🧑‍🏫\s*/u, "") });
     renderPanel();
     $("#cmd").focus();
   }
@@ -488,6 +489,8 @@ async function askMentor(
   const lesson = run.lesson;
   lockInput(true);
   print("🧑‍🏫 Наставник смотрит, что получилось…", "dim");
+  setTaskStatus(run, { kind: "checking" });
+  renderPanel();
 
   const verdict = await judgeCommand({ lesson: lesson.title, task, expected, command, output });
   if (!run || run.lesson.id !== lesson.id) return; // урок успели сменить
