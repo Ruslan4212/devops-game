@@ -104,7 +104,7 @@ function run(title: string, questions: TechQuestion[]): void {
         `<h1>${esc(title)}</h1>` +
         `<div class="cr-q">${esc(q.options[q.answer])}</div>` +
         `<div class="cr-why">${esc(q.why)}</div>` +
-        `<div class="lp-tip" style="margin-bottom:10px">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
+        `<div class="callout callout-info">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
         `<div class="lp-selfgrade">` +
         `<button class="prim" id="ivRight">✅ У меня было верно</button>` +
         `<button class="sec" id="ivWrong">❌ Ошибся</button>` +

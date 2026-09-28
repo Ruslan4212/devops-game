@@ -44,8 +44,7 @@ export function openReviewSession(d: ReviewDeps): void {
   const header = (): string =>
     `<h1>🔄 Повторение</h1><div class="cr-progress">Вопрос ${Math.min(i + 1, qs.length)} из ${qs.length}</div>`;
 
-  const closeBtn = (): string =>
-    d.mandatory ? "" : `<button class="sec" id="rwClose" style="margin-left:8px">Закрыть</button>`;
+  const closeBtn = (): string => (d.mandatory ? "" : `<button class="sec" id="rwClose">Закрыть</button>`);
   const wireClose = (): void => {
     const b = document.getElementById("rwClose");
     if (b) b.onclick = () => finish(true);

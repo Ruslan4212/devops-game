@@ -28,6 +28,7 @@ import {
 } from "./engine/life";
 import { JOBS, parseSalary } from "./data/careers";
 import { pickReviewSlice } from "./data/interview";
+import { initThemeSwitch } from "./ui/theme";
 import { renderLessonPanel } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
@@ -151,6 +152,8 @@ function renderHud(): void {
   const prev = [...RANKS].reverse().find((q) => P.xp >= q[0])![0];
   const pct = nr ? ((P.xp - prev) / (nr[0] - prev)) * 100 : 100;
   $("#xpFill").style.width = Math.max(3, Math.min(100, pct)) + "%";
+  // сертификат — награда: пока не получен, он живёт в меню «ещё», после — на виду в шапке
+  $("#certChip").classList.toggle("hide", !allLessonsDone(P));
 }
 
 function renderAll(): void {
@@ -315,7 +318,9 @@ function showNextLessonScreen(
   } else {
     el.innerHTML =
       `<div class="lp-done">🏆</div>` +
-      `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>`;
+      `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>` +
+      `<button class="lp-next" id="lpGetCert">Получить сертификат</button>`;
+    document.getElementById("lpGetCert")!.onclick = () => $("#certBtn").click();
   }
 }
 
@@ -675,20 +680,83 @@ for (const [id, name] of [
   ["ivBtn", "chat"],
   ["reviewBtn", "repeat"],
   ["certBtn", "award"],
+  ["certChip", "award"],
   ["howBtn", "help"],
   ["resetBtn", "reset"],
+  ["moreBtn", "more"],
   ["liveBtn", "bolt"],
 ] as const) {
   const b = document.getElementById(id);
-  if (b) b.innerHTML = icon(name) + "<span>" + b.textContent!.trim() + "</span>";
+  if (!b) continue;
+  const label = b.textContent!.trim();
+  b.innerHTML = icon(name, 16) + `<span class="tlabel">${label}</span>`;
+  // на узком экране подписи прячутся — имя кнопки остаётся для скринридера и подсказки
+  if (!b.title) b.title = label;
+  b.setAttribute("aria-label", label);
 }
 
 $("#liveBtn").onclick = openLiveServerFlow;
+$("#certChip").onclick = () => $("#certBtn").click();
+
+/* Меню «ещё»: редкие действия, тема и опасный сброс — не на виду, но в один клик. */
+const moreBtn = $("#moreBtn");
+const moreMenu = $("#moreMenu");
+const setMenu = (open: boolean): void => {
+  moreMenu.classList.toggle("hide", !open);
+  moreBtn.setAttribute("aria-expanded", String(open));
+  if (open) moreMenu.querySelector<HTMLElement>("button")?.focus();
+};
+moreBtn.onclick = (e) => {
+  e.stopPropagation();
+  setMenu(moreMenu.classList.contains("hide"));
+};
+moreMenu.addEventListener("click", (e) => {
+  // выбор темы оставляет меню открытым — видно, что переключилось; остальные пункты закрывают
+  if ((e.target as HTMLElement).closest("[data-theme-opt]")) return;
+  if ((e.target as HTMLElement).closest("button")) setMenu(false);
+});
+document.addEventListener("click", (e) => {
+  if (!moreMenu.classList.contains("hide") && !(e.target as HTMLElement).closest(".menu-wrap"))
+    setMenu(false);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !moreMenu.classList.contains("hide")) {
+    setMenu(false);
+    moreBtn.focus();
+  }
+});
+initThemeSwitch(moreMenu);
+
 $("#resetBtn").onclick = () => {
-  if (!confirm("Сбросить весь прогресс и начать с первого урока?")) return;
-  clearProgress();
-  P = { xp: 0, done: {}, cur: null, hints: {} };
-  startLesson(LESSONS[0].id);
+  const done = Object.keys(P.done).length;
+  $("#modBody").innerHTML =
+    `<h1>Сбросить прогресс?</h1>` +
+    `<p>Будет удалено всё, что сохранено в этом браузере:</p>` +
+    `<ul>` +
+    `<li>пройденные уроки — сейчас их <b>${done}</b>, и <b>${P.xp} XP</b>;</li>` +
+    `<li>кошелёк, покупки, работа и состояние персонажа;</li>` +
+    `<li>курсор повторения и незаконченный урок.</li>` +
+    `</ul>` +
+    `<div class="callout callout-warning">Если ты вошёл в аккаунт, облачная копия вернёт прогресс при следующей ` +
+    `синхронизации. Чтобы начать заново везде, сначала выйди из аккаунта.</div>` +
+    `<div class="modal-actions">` +
+    `<button class="sec" id="rsNo" type="button">Отмена</button>` +
+    `<button class="danger" id="rsYes" type="button">Сбросить прогресс</button>` +
+    `</div>`;
+  $("#modOv").classList.remove("hide");
+  lockInput(true);
+  $("#rsNo").focus();
+  $("#rsNo").onclick = () => {
+    $("#modOv").classList.add("hide");
+    if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) lockInput(false);
+  };
+  $("#rsYes").onclick = () => {
+    $("#modOv").classList.add("hide");
+    clearProgress();
+    P = { xp: 0, done: {}, cur: null, hints: {} };
+    startLesson(LESSONS[0].id);
+    toast("Прогресс сброшен");
+  };
 };
 
 /* --------------------------------- старт --------------------------------- */

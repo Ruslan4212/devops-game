@@ -134,10 +134,10 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (step.kind === "quiz") {
     const grade =
       typeof step.d === "number"
-        ? `<div class="lp-dgrade" style="font-size:12px;letter-spacing:3px;opacity:.6;margin-bottom:6px">` +
+        ? `<div class="lp-dgrade"><span class="lp-dots" aria-hidden="true">` +
           "●".repeat(Math.max(1, Math.min(7, step.d))) +
           "○".repeat(7 - Math.max(1, Math.min(7, step.d))) +
-          `<span style="letter-spacing:0"> · сложность ${step.d}/7</span></div>`
+          `</span><span>сложность ${step.d}/7</span></div>`
         : "";
     const st = quizState && quizState.key === quizKey ? quizState.state : null;
 
@@ -160,8 +160,8 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<div class="lp-badge">${icon("brain", 15)}<span>${esc(step.text)}</span></div>` +
         grade +
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
-        `<div class="lp-note" style="border-left:3px solid ${ok ? "var(--ok,#3c8)" : "var(--warn,#e94)"};padding-left:10px">` +
-        `${ok ? "✅" : "✏️"} <b>Наставник:</b> ${esc(st.result.feedback)}</div>` +
+        `<div class="callout ${ok ? "callout-success" : "callout-warning"}">` +
+        `<b>${ok ? "Верно." : "Не совсем."}</b> ${esc(st.result.feedback)}</div>` +
         (ok ? "" : `<div class="lp-cmd">${esc(step.options[step.answer])}</div>`) +
         `<button class="lp-next" id="lpQuizNext">Дальше →</button>`;
     } else {
@@ -171,7 +171,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
         `<div class="lp-cmd">${esc(step.options[step.answer])}</div>` +
         `<div class="lp-note">${esc(step.explain)}</div>` +
-        `<div class="lp-tip" style="margin-bottom:10px">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
+        `<div class="callout callout-info">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
         `<div class="lp-selfgrade">` +
         `<button class="lp-next" id="lpQuizRight">✅ У меня было по сути верно</button>` +
         `<button class="lp-reveal" id="lpQuizWrong">❌ Я ошибся, повторить вопрос</button>` +
