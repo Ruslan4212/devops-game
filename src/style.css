@@ -664,10 +664,10 @@ button:disabled {
   color: var(--accent-text);
 }
 /* закрытый урок: блокировку показывает замок, а не бледность — текст остаётся читаемым */
-.ms.lock {
+.ms.lock:not(.done) {
   color: var(--text-3);
 }
-.ms.lock .b {
+.ms.lock:not(.done) .b {
   border-color: transparent;
   color: var(--text-3);
 }
