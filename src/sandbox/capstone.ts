@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import "@xterm/xterm/css/xterm.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -32,7 +33,7 @@ export function openCapstone(deps: Deps): void {
     TASKS.map((t) => `<li>${t}</li>`).join("") +
     `</ol>` +
     `<div class="cap-status" id="capStatus">Подключение…</div>` +
-    `<button class="cap-done" id="capDone">✓ Я выполнил все задания — завершить курс</button>` +
+    `<button class="cap-done" id="capDone">${icon("check", 16)}Я выполнил все задания — завершить курс</button>` +
     `</div>` +
     `<div class="cap-term" id="capTerm"></div>` +
     `</div>`;
@@ -48,7 +49,7 @@ export function openCapstone(deps: Deps): void {
   doneBtn.onclick = () => {
     deps.onDone?.();
     deps.toast("🎓 Курс завершён. Ранг подтверждён капстоуном.");
-    doneBtn.textContent = "✓ Капстоун засчитан";
+    doneBtn.innerHTML = icon("check", 16) + "Капстоун засчитан";
     doneBtn.disabled = true;
   };
   let client: SandboxClient | null = null;

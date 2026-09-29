@@ -15,6 +15,13 @@ export function allLessonsDone(p: Progress): boolean {
   return LESSONS.every((l) => !!p.done[l.id]);
 }
 
+/**
+ * Какие акты игрок развернул руками. 283 урока одним списком не читаются,
+ * поэтому по умолчанию открыт только акт текущего урока, а ручной выбор
+ * переживает перерисовку рельса после каждого шага.
+ */
+const toggled = new Map<number, boolean>();
+
 export function renderRail(
   p: Progress,
   curId: string | null,
@@ -23,16 +30,31 @@ export function renderRail(
 ): void {
   const el = $("#rail");
   el.innerHTML = "";
+  const curAct = LESSONS.find((l) => l.id === curId)?.act;
 
   for (const act of ACTS) {
     const items = LESSONS.filter((l) => l.act === act.id);
     if (!items.length) continue;
     const doneN = items.filter((l) => p.done[l.id]).length;
+    const open = toggled.get(act.id) ?? act.id === curAct;
 
     const box = document.createElement("div");
-    box.className = "act";
+    box.className = "act" + (open ? " act-open" : "") + (doneN === items.length ? " act-done" : "");
     const h = document.createElement("h3");
-    h.innerHTML = `<span>Акт ${act.id} · ${act.name}</span><b>${doneN}/${items.length}</b>`;
+    const tg = document.createElement("button");
+    tg.type = "button";
+    tg.className = "act-toggle";
+    tg.setAttribute("aria-expanded", String(open));
+    tg.innerHTML =
+      `<span class="act-chev" aria-hidden="true"></span>` +
+      `<span class="act-name">Акт ${act.id} · ${act.name}</span><b>${doneN}/${items.length}</b>`;
+    tg.onclick = () => {
+      const next = !box.classList.contains("act-open");
+      toggled.set(act.id, next);
+      box.classList.toggle("act-open", next);
+      tg.setAttribute("aria-expanded", String(next));
+    };
+    h.appendChild(tg);
     box.appendChild(h);
 
     for (const l of items) {
@@ -51,6 +73,7 @@ export function renderRail(
   }
 
   el.appendChild(renderCapstoneCard(p, curId, onCapstone));
+  el.querySelector(".ms.cur")?.scrollIntoView({ block: "nearest" });
 }
 
 /** Финальная карточка рельса: капстоун на реальном сервере. */
@@ -59,9 +82,9 @@ function renderCapstoneCard(p: Progress, curId: string | null, onCapstone: () =>
   const passed = !!p.capstone;
 
   const box = document.createElement("div");
-  box.className = "act";
+  box.className = "act act-open act-final";
   const h = document.createElement("h3");
-  h.innerHTML = `<span>Финал · Капстоун</span><b>${passed ? "1/1" : "0/1"}</b>`;
+  h.innerHTML = `<span class="act-name">Финал · Капстоун</span><b>${passed ? "1/1" : "0/1"}</b>`;
   box.appendChild(h);
 
   const b = document.createElement("button");

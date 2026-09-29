@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { $, esc } from "./dom";
 import { gradeAnswer } from "../engine/grader";
 import type { TechQuestion } from "../data/interview";
@@ -42,10 +43,9 @@ export function openReviewSession(d: ReviewDeps): void {
   $("#modOv").classList.remove("hide");
 
   const header = (): string =>
-    `<h1>🔄 Повторение</h1><div class="cr-progress">Вопрос ${Math.min(i + 1, qs.length)} из ${qs.length}</div>`;
+    `<h1>${icon("repeat", 22)}Повторение</h1><div class="cr-progress">Вопрос ${Math.min(i + 1, qs.length)} из ${qs.length}</div>`;
 
-  const closeBtn = (): string =>
-    d.mandatory ? "" : `<button class="sec" id="rwClose" style="margin-left:8px">Закрыть</button>`;
+  const closeBtn = (): string => (d.mandatory ? "" : `<button class="sec" id="rwClose">Закрыть</button>`);
   const wireClose = (): void => {
     const b = document.getElementById("rwClose");
     if (b) b.onclick = () => finish(true);
@@ -63,7 +63,7 @@ export function openReviewSession(d: ReviewDeps): void {
         ),
       );
       $("#modBody").innerHTML =
-        `<h1>🔄 Повторение</h1>` +
+        `<h1>${icon("repeat", 22)}Повторение</h1>` +
         `<div class="iv-chat">${transcript.join("")}</div>` +
         `<button class="prim" id="rwContinue">Продолжить</button>`;
       document.getElementById("rwContinue")!.onclick = () => {
@@ -101,8 +101,8 @@ export function openReviewSession(d: ReviewDeps): void {
         header() +
         `<div class="iv-chat">${transcript.join("")}</div>` +
         `<div class="lp-selfgrade">` +
-        `<button class="prim" id="rwRight">✅ У меня было верно</button>` +
-        `<button class="sec" id="rwWrong">❌ Ошибся</button>` +
+        `<button class="prim" id="rwRight">${icon("check", 16)}У меня было верно</button>` +
+        `<button class="sec" id="rwWrong">${icon("x", 16)}Ошибся</button>` +
         `</div>` +
         closeBtn();
       wireClose();

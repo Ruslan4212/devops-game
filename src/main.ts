@@ -28,7 +28,8 @@ import {
 } from "./engine/life";
 import { JOBS, parseSalary } from "./data/careers";
 import { pickReviewSlice } from "./data/interview";
-import { renderLessonPanel } from "./ui/lesson-panel";
+import { initThemeSwitch } from "./ui/theme";
+import { renderLessonPanel, setTaskStatus } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
 import { judgeCommand } from "./engine/grader";
@@ -144,13 +145,16 @@ function openRevivalFlow(): void {
 /* ------------------------------- HUD / карта ------------------------------- */
 function renderHud(): void {
   const done = Object.keys(P.done).length;
-  $("#progChip").textContent = `${done} / ${LESSONS.length} уроков` + (P.capstone ? " · 🎓 капстоун" : "");
+  $("#progChip").innerHTML =
+    `${done} / ${LESSONS.length} уроков` + (P.capstone ? ` · ${icon("award", 14)} капстоун` : "");
   $("#rankTxt").textContent = rankOf(P.xp);
   $("#xpTxt").textContent = `${P.xp} XP`;
   const nr = nextRank(P.xp);
   const prev = [...RANKS].reverse().find((q) => P.xp >= q[0])![0];
   const pct = nr ? ((P.xp - prev) / (nr[0] - prev)) * 100 : 100;
   $("#xpFill").style.width = Math.max(3, Math.min(100, pct)) + "%";
+  // сертификат — награда: пока не получен, он живёт в меню «ещё», после — на виду в шапке
+  $("#certChip").classList.toggle("hide", !allLessonsDone(P));
 }
 
 function renderAll(): void {
@@ -280,6 +284,7 @@ function applyResult(res: StepResult): void {
     afterStep();
   } else {
     print(res.feedback, "warn");
+    if (run) setTaskStatus(run, { kind: "failed", reason: res.feedback.replace(/^🧑‍🏫\s*/u, "") });
     renderPanel();
     $("#cmd").focus();
   }
@@ -315,7 +320,9 @@ function showNextLessonScreen(
   } else {
     el.innerHTML =
       `<div class="lp-done">🏆</div>` +
-      `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>`;
+      `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>` +
+      `<button class="lp-next" id="lpGetCert">Получить сертификат</button>`;
+    document.getElementById("lpGetCert")!.onclick = () => $("#certBtn").click();
   }
 }
 
@@ -483,6 +490,8 @@ async function askMentor(
   const lesson = run.lesson;
   lockInput(true);
   print("🧑‍🏫 Наставник смотрит, что получилось…", "dim");
+  setTaskStatus(run, { kind: "checking" });
+  renderPanel();
 
   const verdict = await judgeCommand({ lesson: lesson.title, task, expected, command, output });
   if (!run || run.lesson.id !== lesson.id) return; // урок успели сменить
@@ -562,13 +571,13 @@ $("#out").addEventListener("click", () => {
 /* -------------------------------- окна -------------------------------- */
 function showHow(): void {
   $("#modBody").innerHTML =
-    `<h1>Как проходить</h1>` +
+    `<h1>${icon("help", 22)}Как проходить</h1>` +
     `<p>Это не курс с лекциями. Ты идёшь маленькими шагами. Карточка справа всегда говорит ровно одно действие.</p>` +
-    `<ul>` +
-    `<li>👀 <b>Смотри</b> — команда выполняется сама, ты читаешь, что вышло, и объяснение.</li>` +
-    `<li>✍️ <b>Повтори</b> — набери ту же команду в чёрном окне внизу. Кнопка «Вставить» напечатает её за тебя.</li>` +
-    `<li>🎯 <b>Задача</b> — сделай похожее сам. Ошибёшься — появится подсказка, потом готовый ответ. Провалить нельзя.</li>` +
-    `<li>🤔 <b>Вопрос</b> — просто выбери вариант.</li>` +
+    `<ul class="how-list">` +
+    `<li>${icon("eye", 16)}<span><b>Смотри</b> — команда выполняется сама, ты читаешь, что вышло, и объяснение.</span></li>` +
+    `<li>${icon("keyboard", 16)}<span><b>Повтори</b> — набери ту же команду в чёрном окне внизу. Кнопка «Вставить» напечатает её за тебя.</span></li>` +
+    `<li>${icon("target", 16)}<span><b>Задача</b> — сделай похожее сам. Ошибёшься — появится подсказка, потом готовый ответ. Провалить нельзя.</span></li>` +
+    `<li>${icon("brain", 16)}<span><b>Вопрос</b> — ответь своими словами, наставник проверит по смыслу.</span></li>` +
     `</ul>` +
     `<label class="how-strict"><input type="checkbox" id="strictChk"${P.strict ? " checked" : ""}> ` +
     `<b>Строгий режим</b> — задача не подсказывает ответ, пока сам не попросишь, и только после нескольких попыток. ` +
@@ -675,20 +684,83 @@ for (const [id, name] of [
   ["ivBtn", "chat"],
   ["reviewBtn", "repeat"],
   ["certBtn", "award"],
+  ["certChip", "award"],
   ["howBtn", "help"],
   ["resetBtn", "reset"],
+  ["moreBtn", "more"],
   ["liveBtn", "bolt"],
 ] as const) {
   const b = document.getElementById(id);
-  if (b) b.innerHTML = icon(name) + "<span>" + b.textContent!.trim() + "</span>";
+  if (!b) continue;
+  const label = b.textContent!.trim();
+  b.innerHTML = icon(name, 16) + `<span class="tlabel">${label}</span>`;
+  // на узком экране подписи прячутся — имя кнопки остаётся для скринридера и подсказки
+  if (!b.title) b.title = label;
+  b.setAttribute("aria-label", label);
 }
 
 $("#liveBtn").onclick = openLiveServerFlow;
+$("#certChip").onclick = () => $("#certBtn").click();
+
+/* Меню «ещё»: редкие действия, тема и опасный сброс — не на виду, но в один клик. */
+const moreBtn = $("#moreBtn");
+const moreMenu = $("#moreMenu");
+const setMenu = (open: boolean): void => {
+  moreMenu.classList.toggle("hide", !open);
+  moreBtn.setAttribute("aria-expanded", String(open));
+  if (open) moreMenu.querySelector<HTMLElement>("button")?.focus();
+};
+moreBtn.onclick = (e) => {
+  e.stopPropagation();
+  setMenu(moreMenu.classList.contains("hide"));
+};
+moreMenu.addEventListener("click", (e) => {
+  // выбор темы оставляет меню открытым — видно, что переключилось; остальные пункты закрывают
+  if ((e.target as HTMLElement).closest("[data-theme-opt]")) return;
+  if ((e.target as HTMLElement).closest("button")) setMenu(false);
+});
+document.addEventListener("click", (e) => {
+  if (!moreMenu.classList.contains("hide") && !(e.target as HTMLElement).closest(".menu-wrap"))
+    setMenu(false);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !moreMenu.classList.contains("hide")) {
+    setMenu(false);
+    moreBtn.focus();
+  }
+});
+initThemeSwitch(moreMenu);
+
 $("#resetBtn").onclick = () => {
-  if (!confirm("Сбросить весь прогресс и начать с первого урока?")) return;
-  clearProgress();
-  P = { xp: 0, done: {}, cur: null, hints: {} };
-  startLesson(LESSONS[0].id);
+  const done = Object.keys(P.done).length;
+  $("#modBody").innerHTML =
+    `<h1>Сбросить прогресс?</h1>` +
+    `<p>Будет удалено всё, что сохранено в этом браузере:</p>` +
+    `<ul>` +
+    `<li>пройденные уроки — сейчас их <b>${done}</b>, и <b>${P.xp} XP</b>;</li>` +
+    `<li>кошелёк, покупки, работа и состояние персонажа;</li>` +
+    `<li>курсор повторения и незаконченный урок.</li>` +
+    `</ul>` +
+    `<div class="callout callout-warning">Если ты вошёл в аккаунт, облачная копия вернёт прогресс при следующей ` +
+    `синхронизации. Чтобы начать заново везде, сначала выйди из аккаунта.</div>` +
+    `<div class="modal-actions">` +
+    `<button class="sec" id="rsNo" type="button">Отмена</button>` +
+    `<button class="danger" id="rsYes" type="button">Сбросить прогресс</button>` +
+    `</div>`;
+  $("#modOv").classList.remove("hide");
+  lockInput(true);
+  $("#rsNo").focus();
+  $("#rsNo").onclick = () => {
+    $("#modOv").classList.add("hide");
+    if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) lockInput(false);
+  };
+  $("#rsYes").onclick = () => {
+    $("#modOv").classList.add("hide");
+    clearProgress();
+    P = { xp: 0, done: {}, cur: null, hints: {} };
+    startLesson(LESSONS[0].id);
+    toast("Прогресс сброшен");
+  };
 };
 
 /* --------------------------------- старт --------------------------------- */

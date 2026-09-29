@@ -36,6 +36,32 @@ let quizState: { key: string; state: QuizPhase } | null = null;
 type ExplainPhase = { phase: "loading" } | { phase: "done"; text: string } | { phase: "error" };
 let explainState: { key: string; state: ExplainPhase } | null = null;
 
+/**
+ * Статус проверки практического задания — виден прямо в карточке задачи,
+ * а не только строкой в терминале: студент смотрит на условие, и там же
+ * должно быть видно, ждёт ли задача решения, проверяется ли она и почему
+ * последняя попытка не засчитана. Засчитанная задача сразу сменяется
+ * следующим шагом, поэтому отдельного состояния «пройдено» здесь нет.
+ */
+export type TaskStatus = { kind: "checking" } | { kind: "failed"; reason: string };
+let taskStatus: { key: string; status: TaskStatus } | null = null;
+
+export function setTaskStatus(run: LessonRun, status: TaskStatus | null): void {
+  const key = run.lesson.id + ":" + run.position.i;
+  taskStatus = status ? { key, status } : null;
+}
+
+function taskStatusBlock(key: string): string {
+  const st = taskStatus && taskStatus.key === key ? taskStatus.status : null;
+  if (!st) return `<div class="task-status"><span class="dot"></span>Ожидает решения</div>`;
+  if (st.kind === "checking")
+    return `<div class="task-status task-checking" role="status"><span class="dot"></span>Проверяю решение…</div>`;
+  return (
+    `<div class="task-status task-failed" role="status"><span class="dot"></span>Не засчитано</div>` +
+    `<div class="callout callout-warning">${esc(st.reason)}</div>`
+  );
+}
+
 /** Есть ли в тексте псевдографика (рамки, стрелки схем) — её рвёт перенос строк в обычном шрифте. */
 const HAS_DIAGRAM = /[┌┐└┘├┤┬┴┼─│↑↓→←]/;
 
@@ -104,7 +130,8 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (step.kind === "do") {
     body =
       `<div class="lp-badge lp-badge-do">${icon("target", 15)}<span>задача — сделай сам в терминале</span></div>` +
-      sayBlock(step.text);
+      sayBlock(step.text) +
+      taskStatusBlock(stepKey);
     if (run.answerRevealed) {
       // Задачи через edit/nano решаются в отдельном редакторе файла, а не
       // командной строкой — "Вставить в строку ввода" туда содержимое файла
@@ -134,10 +161,10 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (step.kind === "quiz") {
     const grade =
       typeof step.d === "number"
-        ? `<div class="lp-dgrade" style="font-size:12px;letter-spacing:3px;opacity:.6;margin-bottom:6px">` +
+        ? `<div class="lp-dgrade"><span class="lp-dots" aria-hidden="true">` +
           "●".repeat(Math.max(1, Math.min(7, step.d))) +
           "○".repeat(7 - Math.max(1, Math.min(7, step.d))) +
-          `<span style="letter-spacing:0"> · сложность ${step.d}/7</span></div>`
+          `</span><span>сложность ${step.d}/7</span></div>`
         : "";
     const st = quizState && quizState.key === quizKey ? quizState.state : null;
 
@@ -153,15 +180,15 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<div class="lp-badge">${icon("brain", 15)}<span>${esc(step.text)}</span></div>` +
         grade +
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
-        `<div class="lp-tip">🧑‍🏫 Наставник читает ответ…</div>`;
+        `<div class="lp-tip lp-loading">${icon("mentor", 15)}Наставник читает ответ…</div>`;
     } else if (st.phase === "graded") {
       const ok = st.result.correct;
       body =
         `<div class="lp-badge">${icon("brain", 15)}<span>${esc(step.text)}</span></div>` +
         grade +
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
-        `<div class="lp-note" style="border-left:3px solid ${ok ? "var(--ok,#3c8)" : "var(--warn,#e94)"};padding-left:10px">` +
-        `${ok ? "✅" : "✏️"} <b>Наставник:</b> ${esc(st.result.feedback)}</div>` +
+        `<div class="callout ${ok ? "callout-success" : "callout-warning"}">` +
+        `<b>${ok ? "Верно." : "Не совсем."}</b> ${esc(st.result.feedback)}</div>` +
         (ok ? "" : `<div class="lp-cmd">${esc(step.options[step.answer])}</div>`) +
         `<button class="lp-next" id="lpQuizNext">Дальше →</button>`;
     } else {
@@ -171,10 +198,10 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
         `<div class="lp-cmd">${esc(step.options[step.answer])}</div>` +
         `<div class="lp-note">${esc(step.explain)}</div>` +
-        `<div class="lp-tip" style="margin-bottom:10px">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
+        `<div class="callout callout-info">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
         `<div class="lp-selfgrade">` +
-        `<button class="lp-next" id="lpQuizRight">✅ У меня было по сути верно</button>` +
-        `<button class="lp-reveal" id="lpQuizWrong">❌ Я ошибся, повторить вопрос</button>` +
+        `<button class="lp-next" id="lpQuizRight">${icon("check", 16)}У меня было по сути верно</button>` +
+        `<button class="lp-reveal" id="lpQuizWrong">${icon("x", 16)}Я ошибся, повторить вопрос</button>` +
         `</div>`;
     }
   }
@@ -183,7 +210,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (!es) {
     body += `<button class="lp-explain" id="lpExplain">${icon("mentor", 15)}<span>Не хватает информации — объясни подробнее</span></button>`;
   } else if (es.phase === "loading") {
-    body += `<div class="lp-explain-loading">🧑‍🏫 Наставник готовит подробный разбор с примерами…</div>`;
+    body += `<div class="lp-explain-loading lp-loading">${icon("mentor", 15)}Наставник готовит подробный разбор с примерами…</div>`;
   } else if (es.phase === "done") {
     body += `<div class="lp-explain-box"><div class="lp-explain-text">${esc(es.text)}</div></div>`;
   } else {

@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { $, esc } from "./dom";
 import { gradeAnswer } from "../engine/grader";
 import { TECH_TOPICS } from "../data/interview";
@@ -38,7 +39,7 @@ function menu(): void {
   const hidden = TECH_TOPICS.length - open.length;
 
   $("#modBody").innerHTML =
-    `<h1>🎓 Подготовка к собеседованию</h1>` +
+    `<h1>${icon("chat", 22)}Подготовка к собеседованию</h1>` +
     `<p>Вопросы уровня реального DevOps-интервью: не «вспомни термин», а «объясни разницу» и «разбери сценарий». Выбери тему.</p>` +
     (open.length
       ? `<div class="iv-topics">` +
@@ -104,10 +105,10 @@ function run(title: string, questions: TechQuestion[]): void {
         `<h1>${esc(title)}</h1>` +
         `<div class="cr-q">${esc(q.options[q.answer])}</div>` +
         `<div class="cr-why">${esc(q.why)}</div>` +
-        `<div class="lp-tip" style="margin-bottom:10px">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
+        `<div class="callout callout-info">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
         `<div class="lp-selfgrade">` +
-        `<button class="prim" id="ivRight">✅ У меня было верно</button>` +
-        `<button class="sec" id="ivWrong">❌ Ошибся</button>` +
+        `<button class="prim" id="ivRight">${icon("check", 16)}У меня было верно</button>` +
+        `<button class="sec" id="ivWrong">${icon("x", 16)}Ошибся</button>` +
         `</div>`;
       $("#ivRight").onclick = () => advance(true);
       $("#ivWrong").onclick = () => advance(false);
@@ -118,7 +119,7 @@ function run(title: string, questions: TechQuestion[]): void {
       $("#modBody").innerHTML =
         `<h1>${esc(title)}</h1>` +
         `<div class="cr-q">${esc(q.q)}</div>` +
-        `<div class="lp-tip">🧑‍🏫 Наставник проверяет ответ…</div>`;
+        `<div class="lp-tip lp-loading">${icon("mentor", 15)}Наставник проверяет ответ…</div>`;
       gradeAnswer({ question: q.q, options: q.options, answerIx: q.answer, explain: q.why, userAnswer: mine })
         .then((result) => {
           if (result.local && !result.correct) return fallbackToSelfGrade();

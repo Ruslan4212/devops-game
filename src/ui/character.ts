@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { $, esc } from "./dom";
 import { BEARDS, EYESC, FACE, HAIRC, SKIN, avatarSVG, defaultAppearance, hairStyles } from "../data/avatar";
 import type { Appearance, Sex } from "../data/avatar";
@@ -41,7 +42,7 @@ export function openCharacter(d: CharacterDeps): void {
   const render = (): void => {
     const body = $("#modBody");
     body.innerHTML =
-      `<h1>🙂 Персонаж</h1>` +
+      `<h1>${icon("user", 22)}Персонаж</h1>` +
       `<div class="ch-wrap">` +
       `<div class="ch-portrait">${avatarSVG(look, {
         size: 150,
@@ -66,7 +67,7 @@ export function openCharacter(d: CharacterDeps): void {
       ) +
       (look.sex === "m" && look.beard ? list("Стиль бороды", "beardStyle", BEARDS) : "") +
       `</div></div>` +
-      `<div class="kb">Одежда, обувь и аксессуар берутся из «🎒 Жизнь» — смени их там, портрет обновится сам.</div>` +
+      `<div class="kb">Одежда, обувь и аксессуар берутся из раздела «Жизнь» — смени их там, портрет обновится сам.</div>` +
       `<div class="kb">Внешность сохраняется сама и синхронизируется вместе с прогрессом.</div>` +
       `<button class="sec" id="chClose">Готово</button>`;
 

@@ -2,6 +2,7 @@ import type { Progress } from "../engine/progress";
 import { mergeProgress } from "./merge";
 import * as cloud from "./cloud";
 import type { Account } from "./cloud";
+import { icon } from "../data/ui-icons";
 
 interface Deps {
   /** текущий локальный прогресс */
@@ -37,11 +38,14 @@ export function initAccount(deps: Deps): AccountApi {
   const btn = document.createElement("button");
   btn.className = "tbtn";
   btn.id = "acctBtn";
-  $(".sp").prepend(btn);
+  // аккаунт — рядом с меню «ещё», в конце навигации: это служебное, а не учебное действие
+  $(".sp").insertBefore(btn, $(".menu-wrap"));
   btn.onclick = openModal;
 
   const refreshBtn = (): void => {
-    btn.textContent = account ? "☁ " + account.email.split("@")[0] : cloud.isConfigured ? "войти" : "аккаунт";
+    const label = account ? account.email.split("@")[0] : cloud.isConfigured ? "войти" : "аккаунт";
+    btn.innerHTML = icon("cloud", 16) + `<span class="tlabel">${esc(label)}</span>`;
+    btn.title = account ? `Аккаунт: ${account.email}` : "Войти, чтобы прогресс был на всех устройствах";
   };
   refreshBtn();
 

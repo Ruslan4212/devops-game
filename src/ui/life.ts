@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { $, esc, toast } from "./dom";
 import { ACCESSORIES, CARS, CLOTHES, COMFORT, FOOD, HOMES, TECH, TRIPS } from "../data/shop";
 import { carIcon, shopItemIcon } from "../data/icons";
@@ -32,7 +33,7 @@ export function openLife(d: LifeDeps): void {
     const l = d.life;
     const body = $("#modBody");
     body.innerHTML =
-      `<h1>🎒 Жизнь</h1>` +
+      `<h1>${icon("bag", 22)}Жизнь</h1>` +
       `<div class="lf-wallet">${RUB(l.money)}` +
       `<span>+${xpEarnBonusPct(l)}% к XP · заработано ${RUB(l.totalEarned)}</span></div>` +
       (upkeepLine(l) ? `<div class="lf-upkeep">${upkeepLine(l)}</div>` : "") +

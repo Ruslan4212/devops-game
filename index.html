@@ -15,37 +15,69 @@
       rel="apple-touch-icon"
       href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%20role%3D%22img%22%20aria-label%3D%22Terminal%20Ops%20Academy%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22plate%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%231e2634%22%20%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230a0d12%22%20%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22amber%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ffc184%22%20%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23ef7d2e%22%20%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22glassEdge%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%22.16%22%20%2F%3E%3Cstop%20offset%3D%22.5%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%220%22%20%2F%3E%3C%2FlinearGradient%3E%3CradialGradient%20id%3D%22glow%22%20cx%3D%22.5%22%20cy%3D%22.42%22%20r%3D%22.62%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23f0873f%22%20stop-opacity%3D%22.3%22%20%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23f0873f%22%20stop-opacity%3D%220%22%20%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22512%22%20height%3D%22512%22%20rx%3D%22112%22%20fill%3D%22url%28%23plate%29%22%20%2F%3E%3Crect%20width%3D%22512%22%20height%3D%22512%22%20rx%3D%22112%22%20fill%3D%22url%28%23glow%29%22%20%2F%3E%3Crect%20x%3D%228%22%20y%3D%228%22%20width%3D%22496%22%20height%3D%22496%22%20rx%3D%22104%22%20fill%3D%22none%22%20stroke%3D%22url%28%23glassEdge%29%22%20stroke-width%3D%2216%22%20%2F%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%22504%22%20height%3D%22504%22%20rx%3D%22108%22%20fill%3D%22none%22%20stroke%3D%22%232f3a4c%22%20stroke-width%3D%228%22%20%2F%3E%3Cpath%0A%20%20%20%20d%3D%22M150%20168l86%2088-86%2088%22%0A%20%20%20%20fill%3D%22none%22%0A%20%20%20%20stroke%3D%22url%28%23amber%29%22%0A%20%20%20%20stroke-width%3D%2244%22%0A%20%20%20%20stroke-linecap%3D%22round%22%0A%20%20%20%20stroke-linejoin%3D%22round%22%0A%20%20%2F%3E%3Crect%20x%3D%22268%22%20y%3D%22316%22%20width%3D%22112%22%20height%3D%2234%22%20rx%3D%2217%22%20fill%3D%22%2341c894%22%20%2F%3E%3C%2Fsvg%3E"
     />
-    <meta name="theme-color" content="#0c0f14" />
+    <meta name="theme-color" content="#0b0d10" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- тема до первой отрисовки: иначе страница мигает светлой, а потом тёмной -->
+    <script>
+      try {
+        var t = localStorage.getItem("ops_theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
     <meta name="description" content="Тренажёр DevOps: от первой команды в Linux до дежурства по проду" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap"
     />
   </head>
   <body>
-    <div class="top">
-      <div class="logo"><i></i>TERMINAL OPS ACADEMY</div>
-      <div class="xpwrap">
+    <header class="top">
+      <div class="logo"><i></i><span>Terminal Ops Academy</span></div>
+      <div class="xpwrap" title="Ранг и опыт">
         <div class="r"><span id="rankTxt">Стажёр</span><span id="xpTxt">0 XP</span></div>
         <div class="xpbar"><i id="xpFill"></i></div>
       </div>
       <div class="rankchip" id="progChip">0 / 23 заданий</div>
-      <div class="sp">
-        <button class="tbtn" id="glosBtn">команды</button>
-        <button class="tbtn" id="charBtn">персонаж</button>
-        <button class="tbtn" id="lifeBtn">жизнь</button>
-        <button class="tbtn" id="careerBtn">карьера</button>
-        <button class="tbtn" id="ratingBtn">рейтинг</button>
-        <button class="tbtn" id="ivBtn">к собеседованию</button>
-        <button class="tbtn" id="reviewBtn">повторение</button>
-        <button class="tbtn" id="certBtn">сертификат</button>
-        <span class="sp-sep"></span>
-        <button class="tbtn tbtn-ghost" id="howBtn">как играть</button>
-        <button class="tbtn tbtn-danger" id="resetBtn">сброс</button>
-      </div>
-    </div>
+      <button class="tbtn tbtn-cert hide" id="certChip" type="button">сертификат</button>
+      <nav class="sp" aria-label="Разделы">
+        <button class="tbtn" id="reviewBtn" type="button">повторение</button>
+        <button class="tbtn" id="ivBtn" type="button">к собеседованию</button>
+        <button class="tbtn" id="glosBtn" type="button">команды</button>
+        <button class="tbtn" id="careerBtn" type="button">карьера</button>
+        <button class="tbtn" id="lifeBtn" type="button">жизнь</button>
+        <button class="tbtn" id="charBtn" type="button">персонаж</button>
+        <div class="menu-wrap">
+          <button
+            class="tbtn"
+            id="moreBtn"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="moreMenu"
+          >
+            ещё
+          </button>
+          <div class="menu hide" id="moreMenu" role="menu">
+            <button class="menu-item" id="ratingBtn" type="button" role="menuitem">рейтинг</button>
+            <button class="menu-item" id="certBtn" type="button" role="menuitem">сертификат</button>
+            <button class="menu-item" id="howBtn" type="button" role="menuitem">как играть</button>
+            <div class="menu-sep" role="separator"></div>
+            <div class="menu-label" id="themeLabel">Тема</div>
+            <div class="seg" role="radiogroup" aria-labelledby="themeLabel">
+              <button type="button" role="radio" data-theme-opt="system">Системная</button>
+              <button type="button" role="radio" data-theme-opt="light">Светлая</button>
+              <button type="button" role="radio" data-theme-opt="dark">Тёмная</button>
+            </div>
+            <div class="menu-sep" role="separator"></div>
+            <button class="menu-item menu-danger" id="resetBtn" type="button" role="menuitem">
+              сбросить прогресс
+            </button>
+          </div>
+        </div>
+      </nav>
+    </header>
 
     <div class="wrap">
       <div class="col rail-col"><div class="card scroll rail" id="rail"></div></div>

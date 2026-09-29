@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { $, esc, toast } from "./dom";
 import { gradeAnswer } from "../engine/grader";
 import { JOBS, STORY, jobTopics, pickQuestions } from "../data/careers";
@@ -68,10 +69,10 @@ function renderList(d: CareerDeps): void {
     const need = blockers(job, d);
     const state = got
       ? isCurrent
-        ? `<span class="cr-got">✓ текущая работа</span> <button class="cr-quit" data-quit="1">Уволиться</button>`
-        : `<span class="cr-got">✓ оффер получен</span> <button class="cr-go" data-take="${job.id}">Сделать текущей работой</button>`
+        ? `<span class="cr-got">${icon("check", 14)}текущая работа</span> <button class="cr-quit" data-quit="1">Уволиться</button>`
+        : `<span class="cr-got">${icon("check", 14)}оффер получен</span> <button class="cr-go" data-take="${job.id}">Сделать текущей работой</button>`
       : need.length
-        ? `<span class="cr-lock">🔒 ${esc(need.join("; "))}</span>`
+        ? `<span class="cr-lock">${icon("lock", 14)}${esc(need.join("; "))}</span>`
         : `<button class="cr-go" data-job="${job.id}">Пройти собеседование</button>`;
     return (
       `<div class="cr-job${got ? " cr-job-done" : ""}${isCurrent ? " cr-job-current" : ""}">` +
@@ -88,7 +89,7 @@ function renderList(d: CareerDeps): void {
     const open = d.lessonsDone >= s.needLessons;
     return (
       `<details class="cr-story"${open ? "" : " data-locked"}>` +
-      `<summary>${open ? "" : "🔒 "}${esc(s.act)} · ${esc(s.title)}</summary>` +
+      `<summary>${open ? "" : icon("lock", 14)}${esc(s.act)} · ${esc(s.title)}</summary>` +
       (open
         ? `<p>${esc(s.body)}</p>`
         : `<p class="cr-lock">Откроется после ${s.needLessons} пройденных уроков.</p>`) +
@@ -98,7 +99,7 @@ function renderList(d: CareerDeps): void {
 
   const current = d.currentJob ? JOBS.find((j) => j.id === d.currentJob) : null;
   body.innerHTML =
-    `<h1>💼 Карьера</h1>` +
+    `<h1>${icon("briefcase", 22)}Карьера</h1>` +
     `<p>Ранг по курсу: <b>${esc(d.rankName)}</b>. Офферов получено: <b>${hired.length} / ${JOBS.length}</b>` +
     (hired.length ? `, максимальный грейд: <b>${esc(topGrade)}</b>` : "") +
     `.<br>` +
@@ -231,8 +232,8 @@ function runInterview(job: Job, d: CareerDeps): void {
         header() +
         `<div class="iv-chat">${transcript.join("")}</div>` +
         `<div class="lp-selfgrade">` +
-        `<button class="prim" id="crRight">✅ У меня было по сути так</button>` +
-        `<button class="sec" id="crWrong">❌ Не угадал</button>` +
+        `<button class="prim" id="crRight">${icon("check", 16)}У меня было по сути так</button>` +
+        `<button class="sec" id="crWrong">${icon("x", 16)}Не угадал</button>` +
         `</div>`;
       $("#crRight").onclick = () => advance(true);
       $("#crWrong").onclick = () => advance(false);

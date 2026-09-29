@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { $, esc } from "./dom";
 import type { MissionRun } from "../engine/runner";
 
@@ -25,7 +26,7 @@ export function renderBriefing(run: MissionRun | null, hintsUsed: number, h: Bri
     m.objs
       .map(
         (o, i) =>
-          `<li class="${run.done[i] ? "ok" : ""}"><span class="mk">✓</span>` +
+          `<li class="${run.done[i] ? "ok" : ""}"><span class="mk">${icon("check", 12)}</span>` +
           `<span class="tx">${esc(o.t)}<small>${esc(o.d)}</small></span></li>`,
       )
       .join("") +
@@ -38,11 +39,11 @@ export function renderBriefing(run: MissionRun | null, hintsUsed: number, h: Bri
       ? `<div class="sect">Подсказки</div><div class="hintbox">` +
         m.hints
           .slice(0, hintsUsed)
-          .map((x) => `<div class="h">💡 ${esc(x)}</div>`)
+          .map((x) => `<div class="h">${esc(x)}</div>`)
           .join("") +
         `</div>`
       : "") +
-    `<button class="abtn" id="hintBtn">💡 Подсказка (${hintsUsed}/${m.hints.length})</button>` +
+    `<button class="abtn" id="hintBtn">${icon("bulb", 16)}Подсказка (${hintsUsed}/${m.hints.length})</button>` +
     `<button class="abtn" id="restartBtn">↻ Начать задание заново</button>`;
 
   $("#hintBtn").onclick = h.onHint;

@@ -22,6 +22,7 @@ const ICONS: Record<string, string> = {
   bolt: '<path d="M13.5 3L5 13.5h6L10.5 21 19 10.5h-6z"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.8"/><path d="M12 17.2h.01"/>',
   reset: '<path d="M4 12a8 8 0 1 1 2.6 5.9"/><path d="M4 19v-5h5"/>',
+  more: '<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>',
   repeat:
     '<path d="M6.5 8.5H16a3 3 0 0 1 3 3v1"/><path d="M9.5 5.5L6.5 8.5l3 3"/><path d="M17.5 15.5H8a3 3 0 0 1-3-3v-1"/><path d="M14.5 18.5l3-3-3-3"/>',
   eye: '<path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
@@ -31,6 +32,9 @@ const ICONS: Record<string, string> = {
   brain:
     '<path d="M12 5.5a3 3 0 0 0-5.7 1.3A3 3 0 0 0 5 12a3 3 0 0 0 1.7 2.7A3 3 0 0 0 12 18.5z"/><path d="M12 5.5a3 3 0 0 1 5.7 1.3A3 3 0 0 1 19 12a3 3 0 0 1-1.7 2.7A3 3 0 0 1 12 18.5z"/><path d="M12 5.5v13"/>',
   check: '<path d="M4.5 12.5l5 5 10-11"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  warning: '<path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.2h.01"/>',
+  bulb: '<path d="M9 17.5h6M10 20.5h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
   lock: '<rect x="4.5" y="10.5" width="15" height="10" rx="2.4"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/>',
   calendar:
     '<rect x="3.5" y="5.5" width="17" height="15" rx="2.2"/><path d="M3.5 10h17M8.5 3.5v4M15.5 3.5v4"/>',

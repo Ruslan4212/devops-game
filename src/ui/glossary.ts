@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { $, esc } from "./dom";
 import { searchGlossary } from "../data/glossary";
 import type { GlossaryRow } from "../data/glossary";
@@ -10,7 +11,7 @@ import type { GlossaryRow } from "../data/glossary";
 export function openGlossary(): void {
   const body = $("#modBody");
   body.innerHTML =
-    `<h1>📖 Глоссарий команд</h1>` +
+    `<h1>${icon("book", 22)}Глоссарий команд</h1>` +
     `<p>Все команды симулятора с флагами и подкомандами. Ищи по названию, флагу или смыслу.</p>` +
     `<input id="glosQ" class="glos-q" placeholder="например: grep -v  или  откатить коммит" autocomplete="off" spellcheck="false" />` +
     `<div class="glos-list" id="glosList"></div>` +
