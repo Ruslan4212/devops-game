@@ -180,7 +180,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<div class="lp-badge">${icon("brain", 15)}<span>${esc(step.text)}</span></div>` +
         grade +
         `<div class="lp-answer"><b>Ты ответил:</b> ${esc(st.myAnswer || "(ничего не написал)")}</div>` +
-        `<div class="lp-tip">🧑‍🏫 Наставник читает ответ…</div>`;
+        `<div class="lp-tip lp-loading">${icon("mentor", 15)}Наставник читает ответ…</div>`;
     } else if (st.phase === "graded") {
       const ok = st.result.correct;
       body =
@@ -200,8 +200,8 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
         `<div class="lp-note">${esc(step.explain)}</div>` +
         `<div class="callout callout-info">Не удалось связаться с проверкой — оцени себя сам, честно.</div>` +
         `<div class="lp-selfgrade">` +
-        `<button class="lp-next" id="lpQuizRight">✅ У меня было по сути верно</button>` +
-        `<button class="lp-reveal" id="lpQuizWrong">❌ Я ошибся, повторить вопрос</button>` +
+        `<button class="lp-next" id="lpQuizRight">${icon("check", 16)}У меня было по сути верно</button>` +
+        `<button class="lp-reveal" id="lpQuizWrong">${icon("x", 16)}Я ошибся, повторить вопрос</button>` +
         `</div>`;
     }
   }
@@ -210,7 +210,7 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (!es) {
     body += `<button class="lp-explain" id="lpExplain">${icon("mentor", 15)}<span>Не хватает информации — объясни подробнее</span></button>`;
   } else if (es.phase === "loading") {
-    body += `<div class="lp-explain-loading">🧑‍🏫 Наставник готовит подробный разбор с примерами…</div>`;
+    body += `<div class="lp-explain-loading lp-loading">${icon("mentor", 15)}Наставник готовит подробный разбор с примерами…</div>`;
   } else if (es.phase === "done") {
     body += `<div class="lp-explain-box"><div class="lp-explain-text">${esc(es.text)}</div></div>`;
   } else {

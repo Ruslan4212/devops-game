@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { looksLikeCode } from "../src/ui/inline-code";
+import { codeConfidence, looksLikeCode } from "../src/ui/inline-code";
 
 describe("looksLikeCode: что оформлять как код в тексте уроков", () => {
   it.each([
@@ -33,4 +33,16 @@ describe("looksLikeCode: что оформлять как код в тексте
   it.each(["main", "plan", "prod", "ERROR", "→", "300", "сменить режим", "БЭКАП", "(1)"])("не код: %s", (f) =>
     expect(looksLikeCode(f)).toBe(false),
   );
+});
+
+describe("codeConfidence: уверенно код или сомнительно", () => {
+  it.each(["chmod +x deploy.sh", "/etc/nginx", "--force", "$HOME", "FROM node:20", "ps aux | grep nginx"])(
+    "уверенно: %s",
+    (f) => expect(codeConfidence(f)).toBe("strong"),
+  );
+  it.each(["backup.sh", "check=True", "prevent_destroy", "DB_URL", "shop:1.0", "dist/"])(
+    "сомнительно: %s",
+    (f) => expect(codeConfidence(f)).toBe("weak"),
+  );
+  it("не код", () => expect(codeConfidence("main")).toBeNull());
 });

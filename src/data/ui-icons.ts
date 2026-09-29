@@ -32,6 +32,9 @@ const ICONS: Record<string, string> = {
   brain:
     '<path d="M12 5.5a3 3 0 0 0-5.7 1.3A3 3 0 0 0 5 12a3 3 0 0 0 1.7 2.7A3 3 0 0 0 12 18.5z"/><path d="M12 5.5a3 3 0 0 1 5.7 1.3A3 3 0 0 1 19 12a3 3 0 0 1-1.7 2.7A3 3 0 0 1 12 18.5z"/><path d="M12 5.5v13"/>',
   check: '<path d="M4.5 12.5l5 5 10-11"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  warning: '<path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.2h.01"/>',
+  bulb: '<path d="M9 17.5h6M10 20.5h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
   lock: '<rect x="4.5" y="10.5" width="15" height="10" rx="2.4"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/>',
   calendar:
     '<rect x="3.5" y="5.5" width="17" height="15" rx="2.2"/><path d="M3.5 10h17M8.5 3.5v4M15.5 3.5v4"/>',

@@ -38,15 +38,18 @@
   --info-soft: rgba(42, 98, 196, 0.09);
   /* код и терминал */
   --code-bg: #f3f3ef;
-  --term-bg: #fbfbf9;
-  --term-bar: #f1f1ed;
-  --term-text: #1d2026;
-  --term-dim: #5c6470;
-  --term-prompt: #1e7f52;
-  --term-ok: #1e7f52;
-  --term-err: #c2372f;
-  --term-warn: #955506;
-  --term-info: #2a62c4;
+  /* терминал тёмный в любой теме — привычная инженерам конвенция, и тексты
+     уроков говорят «чёрное окно». Поэтому его токены в теме не меняются. */
+  --term-bg: #0d1014;
+  --term-bar: #14181e;
+  --term-border: #242a33;
+  --term-text: #dfe3e9;
+  --term-dim: #8b95a4;
+  --term-prompt: #45b981;
+  --term-ok: #45b981;
+  --term-err: #ea6a61;
+  --term-warn: #e0a052;
+  --term-info: #6aa4f2;
   /* служебное */
   --overlay: rgba(20, 22, 26, 0.45);
   --shadow-modal: 0 12px 40px rgba(16, 18, 22, 0.16), 0 2px 6px rgba(16, 18, 22, 0.06);
@@ -122,6 +125,7 @@
     --code-bg: #0e1116;
     --term-bg: #0a0c0f;
     --term-bar: #111419;
+    --term-border: #242a33;
     --term-text: #dfe3e9;
     --term-dim: #8b95a4;
     --term-prompt: #45b981;
@@ -163,6 +167,7 @@
   --code-bg: #0e1116;
   --term-bg: #0a0c0f;
   --term-bar: #111419;
+  --term-border: #242a33;
   --term-text: #dfe3e9;
   --term-dim: #8b95a4;
   --term-prompt: #45b981;
@@ -678,14 +683,14 @@ button:disabled {
   display: flex;
   flex-direction: column;
   background: var(--term-bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--term-border);
   border-radius: var(--r);
   overflow: hidden;
   min-height: 0;
 }
 .termbar {
   background: var(--term-bar);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--term-border);
   padding: 0 var(--s3);
   min-height: 40px;
   display: flex;
@@ -703,7 +708,7 @@ button:disabled {
   width: 10px;
   height: 10px;
   border-radius: var(--r-full);
-  background: var(--border-strong);
+  background: #343c48;
   text-decoration: none;
 }
 .out {
@@ -749,7 +754,7 @@ button:disabled {
   display: flex;
   gap: var(--s2);
   align-items: flex-start;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--term-border);
   padding: 10px var(--s4);
   background: var(--term-bar);
 }
@@ -791,14 +796,14 @@ button:disabled {
   min-height: 26px;
   padding: 0 10px;
   border-radius: var(--r-full);
-  border: 1px solid var(--border);
+  border: 1px solid var(--term-border);
   background: transparent;
   color: var(--term-dim);
   font-family: var(--sans);
   font-size: var(--fs-xs);
 }
 .livebtn:hover {
-  border-color: var(--border-strong);
+  border-color: var(--term-dim);
   color: var(--term-text);
 }
 
@@ -1245,8 +1250,52 @@ button:disabled {
   overflow: auto;
 }
 .modal h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: var(--fs-xl);
   margin-bottom: var(--s3);
+}
+.modal h1 .ico {
+  color: var(--text-3);
+}
+/* список типов шагов в «Как играть» — те же иконки, что в панели урока */
+.how-list {
+  list-style: none;
+  padding-left: 0 !important;
+}
+.how-list li {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  margin: var(--s2) 0;
+}
+.how-list .ico {
+  margin-top: 2px;
+  color: var(--text-3);
+}
+/* метки со значком внутри строки: «✓ оффер получен», замок, «наставник думает» */
+.cr-got,
+.cr-lock,
+.lp-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cr-story summary .ico {
+  vertical-align: -2px;
+  margin-right: 6px;
+  color: var(--text-3);
+}
+.lp-loading {
+  display: flex;
+  color: var(--text-2);
+}
+.lp-loading .ico {
+  color: var(--info);
+}
+#progChip .ico {
+  vertical-align: -2px;
 }
 .modal p {
   color: var(--text-2);
@@ -1651,6 +1700,21 @@ button:disabled {
 .lb-me {
   background: var(--accent-soft);
 }
+.lb-place {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: var(--r-full);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-2);
+}
+.lb-top {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
 .lb-me span:nth-child(2) {
   font-weight: 700;
 }
@@ -1919,8 +1983,8 @@ button:disabled {
 }
 .cap-term {
   min-width: 0;
-  background: #0a0c0f;
-  border: 1px solid var(--border);
+  background: var(--term-bg);
+  border: 1px solid var(--term-border);
   border-radius: var(--r-sm);
   padding: 6px;
   overflow: hidden;

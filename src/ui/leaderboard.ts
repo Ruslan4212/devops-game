@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { $, esc } from "./dom";
 import { fetchLeaderboard, isConfigured } from "../sync/cloud";
 import type { LeaderRow } from "../sync/cloud";
@@ -10,7 +11,7 @@ import type { LeaderRow } from "../sync/cloud";
 export async function openLeaderboard(): Promise<void> {
   const body = $("#modBody");
   const shell = (inner: string): void => {
-    body.innerHTML = `<h1>🏅 Рейтинг</h1>${inner}<button class="sec" id="lbClose">Закрыть</button>`;
+    body.innerHTML = `<h1>${icon("medal", 22)}Рейтинг</h1>${inner}<button class="sec" id="lbClose">Закрыть</button>`;
     $("#lbClose").onclick = () => $("#modOv").classList.add("hide");
   };
 
@@ -52,10 +53,9 @@ export async function openLeaderboard(): Promise<void> {
 }
 
 function rowHtml(r: LeaderRow, place: number, me: boolean): string {
-  const medal = place === 1 ? "🥇" : place === 2 ? "🥈" : place === 3 ? "🥉" : String(place);
   return (
     `<div class="lb-row${me ? " lb-me" : ""}">` +
-    `<span>${medal}</span>` +
+    `<span><span class="lb-place${place <= 3 ? " lb-top" : ""}">${place}</span></span>` +
     `<span>${esc(r.username)}${me ? " · ты" : ""}</span>` +
     `<span>${esc(r.rank_name)}</span>` +
     `<span>${r.missions_done}</span>` +
