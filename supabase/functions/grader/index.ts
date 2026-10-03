@@ -1,13 +1,12 @@
 /* =====================================================================
-   Grader — проверка ответов игрока через Claude (Supabase Edge Function)
+   Grader — проверка ответов игрока через ИИ (Supabase Edge Function)
    =====================================================================
    Три адреса, те же, что были у прежнего grader-server на VPS:
      POST /grader/grade    — свободный ответ на вопрос: верно ли по смыслу
      POST /grader/command  — практическое задание: решает ли команда задачу
      POST /grader/explain  — «объясни подробнее» с разными примерами
 
-   Ключ Anthropic живёт только в секретах Supabase (ANTHROPIC_API_KEY) и в
-   браузер не попадает. Страница игры статическая, поэтому вызвать функцию
+   Ключ провайдера живёт только в секретах Supabase и в браузер не попадает. Страница игры статическая, поэтому вызвать функцию
    может кто угодно — защита: белый список Origin, лимит запросов с одного
    адреса, ограничение длины текста. Потолок расходов ставится в консоли
    Anthropic (Settings → Limits) — это последняя и надёжная линия.
@@ -17,9 +16,73 @@ import Anthropic from "npm:@anthropic-ai/sdk";
 import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
 import { z } from "npm:zod";
 
-const MODEL = "claude-opus-5-5";
+/**
+ * Провайдер выбирается по тому, какой секрет задан в Supabase. Первые два
+ * бесплатные и без карты — для учебной игры их лимитов хватает с запасом;
+ * Claude платный и даёт самые точные разборы.
+ *   GROQ_API_KEY       console.groq.com/keys
+ *   GEMINI_API_KEY     aistudio.google.com/apikey
+ *   ANTHROPIC_API_KEY  console.anthropic.com
+ */
+const env = (n: string): string => (Deno.env.get(n) ?? "").trim();
+type Provider =
+  { name: "anthropic"; model: string } | { name: "groq" | "gemini"; model: string; url: string; key: string };
 
-const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+function pickProvider(): Provider | null {
+  if (env("GROQ_API_KEY"))
+    return {
+      name: "groq",
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key: env("GROQ_API_KEY"),
+      model: env("GROQ_MODEL") || "llama-3.3-70b-versatile",
+    };
+  if (env("GEMINI_API_KEY"))
+    return {
+      name: "gemini",
+      url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      key: env("GEMINI_API_KEY"),
+      model: env("GEMINI_MODEL") || "gemini-2.5-flash",
+    };
+  if (env("ANTHROPIC_API_KEY"))
+    return { name: "anthropic", model: env("ANTHROPIC_MODEL") || "claude-opus-5-5" };
+  return null;
+}
+const PROVIDER = pickProvider();
+
+/** Модели по убыванию пригодности: русский язык и следование инструкции. */
+const PREFERRED: Record<string, string[]> = {
+  groq: ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "qwen/qwen3-32b", "openai/gpt-oss-20b"],
+  gemini: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"],
+};
+
+/**
+ * Провайдеры переименовывают и снимают модели — захардкоженное имя однажды
+ * отвечает 404, и проверка молча ломается. Один раз спрашиваем список
+ * доступных и берём первую подходящую (если не задана явно через *_MODEL).
+ */
+let modelReady: Promise<void> | null = null;
+function resolveModel(): Promise<void> {
+  if (!PROVIDER || PROVIDER.name === "anthropic") return Promise.resolve();
+  const p = PROVIDER;
+  modelReady ??= (async () => {
+    try {
+      const res = await fetch(p.url.replace(/\/chat\/completions$/, "/models"), {
+        headers: { authorization: "Bearer " + p.key },
+      });
+      if (!res.ok) return;
+      const ids: string[] = ((await res.json())?.data ?? []).map((m: { id: string }) =>
+        String(m.id).replace(/^models\//, ""),
+      );
+      if (!ids.length || ids.includes(p.model)) return;
+      const better = (PREFERRED[p.name] ?? []).find((m) => ids.includes(m));
+      p.model = better ?? ids.find((m) => !/whisper|guard|tts|embed|image|vision/i.test(m)) ?? p.model;
+    } catch {
+      /* оставляем модель по умолчанию */
+    }
+  })();
+  return modelReady;
+}
+const anthropic = PROVIDER?.name === "anthropic" ? new Anthropic({ apiKey: env("ANTHROPIC_API_KEY") }) : null;
 
 /** Откуда можно звать функцию: живая игра и локальная разработка. */
 const ALLOWED_ORIGINS = (
@@ -76,25 +139,68 @@ const Explanation = z.object({
   explanation: z.string().describe("Подробное объяснение с примерами, по-русски, чистый текст"),
 });
 
+/** Первый JSON-объект из текста — модель может обернуть ответ словами или markdown. */
+function extractJson(text: string): unknown {
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    return JSON.parse(m[0]);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Один вызов Claude со структурированным ответом. Проверка ответа — это
- * классификация с коротким разбором, поэтому effort low: быстро и дёшево,
- * а качества для такой задачи хватает. null — модель отказала или ответ не
- * разобрался: игра тогда честно откатится на свой локальный разбор.
+ * Один вызов модели со структурированным ответом. Проверка ответа — короткая
+ * классификация с разбором, поэтому Claude идёт с effort low (быстро и
+ * дёшево). null — провайдер отказал или ответ не разобрался: игра тогда
+ * честно откатится на свой локальный разбор.
  */
 async function ask<T extends z.ZodTypeAny>(
   prompt: string,
   schema: T,
   effort: "low" | "medium",
 ): Promise<z.infer<T> | null> {
-  const response = await client.messages.parse({
-    model: MODEL,
-    max_tokens: 8000,
-    output_config: { effort, format: zodOutputFormat(schema) },
-    messages: [{ role: "user", content: prompt }],
+  if (!PROVIDER) throw new Error("не задан ни один ключ: GROQ_API_KEY, GEMINI_API_KEY или ANTHROPIC_API_KEY");
+  if (PROVIDER.name === "anthropic" && anthropic) {
+    const response = await anthropic.messages.parse({
+      model: PROVIDER.model,
+      max_tokens: 8000,
+      output_config: { effort, format: zodOutputFormat(schema) },
+      messages: [{ role: "user", content: prompt }],
+    });
+    if (response.stop_reason === "refusal") return null;
+    return response.parsed_output ?? null;
+  }
+  await resolveModel();
+  const p = PROVIDER as Exclude<Provider, { name: "anthropic" }>;
+  // схема — в тексте промпта: json-режим бесплатных провайдеров гарантирует
+  // лишь «валидный JSON», а какие в нём поля — решает инструкция
+  const shape = JSON.stringify(
+    Object.fromEntries(
+      Object.keys((schema as unknown as z.ZodObject<z.ZodRawShape>).shape).map((k) => [k, "…"]),
+    ),
+  );
+  const res = await fetch(p.url, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer " + p.key },
+    body: JSON.stringify({
+      model: p.model,
+      max_tokens: 1500,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "user",
+          content: `${prompt}\n\nВерни СТРОГО один JSON-объект с полями ${shape}, без markdown.`,
+        },
+      ],
+    }),
   });
-  if (response.stop_reason === "refusal") return null;
-  return response.parsed_output ?? null;
+  if (!res.ok) throw new Error(`${p.name} ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json();
+  const parsed = schema.safeParse(extractJson(data?.choices?.[0]?.message?.content ?? ""));
+  return parsed.success ? parsed.data : null;
 }
 
 function gradePrompt(b: Record<string, unknown>): string | null {
@@ -240,7 +346,7 @@ Deno.serve(async (req) => {
     // ошибки API (лимиты, перегрузка, неверный ключ) — в лог функции; игроку
     // достаточно знать, что вердикта нет: игра откатится на локальный разбор
     if (e instanceof Anthropic.APIError) console.error("Anthropic API", e.status, e.message);
-    else console.error("grader", e);
+    else console.error("grader", e instanceof Error ? e.message : e);
     return json({ error: "проверка временно недоступна" }, 502, origin);
   }
 });
