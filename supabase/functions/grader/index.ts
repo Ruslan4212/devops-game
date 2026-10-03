@@ -126,13 +126,16 @@ function json(body: unknown, status: number, origin: string | null): Response {
 }
 
 /* ------------------------------- вердикты ------------------------------- */
+/** Бесплатные модели иногда пишут "true" строкой вместо true — принимаем оба вида. */
+const Bool = z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean());
+
 const Verdict = z.object({
   claim: z.string().optional().describe("Что утверждает ученик, одной фразой"),
-  correct: z.boolean(),
+  correct: Bool,
   feedback: z.string().describe("1-3 предложения по-русски, на ты"),
 });
 const CommandVerdict = z.object({
-  correct: z.boolean(),
+  correct: Bool,
   feedback: z.string().describe("1-2 предложения по-русски, на ты"),
 });
 const Explanation = z.object({
