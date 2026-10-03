@@ -127,7 +127,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 /* ------------------------------- вердикты ------------------------------- */
 const Verdict = z.object({
-  claim: z.string().describe("Что утверждает ученик, одной фразой"),
+  claim: z.string().optional().describe("Что утверждает ученик, одной фразой"),
   correct: z.boolean(),
   feedback: z.string().describe("1-3 предложения по-русски, на ты"),
 });
@@ -181,26 +181,34 @@ async function ask<T extends z.ZodTypeAny>(
       Object.keys((schema as unknown as z.ZodObject<z.ZodRawShape>).shape).map((k) => [k, "…"]),
     ),
   );
-  const res = await fetch(p.url, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: "Bearer " + p.key },
-    body: JSON.stringify({
-      model: p.model,
-      max_tokens: 1500,
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "user",
-          content: `${prompt}\n\nВерни СТРОГО один JSON-объект с полями ${shape}, без markdown.`,
-        },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`${p.name} ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const data = await res.json();
-  const parsed = schema.safeParse(extractJson(data?.choices?.[0]?.message?.content ?? ""));
-  return parsed.success ? parsed.data : null;
+  const call = async (): Promise<z.infer<T> | null> => {
+    const res = await fetch(p.url, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer " + p.key },
+      body: JSON.stringify({
+        model: p.model,
+        max_tokens: 1500,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "user",
+            content: `${prompt}
+
+Верни СТРОГО один JSON-объект с полями ${shape}, без markdown.`,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`${p.name} ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const data = await res.json();
+    const parsed = schema.safeParse(extractJson(data?.choices?.[0]?.message?.content ?? ""));
+    if (!parsed.success)
+      console.error("не тот формат ответа модели:", JSON.stringify(data?.choices?.[0]?.message?.content));
+    return parsed.success ? parsed.data : null;
+  };
+  // модель иногда отвечает не тем форматом — второй заход обычно проходит
+  return (await call()) ?? (await call());
 }
 
 function gradePrompt(b: Record<string, unknown>): string | null {
