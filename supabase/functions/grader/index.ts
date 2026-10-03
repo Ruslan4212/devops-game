@@ -156,6 +156,9 @@ function extractJson(text: string): unknown {
  * дёшево). null — провайдер отказал или ответ не разобрался: игра тогда
  * честно откатится на свой локальный разбор.
  */
+/** Последний неразобранный ответ модели — уходит в поле detail, чтобы причину сбоя было видно. */
+let lastRaw = "";
+
 async function ask<T extends z.ZodTypeAny>(
   prompt: string,
   schema: T,
@@ -203,8 +206,10 @@ async function ask<T extends z.ZodTypeAny>(
     if (!res.ok) throw new Error(`${p.name} ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
     const parsed = schema.safeParse(extractJson(data?.choices?.[0]?.message?.content ?? ""));
-    if (!parsed.success)
-      console.error("не тот формат ответа модели:", JSON.stringify(data?.choices?.[0]?.message?.content));
+    if (!parsed.success) {
+      lastRaw = String(data?.choices?.[0]?.message?.content ?? "").slice(0, 600);
+      console.error("не тот формат ответа модели:", lastRaw);
+    }
     return parsed.success ? parsed.data : null;
   };
   // модель иногда отвечает не тем форматом — второй заход обычно проходит
@@ -332,14 +337,14 @@ Deno.serve(async (req) => {
       const prompt = gradePrompt(body);
       if (!prompt) return json({ error: "нужны поля question, expected, userAnswer" }, 400, origin);
       const v = await ask(prompt, Verdict, "low");
-      if (!v) return json({ error: "проверка не дала вердикта" }, 502, origin);
+      if (!v) return json({ error: "проверка не дала вердикта", detail: lastRaw }, 502, origin);
       return json({ correct: v.correct, feedback: v.feedback }, 200, origin);
     }
     if (route === "command") {
       const prompt = commandPrompt(body);
       if (!prompt) return json({ error: "нужны поля task и command" }, 400, origin);
       const v = await ask(prompt, CommandVerdict, "low");
-      if (!v) return json({ error: "проверка не дала вердикта" }, 502, origin);
+      if (!v) return json({ error: "проверка не дала вердикта", detail: lastRaw }, 502, origin);
       return json({ correct: v.correct, feedback: v.feedback }, 200, origin);
     }
     if (route === "explain") {
