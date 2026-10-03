@@ -17,6 +17,8 @@
  * Длина ответа не ограничивается: одно точное слово — полноценный ответ.
  */
 
+import { cloudConfig } from "../sync/cloud";
+
 export interface GradeResult {
   correct: boolean;
   feedback: string;
@@ -515,39 +517,42 @@ export function localGrade(input: GradeInput): GradeResult {
   };
 }
 
-/** Точка входа для UI. Асинхронная ради совместимости с экранами уроков и собеседований. */
-/** Адрес проверки на сервере: там настоящая модель, а не подсчёт слов. */
-const GRADER_URL = "https://72.56.16.8.nip.io/grader/grade";
-const COMMAND_URL = "https://72.56.16.8.nip.io/grader/command";
-const EXPLAIN_URL = "https://72.56.16.8.nip.io/grader/explain";
+/*
+ * Проверку по смыслу делает Claude — функция grader в Supabase (её код —
+ * supabase/functions/grader). Ключ Anthropic живёт только там. Если функция
+ * недоступна, игру не останавливаем: работает локальный разбор по словам.
+ */
+function graderUrl(route: "grade" | "command" | "explain"): { url: string; key: string } | null {
+  const cfg = cloudConfig();
+  return cfg ? { url: `${cfg.url}/functions/v1/grader/${route}`, key: cfg.key } : null;
+}
 
-/** Сколько ждём сервер, прежде чем проверить локально: игрок не должен смотреть в пустоту. */
-const GRADER_TIMEOUT_MS = 12_000;
+/** Сколько ждём вердикт, прежде чем проверить локально: игрок не должен смотреть в пустоту. */
+const GRADER_TIMEOUT_MS = 25_000;
 
 /** Подробное объяснение с примерами генерируется дольше короткого вердикта. */
-const EXPLAIN_TIMEOUT_MS = 20_000;
+const EXPLAIN_TIMEOUT_MS = 45_000;
 
-async function remoteGrade(input: GradeInput): Promise<GradeResult | null> {
+/** POST в функцию проверки; null — нет сети, ошибка или ответ не того вида. */
+async function callGrader<T>(
+  route: "grade" | "command" | "explain",
+  body: unknown,
+  timeoutMs: number,
+  accept: (data: Record<string, unknown>) => T | null,
+): Promise<T | null> {
+  const target = graderUrl(route);
+  if (!target) return null;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(GRADER_URL, {
+    const res = await fetch(target.url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", apikey: target.key },
       signal: ctrl.signal,
-      body: JSON.stringify({
-        question: input.question,
-        expected: input.options[input.answerIx] ?? "",
-        explain: input.explain,
-        userAnswer: input.userAnswer,
-        options: input.options,
-        answerIx: input.answerIx,
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as Partial<GradeResult>;
-    if (typeof data.correct !== "boolean" || typeof data.feedback !== "string") return null;
-    return { correct: data.correct, feedback: data.feedback };
+    return accept((await res.json()) as Record<string, unknown>);
   } catch {
     return null;
   } finally {
@@ -555,11 +560,35 @@ async function remoteGrade(input: GradeInput): Promise<GradeResult | null> {
   }
 }
 
+const asVerdict = (d: Record<string, unknown>): GradeResult | null =>
+  typeof d.correct === "boolean" && typeof d.feedback === "string"
+    ? { correct: d.correct, feedback: d.feedback }
+    : null;
+
 /**
- * Точка входа для UI. Сначала спрашиваем модель на сервере — она понимает смысл,
- * а не слова. Если сервер недоступен, работает локальный разбор: игру нельзя
- * останавливать из-за сети, но и врать про «неверно» из-за неё тоже нельзя.
+ * Свободный ответ на вопрос. Claude оценивает по смыслу и пишет разбор:
+ * что верно, что нет и какая мысль правильная. Если функция недоступна —
+ * локальный разбор с пометкой local, и экраны дают игроку слово вместо
+ * окончательного «неверно» от подсчёта слов.
  */
+export async function gradeAnswer(input: GradeInput): Promise<GradeResult> {
+  if (!input.userAnswer.trim()) return { ...localGrade(input), local: true };
+  const ai = await callGrader(
+    "grade",
+    {
+      question: input.question,
+      expected: input.options[input.answerIx] ?? "",
+      explain: input.explain,
+      userAnswer: input.userAnswer,
+      options: input.options,
+      answerIx: input.answerIx,
+    },
+    GRADER_TIMEOUT_MS,
+    asVerdict,
+  );
+  return ai ?? { ...localGrade(input), local: true };
+}
+
 export interface CommandJudgeInput {
   /** название урока — контекст для наставника */
   lesson: string;
@@ -573,57 +602,15 @@ export interface CommandJudgeInput {
   output: string;
 }
 
-async function serverJudgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), GRADER_TIMEOUT_MS);
-  try {
-    const res = await fetch(COMMAND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: ctrl.signal,
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as Partial<GradeResult>;
-    if (typeof data.correct !== "boolean" || typeof data.feedback !== "string") return null;
-    return { correct: data.correct, feedback: data.feedback };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/**
- * Тот же бесплатный анонимный ИИ (Pollinations.ai), что и в gradeAnswer, но
- * для практических заданий в терминале: судит по реальной команде и её
- * настоящему выводу, а не по прибитому единственному эталону.
- */
-async function freeAiJudgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
-  const prompt =
-    `Ты — преподаватель Linux/DevOps, проверяешь практическое задание в терминале.\n` +
-    `Урок: ${input.lesson}\n` +
-    `Задача: ${input.task}\n` +
-    `Один из верных вариантов решения (не единственный): ${input.expected}\n` +
-    `Что набрал ученик: ${input.command}\n` +
-    `Что вывел терминал: ${input.output}\n` +
-    `Реальных решений задачи обычно больше одного — засчитай любое, которое делает дело. ` +
-    `Ответь СТРОГО одним JSON-объектом без markdown и без пояснений вокруг: ` +
-    `{"correct": true или false, "feedback": "разбор на русском, 1-2 предложения"}`;
-  const text = await callFreeAiWithRetry(prompt, GRADER_TIMEOUT_MS);
-  return text ? parseGradeJSON(text) : null;
-}
-
 /**
  * Судит практическое задание в терминале. Прибитая проверка шага знает один
  * верный ответ, а их почти всегда больше: «ss -tlpn sport :80» решает задачу
- * не хуже «ss -ltn», а местами и точнее. Свой сервер и бесплатный анонимный
- * ИИ (Pollinations.ai) спрашиваются одновременно — берётся первый вменяемый
- * ответ (см. firstValid). null — оба недоступны, тогда UI показывает обычную
- * подсказку по шагу вместо вердикта.
+ * не хуже «ss -ltn». Поэтому решает Claude, видя команду и её настоящий
+ * вывод, и подсказывает направление, если не так. null — функция
+ * недоступна, тогда UI показывает обычную подсказку по шагу.
  */
 export async function judgeCommand(input: CommandJudgeInput): Promise<GradeResult | null> {
-  return firstValid([serverJudgeCommand(input), freeAiJudgeCommand(input)]);
+  return callGrader("command", input, GRADER_TIMEOUT_MS, asVerdict);
 }
 
 export interface ExplainInput {
@@ -636,135 +623,12 @@ export interface ExplainInput {
 }
 
 /**
- * Просит модель подробно раскрыть тему шага с несколькими разными примерами,
- * когда штатного текста игроку не хватило. null — сервер недоступен или ответ
- * не разобрать; кнопку в этом случае показываем как временно недоступную,
- * локального запасного варианта здесь нет — выдумывать примеры без модели нельзя.
+ * Подробное объяснение темы шага с разными примерами — когда штатного текста
+ * не хватило. null — функция недоступна; локального варианта нет:
+ * выдумывать примеры без модели нельзя.
  */
 export async function explainTopic(input: ExplainInput): Promise<string | null> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), EXPLAIN_TIMEOUT_MS);
-  try {
-    const res = await fetch(EXPLAIN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: ctrl.signal,
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { explanation?: unknown };
-    if (typeof data.explanation !== "string" || !data.explanation.trim()) return null;
-    return data.explanation;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Публичный keyless-эндпоинт Pollinations.ai — без регистрации, без всплывающих окон согласия. */
-const FREE_AI_URL = "https://text.pollinations.ai/openai";
-
-async function fetchFreeAi(prompt: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(FREE_AI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    signal,
-    body: JSON.stringify({ model: "openai", messages: [{ role: "user", content: prompt }] }),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const text = data.choices?.[0]?.message?.content;
-  return typeof text === "string" ? text : null;
-}
-
-function parseGradeJSON(text: string): GradeResult | null {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[0]) as Partial<GradeResult>;
-    if (typeof parsed.correct !== "boolean" || typeof parsed.feedback !== "string") return null;
-    return { correct: parsed.correct, feedback: parsed.feedback };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Pollinations — публичный бесплатный сервис без SLA: под анонимной нагрузкой
- * время от времени отвечает 500 или рвёт соединение, хотя обычно отвечает за
- * 3-5 секунд. Один быстрый повтор превращает такой транзиентный сбой в
- * редкость, а не в постоянный откат на грубый локальный разбор по словам.
- */
-async function callFreeAiWithRetry(prompt: string, timeoutMs: number): Promise<string | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const text = await fetchFreeAi(prompt, ctrl.signal);
-      if (text) return text;
-    } catch {
-      /* переходим к повтору ниже или сдаёмся после второй попытки */
-    } finally {
-      clearTimeout(timer);
-    }
-    if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
-  }
-  return null;
-}
-
-/**
- * Бесплатный ИИ-разбор через публичный анонимный эндпоинт Pollinations.ai —
- * без ключей, без аккаунта, без модалок согласия стороннего сервиса (в
- * отличие от Puter.js, который на первом вызове требовал логин в Puter —
- * от этого варианта отказались). Используется вторым, когда свой
- * grader-server недоступен: это настоящая модель, а не подсчёт слов,
- * поэтому предпочтительнее локального разбора и не требует от игрока
- * самому судить себя.
- */
-async function freeAiGrade(input: GradeInput): Promise<GradeResult | null> {
-  const prompt =
-    `Ты — преподаватель Linux/DevOps, проверяешь ответ ученика по смыслу, не требуя дословного совпадения.\n` +
-    `Вопрос: ${input.question}\n` +
-    `Правильный вариант: ${input.options[input.answerIx] ?? ""}\n` +
-    `Пояснение: ${input.explain}\n` +
-    `Ответ ученика: ${input.userAnswer}\n` +
-    `Ответь СТРОГО одним JSON-объектом без markdown и без пояснений вокруг: ` +
-    `{"correct": true или false, "feedback": "разбор на русском, 1-2 предложения"}`;
-  const text = await callFreeAiWithRetry(prompt, GRADER_TIMEOUT_MS);
-  return text ? parseGradeJSON(text) : null;
-}
-
-/**
- * Точка входа для UI. Порядок проверки: свой сервер (быстрее и настроен под
- * игру) → бесплатный анонимный ИИ (Pollinations.ai — сервер лёг, модель всё
- * равно понимает смысл) → локальный разбор по словам последним резервом,
- * когда оба варианта с настоящей моделью недоступны.
- */
-/**
- * Запускает несколько источников вердикта ОДНОВРЕМЕННО и берёт первый непустой
- * результат вместо ожидания по очереди. Свой сервер сейчас недоступен и висит
- * все 12 секунд таймаута; если ждать его целиком перед тем, как попробовать
- * бесплатный ИИ (обычно отвечает за 3-5 секунд), игрок ждёт вердикт ~17-20
- * секунд и решает, что игра зависла. Параллельный запуск ограничивает
- * ожидание временем самого медленного источника, а не их суммой.
- */
-async function firstValid<T>(sources: Promise<T | null>[]): Promise<T | null> {
-  return new Promise((resolve) => {
-    let left = sources.length;
-    for (const p of sources) {
-      p.then((v) => {
-        left--;
-        if (v) resolve(v);
-        else if (left === 0) resolve(null);
-      });
-    }
-  });
-}
-
-export async function gradeAnswer(input: GradeInput): Promise<GradeResult> {
-  if (!input.userAnswer.trim()) return { ...localGrade(input), local: true };
-  const ai = await firstValid([remoteGrade(input), freeAiGrade(input)]);
-  if (ai) return ai;
-  return { ...localGrade(input), local: true };
+  return callGrader("explain", input, EXPLAIN_TIMEOUT_MS, (d) =>
+    typeof d.explanation === "string" && d.explanation.trim() ? d.explanation : null,
+  );
 }
