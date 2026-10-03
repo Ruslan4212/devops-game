@@ -11,6 +11,7 @@ export default tseslint.config(
       "node_modules/**",
       "sandbox-server/**",
       "grader-server/**",
+      "supabase/functions/**",
       "play/**",
     ],
   },
