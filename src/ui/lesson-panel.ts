@@ -71,6 +71,40 @@ function sayBlock(text: string): string {
   return `<div class="${cls}">${esc(text)}</div>`;
 }
 
+/**
+ * Последняя попытка игрока на текущем шаге: что он ввёл и что ответил терминал.
+ * Нужна кнопке «объясни подробнее»: наставник должен помочь с тем местом, где
+ * человек застрял, а не пересказать тему вообще.
+ */
+let lastAttempt: { key: string; command: string; output: string } | null = null;
+
+export function setLastAttempt(run: LessonRun, command: string, output: string): void {
+  lastAttempt = { key: run.lesson.id + ":" + run.position.i, command, output };
+}
+
+/** Что известно о затруднении игрока на этом шаге — для запроса подробного объяснения. */
+function stepAttempt(step: Step, stepKey: string): string | undefined {
+  if (step.kind === "do") {
+    const a = lastAttempt && lastAttempt.key === stepKey ? lastAttempt : null;
+    if (!a) return undefined;
+    const st = taskStatus && taskStatus.key === stepKey ? taskStatus.status : null;
+    return (
+      `Ученик ввёл: ${a.command.slice(0, 400)}\n` +
+      `Терминал ответил: ${a.output.slice(0, 600) || "(пусто)"}` +
+      (st && st.kind === "failed" ? `\nЗадача не засчитана: ${st.reason.slice(0, 500)}` : "")
+    );
+  }
+  if (step.kind === "quiz") {
+    const q = quizState && quizState.key === stepKey ? quizState.state : null;
+    if (!q) return undefined;
+    return (
+      `Ответ ученика: ${q.myAnswer.slice(0, 500) || "(пусто)"}` +
+      (q.phase === "graded" ? `\nРазбор проверки: ${q.result.feedback.slice(0, 500)}` : "")
+    );
+  }
+  return undefined;
+}
+
 /** Краткая тема шага для запроса подробного объяснения — то, что уже показано игроку. */
 function stepTopic(lesson: Lesson, step: Step): { topic: string; context: string } {
   switch (step.kind) {
@@ -300,7 +334,13 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
       const { topic, context } = stepTopic(lesson, step);
       explainState = { key: stepKey, state: { phase: "loading" } };
       renderLessonPanel(run, h);
-      explainTopic({ lesson: lesson.title, topic, context })
+      explainTopic({
+        lesson: lesson.title,
+        topic,
+        context,
+        kind: step.kind,
+        attempt: stepAttempt(step, stepKey),
+      })
         .then((text) => {
           explainState = { key: stepKey, state: text ? { phase: "done", text } : { phase: "error" } };
           renderLessonPanel(run, h);

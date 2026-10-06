@@ -29,7 +29,7 @@ import {
 import { JOBS, parseSalary } from "./data/careers";
 import { pickReviewSlice } from "./data/interview";
 import { initThemeSwitch } from "./ui/theme";
-import { renderLessonPanel, setTaskStatus } from "./ui/lesson-panel";
+import { renderLessonPanel, setLastAttempt, setTaskStatus } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
 import { judgeCommand } from "./engine/grader";
@@ -452,6 +452,8 @@ function handleInput(line: string): void {
   // сказать «не закрыто», показываем решение наставнику-ИИ: он видит команду и
   // её настоящий вывод и засчитывает любое решение, которое делает дело.
   if (res.status === "advance") return applyResult(res);
+  // что ввёл игрок и что ответил терминал — для кнопки «объясни подробнее»
+  setLastAttempt(run, line, res.out ?? "");
   void askMentor(step.text, (step as DoStep).answer, line, res.out ?? "", res);
 }
 
