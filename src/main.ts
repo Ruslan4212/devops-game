@@ -29,7 +29,7 @@ import {
 import { JOBS, parseSalary } from "./data/careers";
 import { pickReviewSlice } from "./data/interview";
 import { initThemeSwitch } from "./ui/theme";
-import { renderLessonPanel, setTaskStatus } from "./ui/lesson-panel";
+import { renderLessonPanel, setLastAttempt, setTaskStatus } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
 import { judgeCommand } from "./engine/grader";
@@ -448,6 +448,7 @@ function handleInput(line: string): void {
   if (step.kind === "type") return applyResult(run.submitType(line));
 
   const res = run.submitDo(line);
+  setLastAttempt(run, line, res.out ?? "");
   // Прибитая проверка знает один верный ответ, а их обычно больше. Прежде чем
   // сказать «не закрыто», показываем решение наставнику-ИИ: он видит команду и
   // её настоящий вывод и засчитывает любое решение, которое делает дело.

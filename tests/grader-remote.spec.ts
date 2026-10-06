@@ -75,6 +75,19 @@ describe("проверка ответов через функцию Claude в Su
     expect(calls[0].url).toMatch(/\/grader\/command$/);
   });
 
+  it("объяснение получает тип шага и то, где ученик застрял", async () => {
+    const calls = stub(() => Response.json({ explanation: "Разбор." }));
+    await explainTopic({
+      topic: "chmod",
+      kind: "do",
+      attempt: "Ученик ввёл: chmod 999 a.sh\nТерминал ответил: chmod: invalid mode",
+    });
+    const sent = JSON.parse(String(calls[0].init.body));
+    expect(sent.kind).toBe("do");
+    expect(sent.attempt).toContain("chmod 999 a.sh");
+    expect(calls[0].url).toMatch(/\/grader\/explain$/);
+  });
+
   it("объяснение темы: текст или null", async () => {
     stub(() => Response.json({ explanation: "Подробно с примерами…" }));
     expect(await explainTopic({ topic: "chmod" })).toBe("Подробно с примерами…");
