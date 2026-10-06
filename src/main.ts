@@ -448,11 +448,12 @@ function handleInput(line: string): void {
   if (step.kind === "type") return applyResult(run.submitType(line));
 
   const res = run.submitDo(line);
-  setLastAttempt(run, line, res.out ?? "");
   // Прибитая проверка знает один верный ответ, а их обычно больше. Прежде чем
   // сказать «не закрыто», показываем решение наставнику-ИИ: он видит команду и
   // её настоящий вывод и засчитывает любое решение, которое делает дело.
   if (res.status === "advance") return applyResult(res);
+  // что ввёл игрок и что ответил терминал — для кнопки «объясни подробнее»
+  setLastAttempt(run, line, res.out ?? "");
   void askMentor(step.text, (step as DoStep).answer, line, res.out ?? "", res);
 }
 
