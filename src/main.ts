@@ -2,16 +2,7 @@ import "./style.css";
 import { ACTS, LESSONS, lessonById } from "./lessons";
 import { LessonRun } from "./engine/lesson-run";
 import type { StepResult } from "./engine/lesson-run";
-import {
-  applyDeathPenalty,
-  clearProgress,
-  EXAM_ATTEMPTS,
-  loadProgress,
-  nextRank,
-  rankOf,
-  RANKS,
-  saveProgress,
-} from "./engine/progress";
+import { clearProgress, loadProgress, nextRank, rankOf, RANKS, saveProgress } from "./engine/progress";
 import type { Progress } from "./engine/progress";
 import { $, esc, lockInput, toast } from "./ui/dom";
 import { applyLegacy, readLegacySave, summarize, worthImporting } from "./sync/legacy-import";
@@ -73,73 +64,19 @@ function settleCalendar(): void {
   persist();
 }
 
-let examOpen = false;
-
 /**
- * Здоровье персонажа дошло до нуля (или экзамен уже был назначен, но не пройден
- * до перезагрузки страницы) — блокируем ввод и открываем экзамен на выживание.
- * Прогресс либо сохраняется (сдал), либо сбрасывается полностью (провалил).
+ * Здоровье персонажа дошло до нуля — персонаж «падает», но без наказания:
+ * потребности подтягиваются до минимума, прогресс курса не трогаем.
  */
 function checkDeath(): void {
-  if (examOpen || !P.life) return;
-  if (!isDead(P.life) && !P.deathPending) return;
-  // смерть засчитывается один раз: повторные заходы продолжают ту же попытку
-  if (!P.deathPending) {
-    P.deathPending = true;
-    P.deaths = (P.deaths ?? 0) + 1;
-    P.examAttempts = 0;
-  }
-  examOpen = true;
+  if (!P.life || !isDead(P.life)) return;
+  P.deaths = (P.deaths ?? 0) + 1;
+  P.life.health = 50;
+  P.life.hunger = Math.max(P.life.hunger, 40);
+  P.life.mood = Math.max(P.life.mood, 40);
+  P.life.paidAt = Date.now();
   saveProgress(P);
-  lockInput(true);
-  openRevivalFlow();
-}
-
-/** Экзамен на выживание: три попытки, дальше — откат тем тяжелее, чем больше смертей. */
-function openRevivalFlow(): void {
-  const doneActs = [...new Set(LESSONS.filter((l) => P.done[l.id]).map((l) => l.act))];
-  void import("./ui/revival").then(({ openRevivalExam }) => {
-    openRevivalExam({
-      doneActs,
-      attemptsLeft: EXAM_ATTEMPTS - (P.examAttempts ?? 0),
-      onPass: () => {
-        P.life!.health = 50;
-        P.life!.hunger = Math.max(P.life!.hunger, 40);
-        P.life!.mood = Math.max(P.life!.mood, 40);
-        P.life!.paidAt = Date.now();
-        P.deathPending = false;
-        P.examAttempts = 0;
-        examOpen = false;
-        persist();
-        toast("Ты выкарабкался — здоровье восстановлено.");
-        renderAll();
-        if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) lockInput(false);
-      },
-      onAttemptFailed: () => {
-        P.examAttempts = (P.examAttempts ?? 0) + 1;
-        examOpen = false;
-        saveProgress(P);
-        toast(`Попытка не засчитана. Осталось: ${EXAM_ATTEMPTS - P.examAttempts}`);
-        openRevivalFlow();
-        examOpen = true;
-      },
-      onFail: () => {
-        const { progress, message } = applyDeathPenalty(P, LESSONS, P.deaths ?? 1);
-        P = progress;
-        // после отката персонаж жив, но впроголодь: календарь считается заново
-        if (P.life) {
-          P.life.health = 40;
-          P.life.hunger = Math.max(P.life.hunger, 35);
-          P.life.paidAt = Date.now();
-        }
-        examOpen = false;
-        saveProgress(P);
-        toast(message);
-        startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
-        renderAll();
-      },
-    });
-  });
+  toast("Персонаж свалился без сил, но отлежался — здоровье восстановлено.");
 }
 
 /* ------------------------------- HUD / карта ------------------------------- */
