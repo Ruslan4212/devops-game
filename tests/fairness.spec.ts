@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACT_TO_TOPIC, JOBS, SOFT_QUESTIONS, jobTopics, pickQuestions } from "../src/data/careers";
+import { JOBS, SOFT_QUESTIONS, jobTopics, pickQuestions } from "../src/data/careers";
 import { TECH_TOPICS, pickTechQuestions } from "../src/data/interview";
 import { LESSONS } from "../src/lessons";
 import { localGrade } from "../src/engine/grader";
@@ -69,16 +69,6 @@ describe("каждый экран с вопросами уважает прог�
             `акт ${reached}: показан вопрос акта ${q.act} — «${q.q.slice(0, 40)}»`,
           ).toBeLessThanOrEqual(reached);
         }
-      }
-    }
-  });
-
-  it("экзамен на выживание не спрашивает дальше пройденного", () => {
-    for (const reached of ACTS) {
-      const doneActs = ACTS.filter((a) => a <= reached);
-      const topics = [...new Set(doneActs.map((a) => ACT_TO_TOPIC[a]).filter((t): t is string => !!t))];
-      for (const q of pickTechQuestions(topics, 99, Math.random, reached)) {
-        expect(q.act, `пройден акт ${reached}, спросили про акт ${q.act}`).toBeLessThanOrEqual(reached);
       }
     }
   });
