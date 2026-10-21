@@ -9,3 +9,10 @@ dist-single/
 dev-dist/
 
 *.stackdump
+
+# заметки команд агентов и кэш graphify — в git не попадают
+.team/
+graphify-out/cache/
+graphify-out/manifest.json
+graphify-out/.graphify_*
+graphify-out/graph.html
