@@ -36,10 +36,10 @@ export function initAccount(deps: Deps): AccountApi {
 
   /* ---------- кнопка в шапке ---------- */
   const btn = document.createElement("button");
-  btn.className = "tbtn";
+  btn.className = "tbtn acct-btn";
   btn.id = "acctBtn";
-  // аккаунт — рядом с меню «ещё», в конце навигации: это служебное, а не учебное действие
-  $(".sp").insertBefore(btn, $(".menu-wrap"));
+  // аккаунт — в шапке рядом с темой: служебное действие, не учебное
+  $("#topActions").insertBefore(btn, $("#themeBtn"));
   btn.onclick = openModal;
 
   const refreshBtn = (): void => {
