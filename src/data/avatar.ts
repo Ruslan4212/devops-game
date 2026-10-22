@@ -518,7 +518,27 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     cap +
     accessory +
     rim +
-    `</g></svg>`
+    `</g>` +
+    shoeBadge(o.shoes) +
+    `</svg>`
+  );
+}
+
+/**
+ * Бюст обрезан по грудь, поэтому купленная обувь показывается значком-медалью
+ * в углу диска: силуэт ботинка в цвет пары — покупка видна, а не теряется.
+ */
+function shoeBadge(shoes: string | undefined): string {
+  if (!shoes) return "";
+  const c = shoeColor(shoes);
+  const tall = shoes === "boots" || shoes === "chelsea";
+  const body = tall ? "M196 194h12v10l8 3q4 2 4 6v3h-26z" : "M194 202l6-6 6 4 8 2q6 2 6 7v2h-26z";
+  return (
+    `<g class="av-shoes" data-shoes="${shoes}">` +
+    `<circle cx="207" cy="206" r="21" fill="#fff" stroke="#0b2540" stroke-opacity=".12"/>` +
+    `<path d="${body}" fill="${c}" stroke="#0b2540" stroke-opacity=".35" stroke-width="1.2" stroke-linejoin="round"/>` +
+    `<path d="M194 216h26" stroke="#0b2540" stroke-opacity=".35" stroke-width="2.4" stroke-linecap="round"/>` +
+    `</g>`
   );
 }
 
