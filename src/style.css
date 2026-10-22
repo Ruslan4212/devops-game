@@ -2509,6 +2509,9 @@ button:disabled {
   .main-col {
     padding: var(--s2) var(--s2) 0;
   }
+  .term-panel {
+    max-height: 55%;
+  }
 
   .brief {
     padding: var(--s4);

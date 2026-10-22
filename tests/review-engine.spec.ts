@@ -142,6 +142,20 @@ describe("случайность и отбор", () => {
   });
 });
 
+describe("круг по сужающейся области", () => {
+  it("исправленные вопросы выпадают, а непоказанные не пропускаются", () => {
+    const pool = fakePool(6);
+    const rng = seededRng(11);
+    const m0 = ensureMarathon(undefined, pool, { kind: "wrong" }, rng);
+    // показаны два первых, и они ушли из области «только ошибки»
+    const shown = m0.order.slice(0, 2);
+    const rest = pool.filter((it) => !shown.includes(it.key));
+    const m1 = ensureMarathon({ ...m0, pos: 2 }, rest, { kind: "wrong" }, rng);
+    expect(m1.pos).toBe(0);
+    expect(m1.order).toEqual(m0.order.slice(2));
+  });
+});
+
 describe("история повторения", () => {
   it("верный ответ поднимает коробку, ошибка — в первую, счётчики растут", () => {
     let st: ReviewStats = {};

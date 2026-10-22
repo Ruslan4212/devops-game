@@ -21,7 +21,7 @@ import { JOBS, parseSalary } from "./data/careers";
 import { TECH_TOPICS } from "./data/interview";
 import { buildReviewPool, reachedActOf } from "./engine/review";
 import { initThemeSwitch } from "./ui/theme";
-import { initTermPanel, revealTerminal } from "./ui/term-panel";
+import { initTermPanel, revealTerminal, yieldToText } from "./ui/term-panel";
 import { renderLessonPanel, setLastAttempt, setTaskStatus } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
@@ -202,6 +202,7 @@ function enterStep(): void {
 
   const needsTyping = step.kind === "type" || step.kind === "do";
   if (needsTyping || step.kind === "watch") revealTerminal();
+  else yieldToText();
   lockInput(!needsTyping);
   renderPanel();
   if (needsTyping) $("#cmd").focus();

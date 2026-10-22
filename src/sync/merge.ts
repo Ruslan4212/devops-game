@@ -79,12 +79,13 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     legacyImported: Boolean(a.legacyImported || b.legacyImported),
     // strict — переключаемая настройка, а не прогресс: берём у той версии, что сохранена позже
     strict: (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a.strict : b.strict,
+    reviewStats: mergeReviewStats(a.reviewStats, b.reviewStats),
+    // круг «повторить всё» — у той версии, что сохранена позже
+    reviewMarathon: newer.reviewMarathon ?? older.reviewMarathon,
+    // уроки с последнего повторения — максимум: обязательное повторение не теряется при синхронизации
+    lessonsSinceReview: Math.max(a.lessonsSinceReview ?? 0, b.lessonsSinceReview ?? 0),
     // done уже мог "перегнать" lessonState с другого устройства — если урок отмечен
     // пройденным где-то, снимок незаконченного прохождения этого же урока не нужен
-    reviewStats: mergeReviewStats(a.reviewStats, b.reviewStats),
-    // круг «повторить всё» и счётчики обязательного повторения — от той версии, что дальше
-    reviewMarathon: newer.reviewMarathon ?? older.reviewMarathon,
-    lessonsSinceReview: newer.lessonsSinceReview ?? older.lessonsSinceReview,
     lessonState: done[finalCur ?? ""] ? undefined : pickLessonState(a, b, finalCur),
   };
 }

@@ -243,7 +243,10 @@ export function ensureMarathon(
       pool.map((it) => it.key).filter((k) => !known.has(k)),
       rng,
     );
-    return { scope: sid, order: [...current.order.filter((k) => keys.has(k)), ...fresh], pos: current.pos };
+    // вопросы, выпавшие из области (например, исправленные ошибки), убираем,
+    // а позицию пересчитываем по уже показанным — иначе она перескочит непоказанные
+    const shown = current.order.slice(0, current.pos).filter((k) => keys.has(k)).length;
+    return { scope: sid, order: [...current.order.filter((k) => keys.has(k)), ...fresh], pos: shown };
   }
   return {
     scope: sid,

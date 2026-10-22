@@ -44,6 +44,14 @@ export function setTerminalCollapsed(collapsed: boolean, save = true): void {
   if (save) write(C_KEY, collapsed ? "1" : "0");
 }
 
+/**
+ * На телефоне экран делят текст и терминал: на шагах «читай»/«вопрос» терминал
+ * сворачиваем до заголовка (не запоминая), чтобы текст шага было видно целиком.
+ */
+export function yieldToText(): void {
+  if (panel && window.matchMedia("(max-width: 720px)").matches) setTerminalCollapsed(true, false);
+}
+
 /** Шаг просит команду — панель должна быть открыта (выбор пользователя не перезаписываем). */
 export function revealTerminal(): void {
   if (panel?.classList.contains("collapsed")) setTerminalCollapsed(false, false);

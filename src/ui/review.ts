@@ -62,7 +62,11 @@ function savePrefs(p: Prefs): void {
   }
 }
 
-const close = (): void => $("#modOv").classList.add("hide");
+const close = (): void => {
+  $("#modOv").classList.add("hide");
+  // остальные модалки (собеседование, магазин…) — прежней ширины
+  $("#modBody").classList.remove("rv-modal");
+};
 
 /**
  * Повторение пройденного. Один движок и для обязательной сессии (каждые N уроков),
@@ -75,7 +79,8 @@ export function openReviewSession(d: ReviewDeps): void {
   $("#modBody").classList.add("rv-modal");
   if (d.mandatory) {
     const items = pickSmartSession(d.pool, d.stats(), d.mandatorySize ?? 15, Date.now(), Math.random);
-    runSession(d, items, { ...loadPrefs(), mode: "smart" }, "Обязательное повторение");
+    // обязательное — вариантами: работает без сети и не застревает на самооценке
+    runSession(d, items, { ...loadPrefs(), mode: "smart", answer: "options" }, "Обязательное повторение");
   } else setup(d);
 }
 
@@ -219,7 +224,10 @@ function runSession(d: ReviewDeps, items: ReviewItem[], prefs: Prefs, title: str
     if (b) b.onclick = () => finish();
   };
 
+  // «Остановиться» во время ИИ-проверки: запоздалый ответ не должен ни писать историю, ни перерисовывать итог
+  let stopped = false;
   const record = (item: ReviewItem, ok: boolean): void => {
+    if (stopped) return;
     results.push({ item, correct: ok });
     const stats = recordAnswer(d.stats(), item.key, ok, Date.now());
     const m = d.marathon();
@@ -233,6 +241,7 @@ function runSession(d: ReviewDeps, items: ReviewItem[], prefs: Prefs, title: str
   };
 
   const finish = (): void => {
+    stopped = true;
     const correct = results.filter((r) => r.correct).length;
     const weak = weakTopics(results);
     const wrongItems = results.filter((r) => !r.correct).map((r) => r.item);
@@ -321,6 +330,7 @@ function runSession(d: ReviewDeps, items: ReviewItem[], prefs: Prefs, title: str
     wireStop();
     ($("#rvAnswer") as HTMLTextAreaElement).focus();
     const selfGrade = (): void => {
+      if (stopped) return;
       body.innerHTML =
         header() +
         q +
@@ -329,8 +339,13 @@ function runSession(d: ReviewDeps, items: ReviewItem[], prefs: Prefs, title: str
         `<div class="rv-actions"><button class="prim" id="rvRight">${icon("check", 16)}У меня было верно</button>` +
         `<button class="sec" id="rvWrong">${icon("x", 16)}Ошибся</button></div>`;
       wireStop();
-      $("#rvRight").onclick = () => (record(item, true), next());
-      $("#rvWrong").onclick = () => (record(item, false), next());
+      const once = (ok: boolean) => (): void => {
+        body.querySelectorAll<HTMLButtonElement>("#rvRight, #rvWrong").forEach((b) => (b.disabled = true));
+        record(item, ok);
+        next();
+      };
+      $("#rvRight").onclick = once(true);
+      $("#rvWrong").onclick = once(false);
     };
     $("#rvSend").onclick = () => {
       const mine = ($("#rvAnswer") as HTMLTextAreaElement).value.trim();
@@ -348,6 +363,7 @@ function runSession(d: ReviewDeps, items: ReviewItem[], prefs: Prefs, title: str
       })
         .then((r) => {
           // локальная проверка по словам может отклонить законный пересказ — тогда даём оценить себя
+          if (stopped) return;
           if (r.local && !r.correct) return selfGrade();
           record(item, r.correct);
           body.innerHTML =
