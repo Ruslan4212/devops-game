@@ -2422,6 +2422,29 @@ button:disabled {
     padding: 0 9px;
   }
 }
+/* шапка не сжимает блок ранга и не наезжает на навигацию: лишнее прячется по мере сужения */
+.xpwrap,
+.logo,
+.top .sp {
+  flex: none;
+}
+.hud-chips {
+  overflow: hidden;
+}
+@media (max-width: 1100px) {
+  .logo span,
+  #moneyChip {
+    display: none;
+  }
+  .xpwrap {
+    width: 140px;
+  }
+}
+@media (max-width: 900px) {
+  #progChip {
+    display: none;
+  }
+}
 @media (max-width: 1100px) {
   .wrap {
     grid-template-columns: 240px minmax(0, 1fr);
