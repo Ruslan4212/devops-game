@@ -1,5 +1,6 @@
 import type { Life } from "./life";
 import type { LessonState } from "./lesson-run";
+import type { ReviewMarathon, ReviewStats } from "./review";
 
 export interface Progress {
   xp: number;
@@ -26,6 +27,17 @@ export interface Progress {
   lessonsSinceReview?: number;
   /** курсор в хронологическом пуле вопросов повторения — чтобы следующая сессия продолжала, а не начинала сначала */
   reviewCursor?: number;
+  /** история повторения по каждому вопросу: показан / ошибок / когда / коробка Лейтнера */
+  reviewStats?: ReviewStats;
+  /** незаконченный круг «повторить всё» */
+  reviewMarathon?: ReviewMarathon;
+}
+
+/** Приводит сохранение любой давности к текущей схеме: старые сохранения без истории повторения получают пустую. */
+export function migrateProgress(raw: Partial<Progress> | null | undefined): Progress {
+  const p: Progress = Object.assign({ xp: 0, done: {}, cur: null, hints: {} }, raw ?? {});
+  if (!p.reviewStats || typeof p.reviewStats !== "object") p.reviewStats = {};
+  return p;
 }
 
 const KEY = "devops_terminal_rpg_v1";
@@ -47,11 +59,10 @@ export const rankOf = (xp: number): string => {
 export const nextRank = (xp: number) => RANKS.find((q) => xp < q[0]);
 
 export function loadProgress(): Progress {
-  const empty: Progress = { xp: 0, done: {}, cur: null, hints: {} };
   try {
-    return Object.assign(empty, JSON.parse(localStorage.getItem(KEY) || "{}"));
+    return migrateProgress(JSON.parse(localStorage.getItem(KEY) || "{}") as Partial<Progress>);
   } catch {
-    return empty;
+    return migrateProgress(null);
   }
 }
 export function saveProgress(p: Progress): void {
