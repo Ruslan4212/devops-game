@@ -207,11 +207,13 @@ const NAV_ICO: Record<string, string> = {
   career: "briefcase",
   progress: "progress",
   settings: "settings",
+  glossary: "keyboard",
+  rating: "trophy",
 };
 function paintNavIcons(): void {
   for (const a of document.querySelectorAll<HTMLAnchorElement>("#side a")) {
     const slot = a.querySelector<HTMLElement>(".si");
-    const name = NAV_ICO[a.dataset.r ?? ""];
+    const name = NAV_ICO[a.dataset.r ?? a.dataset.act ?? ""];
     if (slot && name) slot.innerHTML = icon(name, 20, { filled: a.classList.contains("active") });
   }
 }
@@ -772,6 +774,15 @@ const openCareer = (): void => {
 const openRating = (): void => {
   void import("./ui/leaderboard").then(({ openLeaderboard }) => void openLeaderboard());
 };
+/** Справочник команд и рейтинг — окна, а не разделы: открываем их из меню, не меняя текущий экран. */
+for (const a of document.querySelectorAll<HTMLAnchorElement>("#side a[data-act]")) {
+  a.onclick = (e) => {
+    e.preventDefault();
+    setRailOpen(false);
+    if (a.dataset.act === "glossary") openGlossary();
+    else openRating();
+  };
+}
 const openInterviewFlow = (): void => {
   void import("./ui/interview").then(({ openInterview }) => openInterview(reachedAct()));
 };
