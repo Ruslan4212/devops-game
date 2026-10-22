@@ -2,7 +2,7 @@ import { def, O } from "./registry";
 
 def("alerts", (_a, w) => {
   if (!w.alerts.length) return O("✓ Активных алертов нет. Сервис здоров.");
-  return O(w.alerts.map((al) => "🔴 " + al.name + "  [" + al.sev + "]\n   " + al.desc).join("\n\n"));
+  return O(w.alerts.map((al) => "● " + al.name + "  [" + al.sev + "]\n   " + al.desc).join("\n\n"));
 });
 
 def("metrics", (_a, w) => {

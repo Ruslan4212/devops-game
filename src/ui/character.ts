@@ -1,6 +1,17 @@
 import { icon } from "../data/ui-icons";
 import { $, esc } from "./dom";
-import { BEARDS, EYESC, FACE, HAIRC, SKIN, avatarSVG, defaultAppearance, hairStyles } from "../data/avatar";
+import {
+  BEARDS,
+  EMOTION_LABEL,
+  EYESC,
+  FACE,
+  HAIRC,
+  SKIN,
+  avatarSVG,
+  emotionOf,
+  hairStyles,
+  migrateAppearance,
+} from "../data/avatar";
 import type { Appearance, Sex } from "../data/avatar";
 import type { Life } from "../engine/life";
 
@@ -13,13 +24,58 @@ export interface CharacterDeps {
 type NumField = "skin" | "hair" | "hairc" | "eyes" | "face" | "beardStyle";
 type BoolField = "glasses" | "beard" | "cap";
 
+/** Портрет текущего персонажа с учётом одежды, аксессуара и самочувствия. */
+export function lifeAvatar(life: Life, size: number): string {
+  const look = migrateAppearance(life.look);
+  return avatarSVG(look, {
+    size,
+    top: life.wear?.top,
+    shoes: life.wear?.shoes,
+    accessory: life.accessory,
+    vitals: life,
+  });
+}
+
+/** Три полоски состояния: сытость, здоровье, настроение. */
+export function vitalsHtml(life: Life): string {
+  const bar = (ico: string, label: string, v: number): string => {
+    const n = Math.max(0, Math.min(100, Math.round(v)));
+    const tone = n < 25 ? " bad" : n < 50 ? " mid" : "";
+    return (
+      `<div class="ch-vital${tone}"><span class="ch-vital-l">${icon(ico, 16)}${esc(label)}</span>` +
+      `<div class="ch-vital-bar"><i style="width:${n}%"></i></div><b>${n}</b></div>`
+    );
+  };
+  return (
+    `<div class="ch-vitals">` +
+    bar("dot", "Сытость", life.hunger) +
+    bar("heart", "Здоровье", life.health) +
+    bar("mood", "Настроение", life.mood) +
+    `</div>`
+  );
+}
+
+/** Карточка персонажа для раздела «Карьера и жизнь». */
+export function avatarCardHtml(life: Life): string {
+  const look = migrateAppearance(life.look);
+  const emo = emotionOf(life);
+  return (
+    `<div class="card ch-card">` +
+    `<div class="ch-card-pic">${lifeAvatar(life, 112)}</div>` +
+    `<div class="ch-card-info"><b>${esc(look.name || "Твой персонаж")}</b>` +
+    `<span class="ch-mood ch-mood-${emo}">${esc(EMOTION_LABEL[emo])}</span>` +
+    vitalsHtml(life) +
+    `</div></div>`
+  );
+}
+
 /** Экран персонажа: портрет и настройка внешности. */
 export function openCharacter(d: CharacterDeps): void {
-  if (!d.life.look) d.life.look = defaultAppearance();
+  d.life.look = migrateAppearance(d.life.look);
   const look: Appearance = d.life.look;
 
   const chip = (on: boolean, set: string, text: string): string =>
-    `<button class="ch-chip${on ? " on" : ""}" data-set="${set}">${esc(text)}</button>`;
+    `<button class="ch-chip${on ? " on" : ""}" data-set="${set}" aria-pressed="${on}">${esc(text)}</button>`;
 
   const row = (label: string, inner: string): string =>
     `<div class="ch-row"><span>${esc(label)}</span><div class="ch-opts">${inner}</div></div>`;
@@ -31,7 +87,7 @@ export function openCharacter(d: CharacterDeps): void {
         .map(
           (c, i) =>
             `<button class="ch-sw${look[field] === i ? " on" : ""}" data-set="${field}|${i}" ` +
-            `style="background:${c}" aria-label="${esc(label)} ${i + 1}"></button>`,
+            `style="background:${c}" aria-label="${esc(label)} ${i + 1}" aria-pressed="${look[field] === i}"></button>`,
         )
         .join(""),
     );
@@ -41,19 +97,18 @@ export function openCharacter(d: CharacterDeps): void {
 
   const render = (): void => {
     const body = $("#modBody");
+    const emo = emotionOf(d.life);
     body.innerHTML =
       `<h1>${icon("user", 22)}Персонаж</h1>` +
       `<div class="ch-wrap">` +
-      `<div class="ch-portrait">${avatarSVG(look, {
-        size: 150,
-        top: d.life.wear.top,
-        shoes: d.life.wear.shoes,
-        accessory: d.life.accessory,
-      })}</div>` +
+      `<div class="ch-side"><div class="ch-portrait">${lifeAvatar(d.life, 220)}</div>` +
+      `<span class="ch-mood ch-mood-${emo}">${esc(EMOTION_LABEL[emo])}</span>` +
+      vitalsHtml(d.life) +
+      `</div>` +
       `<div class="ch-controls">` +
       `<div class="ch-row"><span>Имя</span>` +
       `<input id="chName" class="ch-name" maxlength="24" value="${esc(look.name)}" placeholder="как тебя зовут"></div>` +
-      row("Пол", chip(look.sex === "m", "sex|m", "М") + chip(look.sex === "f", "sex|f", "Ж")) +
+      row("Пол", chip(look.sex === "m", "sex|m", "Мужской") + chip(look.sex === "f", "sex|f", "Женский")) +
       swatches("Кожа", "skin", SKIN) +
       list("Причёска", "hair", hairStyles(look.sex)) +
       swatches("Цвет волос", "hairc", HAIRC) +
@@ -67,8 +122,7 @@ export function openCharacter(d: CharacterDeps): void {
       ) +
       (look.sex === "m" && look.beard ? list("Стиль бороды", "beardStyle", BEARDS) : "") +
       `</div></div>` +
-      `<div class="kb">Одежда, обувь и аксессуар берутся из раздела «Жизнь» — смени их там, портрет обновится сам.</div>` +
-      `<div class="kb">Внешность сохраняется сама и синхронизируется вместе с прогрессом.</div>` +
+      `<div class="kb">${icon("bulb", 16)}Одежда и аксессуар берутся из раздела «Жизнь», выражение лица зависит от сытости, здоровья и настроения.</div>` +
       `<button class="sec" id="chClose">Готово</button>`;
 
     $("#chClose").onclick = () => $("#modOv").classList.add("hide");

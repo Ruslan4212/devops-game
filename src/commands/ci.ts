@@ -44,7 +44,7 @@ export function runPipeline(w: World): string {
     run.n +
     " запущен → " +
     (failed ? "КРАСНЫЙ" : awaitingApproval ? "ЖДЁТ ПОДТВЕРЖДЕНИЯ" : "ЗЕЛЁНЫЙ") +
-    (hardcoded ? "\n[CI] ⚠ security: в workflow найден секрет открытым текстом" : "") +
+    (hardcoded ? "\n[CI] [!] security: в workflow найден секрет открытым текстом" : "") +
     (awaitingApproval ? "\n[CI] деплой в production ждёт: ci approve" : "") +
     "\n[CI] подробности: ci status"
   );

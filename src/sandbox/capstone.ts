@@ -48,7 +48,7 @@ export function openCapstone(deps: Deps): void {
   // работа, как код-ревью капстоуна в буткемпе. Игрок подтверждает сам.
   doneBtn.onclick = () => {
     deps.onDone?.();
-    deps.toast("🎓 Курс завершён. Ранг подтверждён капстоуном.");
+    deps.toast("Курс завершён. Ранг подтверждён капстоуном.");
     doneBtn.innerHTML = icon("check", 16) + "Капстоун засчитан";
     doneBtn.disabled = true;
   };

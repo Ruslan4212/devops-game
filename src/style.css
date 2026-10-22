@@ -509,7 +509,8 @@ button:disabled {
 }
 .side .si {
   width: 22px;
-  text-align: center;
+  display: inline-flex;
+  justify-content: center;
   flex: none;
 }
 .side-badge {
@@ -648,8 +649,9 @@ button:disabled {
 }
 .tc-ico,
 .tile-ico {
-  font-size: 1.6rem;
   line-height: 1;
+  color: var(--accent, #3ba0ff);
+  display: inline-flex;
 }
 .tc-body {
   flex: 1;
@@ -1512,6 +1514,7 @@ label.set-row {
   border: 1px solid var(--border-strong);
 }
 .lp-done {
+  color: var(--accent, #3ba0ff);
   font-size: var(--fs-2xl);
   margin: var(--s2) 0 var(--s3);
 }
@@ -2042,7 +2045,7 @@ label.set-row {
   background: var(--surface-2);
   display: grid;
   place-items: center;
-  font-size: 14px;
+  color: var(--text-2, currentColor);
 }
 .iv-bubble {
   background: var(--surface-2);
@@ -2284,6 +2287,11 @@ label.set-row {
 .lf-card-icon {
   float: right;
   margin: -2px 0 var(--s1) var(--s2);
+  padding: 8px;
+  border-radius: var(--r);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  line-height: 0;
 }
 .lf-card-d {
   color: var(--text-2);
@@ -2700,4 +2708,166 @@ label.set-row {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ============================ АВАТАР (команда C) ============================ */
+.av-svg {
+  display: block;
+  border-radius: 50%;
+  filter: drop-shadow(0 8px 16px rgba(11, 73, 131, 0.22));
+}
+.ch-wrap {
+  align-items: flex-start;
+}
+.ch-side {
+  flex: 0 0 auto;
+  width: 240px;
+  max-width: 100%;
+  margin: 0 auto;
+  display: grid;
+  gap: var(--s3);
+  justify-items: center;
+  padding: var(--s4);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: linear-gradient(180deg, var(--accent-soft), var(--surface));
+  box-shadow: var(--shadow-menu);
+}
+.ch-portrait {
+  border: 0;
+  border-radius: 50%;
+  overflow: visible;
+  line-height: 0;
+}
+.ch-mood {
+  display: inline-block;
+  padding: 2px var(--s3);
+  border-radius: var(--r-full);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.ch-mood-happy {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.ch-mood-tired,
+.ch-mood-hungry {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.ch-mood-sad,
+.ch-mood-sick {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.ch-vitals {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+.ch-vital {
+  display: grid;
+  grid-template-columns: 96px 1fr 28px;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.ch-vital-l {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ch-vital b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.ch-vital-bar {
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.ch-vital-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #6cbcff);
+}
+.ch-vital.mid .ch-vital-bar i {
+  background: linear-gradient(90deg, #e0a052, #f2c27d);
+}
+.ch-vital.bad .ch-vital-bar i {
+  background: linear-gradient(90deg, var(--danger), #f08084);
+}
+.ch-controls {
+  padding: var(--s4);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+}
+.ch-sw {
+  width: 28px;
+  height: 28px;
+  box-shadow: inset 0 -3px 5px rgba(0, 0, 0, 0.15);
+}
+.ch-card-btn {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--s3);
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.ch-card {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  margin: 0;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface) 60%);
+}
+.ch-card-btn:hover .ch-card {
+  box-shadow: var(--shadow-menu);
+}
+.ch-card-pic {
+  flex: 0 0 auto;
+  line-height: 0;
+}
+.ch-card-info {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--s2);
+  justify-items: start;
+}
+.ch-card-info .ch-vitals {
+  max-width: 320px;
+}
+@media (max-width: 480px) {
+  .ch-card {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .ch-card-pic {
+    margin: 0 auto;
+  }
+  .ch-card-info {
+    justify-items: center;
+  }
+  .ch-vital {
+    grid-template-columns: 84px 1fr 26px;
+  }
+}
+.ch-wrap + .kb .ico {
+  margin-right: 8px;
+  vertical-align: -3px;
 }

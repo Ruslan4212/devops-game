@@ -11,7 +11,7 @@ import type { LeaderRow } from "../sync/cloud";
 export async function openLeaderboard(): Promise<void> {
   const body = $("#modBody");
   const shell = (inner: string): void => {
-    body.innerHTML = `<h1>${icon("medal", 22)}Рейтинг</h1>${inner}<button class="sec" id="lbClose">Закрыть</button>`;
+    body.innerHTML = `<h1>${icon("medal", 22, { filled: true })}Рейтинг</h1>${inner}<button class="sec" id="lbClose">Закрыть</button>`;
     $("#lbClose").onclick = () => $("#modOv").classList.add("hide");
   };
 

@@ -105,7 +105,7 @@ function renderCapstoneCard(p: Progress, curId: string | null, onCapstone: () =>
   b.className =
     "ms" + (passed ? " done" : "") + (curId === "capstone" ? " cur" : "") + (ready ? "" : " lock");
   b.innerHTML =
-    `<span class="b">${passed ? icon("check", 14) : ready ? icon("award", 14) : icon("lock", 14)}</span>` +
+    `<span class="b">${passed ? icon("award", 14, { filled: true }) : ready ? icon("award", 14) : icon("lock", 14)}</span>` +
     `<span>${ready ? "Капстоун на реальном сервере" : "Пройди все уроки и экзамены"}</span>`;
   b.disabled = !ready;
   b.onclick = onCapstone;
