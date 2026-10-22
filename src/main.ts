@@ -18,8 +18,10 @@ import {
   xpEarnBonusPct,
 } from "./engine/life";
 import { JOBS, parseSalary } from "./data/careers";
-import { pickReviewSlice } from "./data/interview";
+import { TECH_TOPICS } from "./data/interview";
+import { buildReviewPool, reachedActOf } from "./engine/review";
 import { initThemeSwitch } from "./ui/theme";
+import { initTermPanel, revealTerminal, yieldToText } from "./ui/term-panel";
 import { renderLessonPanel, setLastAttempt, setTaskStatus } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
 import { execLine } from "./engine/shell";
@@ -90,6 +92,13 @@ function renderHud(): void {
   const prev = [...RANKS].reverse().find((q) => P.xp >= q[0])![0];
   const pct = nr ? ((P.xp - prev) / (nr[0] - prev)) * 100 : 100;
   $("#xpFill").style.width = Math.max(3, Math.min(100, pct)) + "%";
+  const life = P.life;
+  $("#moneyChip").innerHTML = life ? `<b>${life.money.toLocaleString("ru-RU")}</b> ₽` : "";
+  $("#hpChip").innerHTML = life
+    ? `♥ <b>${Math.round(life.health)}</b><i class="hp-bar"><i style="width:${Math.max(0, Math.min(100, life.health))}%"></i></i>`
+    : "";
+  $("#moneyChip").classList.toggle("hide", !life);
+  $("#hpChip").classList.toggle("hide", !life);
   // сертификат — награда: пока не получен, он живёт в меню «ещё», после — на виду в шапке
   $("#certChip").classList.toggle("hide", !allLessonsDone(P));
 }
@@ -133,10 +142,23 @@ function openCapstoneFlow(): void {
   });
 }
 
+/** Меню актов на узком экране — выезжающая панель (как в english-b2). */
+function setRailOpen(open: boolean): void {
+  document.body.classList.toggle("rail-open", open);
+  $("#railToggle").setAttribute("aria-expanded", String(open));
+}
+$("#railToggle").onclick = () => setRailOpen(!document.body.classList.contains("rail-open"));
+$("#railScrim").onclick = () => setRailOpen(false);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.body.classList.contains("rail-open")) setRailOpen(false);
+});
+initTermPanel();
+
 /* --------------------------------- урок --------------------------------- */
 function startLesson(id: string): void {
   const lesson = lessonById(id);
   if (!lesson) return;
+  setRailOpen(false);
   if (!isUnlocked(lesson, P)) {
     toast("Сначала пройди предыдущий урок");
     return;
@@ -179,6 +201,8 @@ function enterStep(): void {
   }
 
   const needsTyping = step.kind === "type" || step.kind === "do";
+  if (needsTyping || step.kind === "watch") revealTerminal();
+  else yieldToText();
   lockInput(!needsTyping);
   renderPanel();
   if (needsTyping) $("#cmd").focus();
@@ -240,7 +264,31 @@ const REVIEW_SESSION_SIZE = 15;
 
 /** Самый поздний акт, до которого игрок реально дошёл — дальше спрашивать нечестно. */
 function reachedAct(): number {
-  return Math.max(1, ...LESSONS.filter((l) => P.done[l.id]).map((l) => l.act));
+  return reachedActOf(LESSONS, P.done);
+}
+
+/** Повторение — один движок для обязательной сессии и для кнопки «повторение». */
+function openReview(mandatory: boolean, onDone: () => void): boolean {
+  const pool = buildReviewPool(LESSONS, TECH_TOPICS, P.done);
+  if (!pool.length) return false;
+  void import("./ui/review").then(({ openReviewSession }) => {
+    openReviewSession({
+      pool,
+      stats: () => P.reviewStats ?? {},
+      marathon: () => P.reviewMarathon,
+      save: (stats, marathon) => {
+        P.reviewStats = stats;
+        P.reviewMarathon = marathon;
+        persist();
+      },
+      lessons: LESSONS.filter((l) => P.done[l.id]).map((l) => ({ id: l.id, title: l.title, act: l.act })),
+      acts: ACTS,
+      mandatory,
+      mandatorySize: REVIEW_SESSION_SIZE,
+      onDone,
+    });
+  });
+  return true;
 }
 
 function showNextLessonScreen(
@@ -279,19 +327,12 @@ function maybeShowMandatoryReview(
     `Пройдено ${REVIEW_EVERY_LESSONS} уроков — самое время освежить старый материал, пока он не забылся.</div>` +
     `<button class="lp-next" id="lpGoReview">Начать повторение →</button>`;
   document.getElementById("lpGoReview")!.onclick = () => {
-    const { questions, nextCursor } = pickReviewSlice(reachedAct(), P.reviewCursor ?? 0, REVIEW_SESSION_SIZE);
-    void import("./ui/review").then(({ openReviewSession }) => {
-      openReviewSession({
-        questions,
-        mandatory: true,
-        onDone: () => {
-          P.lessonsSinceReview = 0;
-          P.reviewCursor = nextCursor;
-          persist();
-          showNextLessonScreen(lesson, next);
-        },
-      });
-    });
+    const finish = (): void => {
+      P.lessonsSinceReview = 0;
+      persist();
+      showNextLessonScreen(lesson, next);
+    };
+    if (!openReview(true, finish)) finish();
   };
 }
 
@@ -579,21 +620,7 @@ $("#ivBtn").onclick = () => {
   void import("./ui/interview").then(({ openInterview }) => openInterview(reachedAct()));
 };
 $("#reviewBtn").onclick = () => {
-  const { questions, nextCursor } = pickReviewSlice(reachedAct(), P.reviewCursor ?? 0, REVIEW_SESSION_SIZE);
-  if (!questions.length) {
-    toast("Пока нечего повторять — пройди хотя бы один урок");
-    return;
-  }
-  void import("./ui/review").then(({ openReviewSession }) => {
-    openReviewSession({
-      questions,
-      mandatory: false,
-      onDone: () => {
-        P.reviewCursor = nextCursor;
-        persist();
-      },
-    });
-  });
+  if (!openReview(false, renderHud)) toast("Пока нечего повторять — пройди хотя бы один урок");
 };
 $("#certBtn").onclick = () => {
   if (!allLessonsDone(P)) {

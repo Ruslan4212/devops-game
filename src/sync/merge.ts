@@ -1,4 +1,5 @@
 import { mergeLife } from "../engine/life";
+import { mergeReviewStats } from "../engine/review";
 import type { Progress } from "../engine/progress";
 import type { LessonState } from "../engine/lesson-run";
 
@@ -36,6 +37,7 @@ function pickLessonState(a: Progress, b: Progress, cur: string | null): LessonSt
  *   done     = объединение (истина побеждает)
  *   hints    = поэлементный максимум
  *   capstone = логическое ИЛИ (пройдено хоть на одном устройстве — пройдено)
+ *   reviewStats = по вопросу: счётчики и время — максимум, коробка — от последней записи
  *   cur      = указатель того, кто дальше по программе (больше пройдено),
  *              при равенстве — у кого свежее updatedAt
  *
@@ -63,6 +65,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
   if (aDone !== bDone) cur = aDone > bDone ? a.cur : b.cur;
   else cur = (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a.cur : b.cur;
 
+  const [newer, older] = (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? [a, b] : [b, a];
   const finalCur = cur ?? a.cur ?? b.cur ?? null;
   return {
     xp: Math.max(a.xp ?? 0, b.xp ?? 0),
@@ -76,6 +79,11 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     legacyImported: Boolean(a.legacyImported || b.legacyImported),
     // strict — переключаемая настройка, а не прогресс: берём у той версии, что сохранена позже
     strict: (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a.strict : b.strict,
+    reviewStats: mergeReviewStats(a.reviewStats, b.reviewStats),
+    // круг «повторить всё» — у той версии, что сохранена позже
+    reviewMarathon: newer.reviewMarathon ?? older.reviewMarathon,
+    // уроки с последнего повторения — максимум: обязательное повторение не теряется при синхронизации
+    lessonsSinceReview: Math.max(a.lessonsSinceReview ?? 0, b.lessonsSinceReview ?? 0),
     // done уже мог "перегнать" lessonState с другого устройства — если урок отмечен
     // пройденным где-то, снимок незаконченного прохождения этого же урока не нужен
     lessonState: done[finalCur ?? ""] ? undefined : pickLessonState(a, b, finalCur),

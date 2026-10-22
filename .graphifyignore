@@ -1,0 +1,9 @@
+# Собранные одним файлом бандлы и копии рабочих деревьев агентов — не исходники.
+play/
+next/
+dist/
+dist-single/
+.claude/worktrees/
+graphify-out/
+package-lock.json
+*.stackdump
