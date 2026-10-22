@@ -38,115 +38,97 @@
         class="tbtn burger"
         id="railToggle"
         type="button"
-        aria-label="Меню актов"
-        aria-controls="railCol"
+        aria-label="Меню разделов"
+        aria-controls="side"
         aria-expanded="false"
       >
         ☰
       </button>
-      <div class="logo"><i></i><span>Terminal Ops Academy</span></div>
-      <div class="xpwrap" title="Ранг и опыт">
-        <div class="r"><span id="rankTxt">Стажёр</span><span id="xpTxt">0 XP</span></div>
-        <div class="xpbar"><i id="xpFill"></i></div>
+      <a class="logo" href="#/today"
+        ><i></i><span>Terminal Ops <b>Academy</b></span></a
+      >
+      <div class="top-stats" id="topStats" title="Пройдено уроков и ранг">
+        <span id="progChip">0 / 0</span>
+        <span class="top-bar"><i id="xpFill"></i></span>
+        <span id="rankTxt">Стажёр</span>
       </div>
-      <div class="hud-chips">
-        <span class="stat-chip" id="progChip">0 / 23 заданий</span>
-        <span class="stat-chip stat-money" id="moneyChip" title="Кошелёк"></span>
-        <span class="stat-chip stat-hp" id="hpChip" title="Здоровье"></span>
+      <div class="sp" id="topActions">
+        <button class="icon-btn" id="themeBtn" type="button" title="Сменить тему" aria-label="Сменить тему">
+          🌓
+        </button>
       </div>
-      <button class="tbtn tbtn-cert hide" id="certChip" type="button">сертификат</button>
-      <nav class="sp" aria-label="Разделы">
-        <button class="tbtn" id="reviewBtn" type="button">повторение</button>
-        <button class="tbtn" id="ivBtn" type="button">к собеседованию</button>
-        <button class="tbtn" id="glosBtn" type="button">команды</button>
-        <button class="tbtn" id="careerBtn" type="button">карьера</button>
-        <button class="tbtn" id="lifeBtn" type="button">жизнь</button>
-        <button class="tbtn" id="charBtn" type="button">персонаж</button>
-        <div class="menu-wrap">
-          <button
-            class="tbtn"
-            id="moreBtn"
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded="false"
-            aria-controls="moreMenu"
-          >
-            ещё
-          </button>
-          <div class="menu hide" id="moreMenu" role="menu">
-            <button class="menu-item" id="ratingBtn" type="button" role="menuitem">рейтинг</button>
-            <button class="menu-item" id="certBtn" type="button" role="menuitem">сертификат</button>
-            <button class="menu-item" id="howBtn" type="button" role="menuitem">как играть</button>
-            <div class="menu-sep" role="separator"></div>
-            <div class="menu-label" id="themeLabel">Тема</div>
-            <div class="seg" role="radiogroup" aria-labelledby="themeLabel">
-              <button type="button" role="radio" data-theme-opt="system">Системная</button>
-              <button type="button" role="radio" data-theme-opt="light">Светлая</button>
-              <button type="button" role="radio" data-theme-opt="dark">Тёмная</button>
-            </div>
-            <div class="menu-sep" role="separator"></div>
-            <button class="menu-item menu-danger" id="resetBtn" type="button" role="menuitem">
-              сбросить прогресс
-            </button>
-          </div>
-        </div>
-      </nav>
     </header>
 
-    <div class="wrap">
-      <div class="col rail-col" id="railCol"><div class="card scroll rail" id="rail"></div></div>
+    <div class="layout">
+      <nav class="side" id="side" aria-label="Разделы">
+        <a href="#/today" data-r="today"><span class="si" aria-hidden="true">📅</span>Сегодня</a>
+        <a href="#/map" data-r="map"><span class="si" aria-hidden="true">🗺️</span>Карта курса</a>
+        <a href="#/lessons" data-r="lessons"><span class="si" aria-hidden="true">📘</span>Уроки</a>
+        <a href="#/terminal" data-r="terminal"
+          ><span class="si" aria-hidden="true">⌨️</span>Терминал-тренажёр</a
+        >
+        <a href="#/review" data-r="review"
+          ><span class="si" aria-hidden="true">🔁</span>Повторение<b class="side-badge hide" id="dueBadge"></b
+        ></a>
+        <a href="#/errors" data-r="errors"><span class="si" aria-hidden="true">🐞</span>Мои ошибки</a>
+        <a href="#/interview" data-r="interview"
+          ><span class="si" aria-hidden="true">💬</span>Собеседование</a
+        >
+        <a href="#/career" data-r="career"><span class="si" aria-hidden="true">💼</span>Карьера и жизнь</a>
+        <a href="#/progress" data-r="progress"><span class="si" aria-hidden="true">📊</span>Прогресс</a>
+        <a href="#/settings" data-r="settings"><span class="si" aria-hidden="true">⚙️</span>Настройки</a>
+      </nav>
       <div class="rail-scrim" id="railScrim"></div>
-      <main class="col main-col">
-        <div class="card scroll brief" id="brief"></div>
-        <section class="term-panel" id="termPanel" aria-label="Терминал">
-          <div
-            class="term-split"
-            id="termSplit"
-            role="separator"
-            aria-orientation="horizontal"
-            aria-label="Высота терминала: тяни или стрелки ↑↓"
-            aria-valuemin="140"
-            tabindex="0"
-          ></div>
-          <div class="term">
-            <div class="termbar">
-              <span class="dots"><s></s><s></s><s></s></span><span>bash</span>
-              <button
-                type="button"
-                class="livebtn"
-                id="liveBtn"
-                title="Открыть настоящий Linux-контейнер и повторить те же команды вживую"
-              >
-                настоящий сервер
-              </button>
-              <button
-                type="button"
-                class="termtoggle"
-                id="termToggle"
-                aria-expanded="true"
-                aria-controls="termBody"
-              >
-                <span aria-hidden="true">▾</span>
-              </button>
-            </div>
-            <div class="term-body" id="termBody">
-              <div class="out" id="out"></div>
-              <form class="inline" id="cmdForm" autocomplete="off">
-                <span class="p" id="prompt">$</span>
-                <textarea
-                  id="cmd"
-                  rows="1"
-                  autocomplete="off"
-                  autocapitalize="off"
-                  spellcheck="false"
-                  placeholder="набери команду и нажми Enter (Shift+Enter — перенос строки, help — список команд)"
-                ></textarea>
-              </form>
-            </div>
-          </div>
+      <main class="main" id="app">
+        <section class="view" id="pageView"></section>
+        <section class="view hide" id="lessonView">
+          <article class="lesson-card" id="brief"></article>
         </section>
       </main>
     </div>
+
+    <!-- терминал живёт здесь, пока шагу урока он не нужен; на шагах «смотри/повтори/задача»
+         переезжает внутрь карточки урока, в «Терминале-тренажёре» — на его страницу -->
+    <div class="hide" id="termPark">
+      <section class="term-panel" id="termPanel" aria-label="Терминал">
+        <div class="term">
+          <div class="termbar">
+            <span class="dots"><s></s><s></s><s></s></span><span>bash</span>
+            <button
+              type="button"
+              class="livebtn"
+              id="liveBtn"
+              title="Открыть настоящий Linux-контейнер и повторить те же команды вживую"
+            >
+              настоящий сервер
+            </button>
+          </div>
+          <div class="term-body" id="termBody">
+            <div class="out" id="out"></div>
+            <form class="inline" id="cmdForm" autocomplete="off">
+              <span class="p" id="prompt">$</span>
+              <textarea
+                id="cmd"
+                rows="1"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                placeholder="набери команду и нажми Enter (Shift+Enter — перенос строки, help — список команд)"
+              ></textarea>
+            </form>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <button
+      class="fab hide"
+      id="mentorFab"
+      type="button"
+      title="Наставник разберёт этот шаг подробнее, с примерами"
+    >
+      <span class="fab-ico" aria-hidden="true">🧑‍🏫</span><span class="fab-label">Спросить наставника</span>
+    </button>
 
     <div class="ov hide" id="edOv">
       <div class="sheet">

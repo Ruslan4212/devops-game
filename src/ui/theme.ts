@@ -18,6 +18,23 @@ export function applyTheme(t: ThemeChoice): void {
   else root.dataset.theme = t;
 }
 
+function store(t: ThemeChoice): void {
+  try {
+    if (t === "system") localStorage.removeItem(KEY);
+    else localStorage.setItem(KEY, t);
+  } catch {
+    /* приватный режим — тема применится до перезагрузки */
+  }
+  applyTheme(t);
+}
+
+/** Кнопка 🌓 в шапке: светлая ↔ тёмная относительно того, что видно сейчас. */
+export function toggleTheme(): void {
+  const t = readTheme();
+  const dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  store(dark ? "light" : "dark");
+}
+
 export function initThemeSwitch(scope: HTMLElement): void {
   const opts = [...scope.querySelectorAll<HTMLButtonElement>("[data-theme-opt]")];
   const sync = (t: ThemeChoice): void => {
@@ -29,13 +46,7 @@ export function initThemeSwitch(scope: HTMLElement): void {
   for (const o of opts) {
     o.onclick = () => {
       const t = o.dataset.themeOpt as ThemeChoice;
-      try {
-        if (t === "system") localStorage.removeItem(KEY);
-        else localStorage.setItem(KEY, t);
-      } catch {
-        /* приватный режим — тема применится до перезагрузки */
-      }
-      applyTheme(t);
+      store(t);
       sync(t);
     };
   }
