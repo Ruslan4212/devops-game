@@ -332,6 +332,7 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     `<linearGradient id="${p}cl" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="${ocHi}"/><stop offset=".55" stop-color="${oc}"/><stop offset="1" stop-color="${ocLo}"/></linearGradient>` +
     `<radialGradient id="${p}ir" cx="50%" cy="38%" r="65%"><stop offset="0" stop-color="${shade(ec, -0.35)}"/><stop offset="1" stop-color="${shade(ec, 0.25)}"/></radialGradient>` +
     `<radialGradient id="${p}sh" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#0b2540" stop-opacity=".38"/><stop offset="1" stop-color="#0b2540" stop-opacity="0"/></radialGradient>` +
+    `<radialGradient id="${p}cs" cx="50%" cy="35%" r="60%"><stop offset="0" stop-color="${skDeep}" stop-opacity=".7"/><stop offset="1" stop-color="${skDeep}" stop-opacity="0"/></radialGradient>` +
     `<radialGradient id="${p}hl" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
     `<radialGradient id="${p}bl" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ff6b7a" stop-opacity=".38"/><stop offset="1" stop-color="#ff6b7a" stop-opacity="0"/></radialGradient>` +
     `<linearGradient id="${p}rim" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".4"/></linearGradient>` +
@@ -499,7 +500,7 @@ export function avatarSVG(a: Appearance, o: AvatarOptions = {}): string {
     `<path d="M${CX - 17} ${CHIN - 14}h34v50q-17 16 -34 0z" fill="url(#${p}sk)"/>` +
     `<rect x="${CX - 17}" y="${CHIN - 6}" width="34" height="34" fill="url(#${p}nk)"/>` +
     clothes +
-    `<ellipse cx="${CX}" cy="${CHIN + 8}" rx="24" ry="10" fill="url(#${p}sh)"/>` +
+    `<ellipse cx="${CX}" cy="${CHIN + 6}" rx="22" ry="9" fill="url(#${p}cs)"/>` +
     ears +
     head +
     bags +
