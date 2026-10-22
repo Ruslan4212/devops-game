@@ -41,5 +41,5 @@ cto, architect, ux-designer, frontend-dev, backend-dev, devops, qa-tester, revie
 - Закоммиченный `graphify-out/graph.json` перезаписывается целиком при каждой сборке — большой дифф в PR ожидаем.
 
 Заметка для этой машины: команды `graphify` нет в PATH, вызывай по полному пути:
-`C:/Users/krashennyi.r/AppData/Roaming/Python/Python313/Scripts/graphify.exe`
+`graphify` (macOS: ~/.local/bin or python user bin)
 (например `... query "<вопрос>"`, `... explain "renderLessonPanel()"`, `... update .`).
