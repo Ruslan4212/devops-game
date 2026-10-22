@@ -33,6 +33,8 @@ export interface ReviewDeps {
   /** размер обязательной сессии */
   mandatorySize?: number;
   onDone: () => void;
+  /** с какой области начать настройку (например, «Мои ошибки» → только ошибки) */
+  scope?: ReviewScope;
 }
 
 type Mode = "smart" | "marathon";
@@ -81,7 +83,10 @@ export function openReviewSession(d: ReviewDeps): void {
     const items = pickSmartSession(d.pool, d.stats(), d.mandatorySize ?? 15, Date.now(), Math.random);
     // обязательное — вариантами: работает без сети и не застревает на самооценке
     runSession(d, items, { ...loadPrefs(), mode: "smart", answer: "options" }, "Обязательное повторение");
-  } else setup(d);
+  } else {
+    if (d.scope) savePrefs({ ...loadPrefs(), scope: d.scope });
+    setup(d);
+  }
 }
 
 function setup(d: ReviewDeps): void {

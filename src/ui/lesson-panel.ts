@@ -3,6 +3,7 @@ import type { LessonRun } from "../engine/lesson-run";
 import { gradeAnswer, explainTopic, type GradeResult } from "../engine/grader";
 import { icon } from "../data/ui-icons";
 import type { Lesson, Step } from "../engine/types";
+import { mountTerminal, parkTerminal } from "./term-panel";
 
 export interface PanelHandlers {
   onAdvance: () => void;
@@ -121,8 +122,14 @@ function stepTopic(lesson: Lesson, step: Step): { topic: string; context: string
   }
 }
 
+/** Место терминала внутри карточки: только у шагов, где он нужен. */
+const TERM_SLOT = `<div class="lp-term-slot" id="termSlot"></div>`;
+
+/** Последняя отрисовка — для плавающей кнопки «Спросить наставника», которая живёт вне карточки. */
+let current: { run: LessonRun; h: PanelHandlers } | null = null;
+
 /**
- * Правая колонка: ОДИН текущий шаг урока, крупно.
+ * Карточка урока: ОДИН текущий шаг, крупно.
  * Никаких списков из шести пунктов — только то, что делать прямо сейчас.
  */
 export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
@@ -131,6 +138,9 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   const { i, n } = run.position;
   const lesson = run.lesson;
   const stepKey = lesson.id + ":" + i;
+  current = { run, h };
+  // innerHTML ниже уничтожил бы терминал, если он сейчас встроен в карточку
+  if (el.contains(document.getElementById("termPanel"))) parkTerminal();
 
   const head =
     `<div class="eyebrow">Акт ${lesson.act} · урок ${lesson.id}</div>` +
@@ -147,7 +157,8 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   if (step.kind === "watch") {
     body =
       (step.text ? sayBlock(step.text) : "") +
-      `<div class="lp-badge">${icon("eye", 15)}<span>смотри в терминал слева</span></div>` +
+      `<div class="lp-badge">${icon("eye", 15)}<span>смотри в терминал</span></div>` +
+      TERM_SLOT +
       `<div class="lp-note">${esc(step.note)}</div>` +
       `<button class="lp-next" id="lpNext">Понятно, дальше →</button>`;
   }
@@ -158,13 +169,15 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
       sayBlock(step.text) +
       `<div class="lp-cmd">${esc(step.cmd)}</div>` +
       `<button class="lp-fill" id="lpFill">Вставить в строку ввода</button>` +
-      `<div class="lp-tip">Курсор мигает в чёрном окне внизу. Напечатай команду и нажми Enter.</div>`;
+      TERM_SLOT +
+      `<div class="lp-tip">Курсор мигает в чёрном окне выше. Напечатай команду и нажми Enter.</div>`;
   }
 
   if (step.kind === "do") {
     body =
       `<div class="lp-badge lp-badge-do">${icon("target", 15)}<span>задача — сделай сам в терминале</span></div>` +
       sayBlock(step.text) +
+      TERM_SLOT +
       taskStatusBlock(stepKey);
     if (run.answerRevealed) {
       // Задачи через edit/nano решаются в отдельном редакторе файла, а не
@@ -241,19 +254,19 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
   }
 
   const es = explainState && explainState.key === stepKey ? explainState.state : null;
-  if (!es) {
-    body += `<button class="lp-explain" id="lpExplain">${icon("mentor", 15)}<span>Не хватает информации — объясни подробнее</span></button>`;
-  } else if (es.phase === "loading") {
+  // сам запрос — плавающей кнопкой «Спросить наставника» (explainCurrentStep), здесь только ответ
+  if (es?.phase === "loading") {
     body += `<div class="lp-explain-loading lp-loading">${icon("mentor", 15)}Наставник готовит подробный разбор с примерами…</div>`;
-  } else if (es.phase === "done") {
+  } else if (es?.phase === "done") {
     body += `<div class="lp-explain-box"><div class="lp-explain-text">${esc(es.text)}</div></div>`;
-  } else {
-    body +=
-      `<div class="lp-explain-box lp-explain-error">Не удалось связаться с наставником, попробуй ещё раз.</div>` +
-      `<button class="lp-explain" id="lpExplain">${icon("mentor", 15)}<span>Объяснить подробнее</span></button>`;
+  } else if (es?.phase === "error") {
+    body += `<div class="lp-explain-box lp-explain-error">Не удалось связаться с наставником, попробуй ещё раз.</div>`;
   }
 
   el.innerHTML = head + body;
+  const slot = document.getElementById("termSlot");
+  // в «Терминале-тренажёре» терминал занят страницей тренажёра — в карточку не забираем
+  if (slot && document.body.dataset.route === "lesson") mountTerminal(slot);
 
   const next = document.getElementById("lpNext");
   if (next) next.onclick = h.onAdvance;
@@ -327,28 +340,40 @@ export function renderLessonPanel(run: LessonRun, h: PanelHandlers): void {
       const wrongAnswer = (step as { answer: number }).answer;
       h.onQuiz(wrongAnswer === 0 ? -1 : 0);
     };
+}
 
-  const explainBtn = document.getElementById("lpExplain");
-  if (explainBtn) {
-    explainBtn.onclick = () => {
-      const { topic, context } = stepTopic(lesson, step);
-      explainState = { key: stepKey, state: { phase: "loading" } };
+/**
+ * «Спросить наставника»: подробный разбор текущего шага с примерами — с учётом того,
+ * где ученик застрял (последняя попытка). Результат появляется в карточке урока.
+ */
+export function explainCurrentStep(): void {
+  if (!current || current.run.finished) return;
+  const { run, h } = current;
+  const lesson = run.lesson;
+  const step = run.step;
+  const stepKey = lesson.id + ":" + run.position.i;
+  if (explainState?.key === stepKey && explainState.state.phase === "loading") return;
+  const { topic, context } = stepTopic(lesson, step);
+  explainState = { key: stepKey, state: { phase: "loading" } };
+  renderLessonPanel(run, h);
+  document.querySelector(".lp-explain-loading")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  explainTopic({
+    lesson: lesson.title,
+    topic,
+    context,
+    kind: step.kind,
+    attempt: stepAttempt(step, stepKey),
+  })
+    .then((text) => {
+      explainState = { key: stepKey, state: text ? { phase: "done", text } : { phase: "error" } };
+    })
+    .catch(() => {
+      explainState = { key: stepKey, state: { phase: "error" } };
+    })
+    .finally(() => {
+      // ученик мог уйти на другой шаг — тогда перерисовывать нечего
+      if (current?.run !== run || run.lesson.id + ":" + run.position.i !== stepKey) return;
       renderLessonPanel(run, h);
-      explainTopic({
-        lesson: lesson.title,
-        topic,
-        context,
-        kind: step.kind,
-        attempt: stepAttempt(step, stepKey),
-      })
-        .then((text) => {
-          explainState = { key: stepKey, state: text ? { phase: "done", text } : { phase: "error" } };
-          renderLessonPanel(run, h);
-        })
-        .catch(() => {
-          explainState = { key: stepKey, state: { phase: "error" } };
-          renderLessonPanel(run, h);
-        });
-    };
-  }
+      document.querySelector(".lp-explain-box")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
 }

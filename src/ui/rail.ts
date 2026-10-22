@@ -1,4 +1,3 @@
-import { $ } from "./dom";
 import { ACTS, LESSONS } from "../lessons";
 import type { Lesson } from "../engine/types";
 import type { Progress } from "../engine/progress";
@@ -22,13 +21,22 @@ export function allLessonsDone(p: Progress): boolean {
  */
 const toggled = new Map<number, boolean>();
 
+/** «Карта курса» → «Уроки»: развернуть выбранный акт. */
+let picked: number | null = null;
+export function expandAct(id: number): void {
+  toggled.set(id, true);
+  picked = id;
+}
+
 export function renderRail(
   p: Progress,
   curId: string | null,
   onPick: (id: string) => void,
   onCapstone: () => void,
 ): void {
-  const el = $("#rail");
+  // список живёт на странице «Уроки» — на других страницах рисовать некуда
+  const el = document.getElementById("rail");
+  if (!el) return;
   el.innerHTML = "";
   const curAct = LESSONS.find((l) => l.id === curId)?.act;
 
@@ -39,7 +47,11 @@ export function renderRail(
     const open = toggled.get(act.id) ?? act.id === curAct;
 
     const box = document.createElement("div");
-    box.className = "act" + (open ? " act-open" : "") + (doneN === items.length ? " act-done" : "");
+    box.className =
+      "act" +
+      (open ? " act-open" : "") +
+      (doneN === items.length ? " act-done" : "") +
+      (act.id === picked ? " act-picked" : "");
     const h = document.createElement("h3");
     const tg = document.createElement("button");
     tg.type = "button";
@@ -73,7 +85,9 @@ export function renderRail(
   }
 
   el.appendChild(renderCapstoneCard(p, curId, onCapstone));
-  el.querySelector(".ms.cur")?.scrollIntoView({ block: "nearest" });
+  const focus = el.querySelector(".act-open.act-picked") ?? el.querySelector(".ms.cur");
+  focus?.scrollIntoView({ block: "nearest" });
+  picked = null;
 }
 
 /** Финальная карточка рельса: капстоун на реальном сервере. */

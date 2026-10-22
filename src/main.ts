@@ -9,6 +9,8 @@ import { applyLegacy, readLegacySave, summarize, worthImporting } from "./sync/l
 import type { LegacySave } from "./sync/legacy-import";
 import { clearTerminal, InputHistory, print, printCommand, setPrompt } from "./ui/terminal";
 import { allLessonsDone, isUnlocked, renderRail } from "./ui/rail";
+import { countLessonToday, renderPage, reviewCounts, ROUTES } from "./ui/pages";
+import type { Route } from "./ui/pages";
 import {
   defaultLife,
   isDead,
@@ -20,10 +22,14 @@ import {
 import { JOBS, parseSalary } from "./data/careers";
 import { TECH_TOPICS } from "./data/interview";
 import { buildReviewPool, reachedActOf } from "./engine/review";
-import { initThemeSwitch } from "./ui/theme";
-import { initTermPanel, revealTerminal, yieldToText } from "./ui/term-panel";
-import { renderLessonPanel, setLastAttempt, setTaskStatus } from "./ui/lesson-panel";
+import type { ReviewScope } from "./engine/review";
+import { newWorld } from "./engine/world";
+import type { World } from "./engine/types";
+import { toggleTheme } from "./ui/theme";
+import { mountTerminal, parkTerminal } from "./ui/term-panel";
+import { explainCurrentStep, renderLessonPanel, setLastAttempt, setTaskStatus } from "./ui/lesson-panel";
 import { initEditor, openEditor } from "./ui/editor";
+import { applyFileEdit } from "./engine/editor";
 import { execLine } from "./engine/shell";
 import { judgeCommand } from "./engine/grader";
 import { icon } from "./data/ui-icons";
@@ -82,31 +88,33 @@ function checkDeath(): void {
 }
 
 /* ------------------------------- HUD / карта ------------------------------- */
+/** Шапка — только компактный прогресс; кошелёк и здоровье живут в «Карьере и жизни». */
 function renderHud(): void {
   const done = Object.keys(P.done).length;
   $("#progChip").innerHTML =
-    `${done} / ${LESSONS.length} уроков` + (P.capstone ? ` · ${icon("award", 14)} капстоун` : "");
+    `<b>${done}</b> / ${LESSONS.length} уроков` + (P.capstone ? ` · ${icon("award", 14)}` : "");
   $("#rankTxt").textContent = rankOf(P.xp);
-  $("#xpTxt").textContent = `${P.xp} XP`;
   const nr = nextRank(P.xp);
   const prev = [...RANKS].reverse().find((q) => P.xp >= q[0])![0];
   const pct = nr ? ((P.xp - prev) / (nr[0] - prev)) * 100 : 100;
   $("#xpFill").style.width = Math.max(3, Math.min(100, pct)) + "%";
-  const life = P.life;
-  $("#moneyChip").innerHTML = life ? `<b>${life.money.toLocaleString("ru-RU")}</b> ₽` : "";
-  $("#hpChip").innerHTML = life
-    ? `♥ <b>${Math.round(life.health)}</b><i class="hp-bar"><i style="width:${Math.max(0, Math.min(100, life.health))}%"></i></i>`
-    : "";
-  $("#moneyChip").classList.toggle("hide", !life);
-  $("#hpChip").classList.toggle("hide", !life);
-  // сертификат — награда: пока не получен, он живёт в меню «ещё», после — на виду в шапке
-  $("#certChip").classList.toggle("hide", !allLessonsDone(P));
+  $("#topStats").title = `Пройдено уроков: ${done} из ${LESSONS.length} · ${rankOf(P.xp)}, ${P.xp} XP`;
+  const { due, wrong } = reviewCounts(reviewPool(), P);
+  const badge = $("#dueBadge");
+  badge.textContent = String(due + wrong);
+  badge.classList.toggle("hide", !(due + wrong));
+}
+
+function reviewPool(): ReturnType<typeof buildReviewPool> {
+  return buildReviewPool(LESSONS, TECH_TOPICS, P.done);
 }
 
 function renderAll(): void {
   renderRail(P, run?.lesson.id ?? null, startLesson, openCapstoneFlow);
   renderHud();
-  if (run && !run.finished) renderPanel();
+  if (route === "lesson") {
+    if (run && !run.finished) renderPanel();
+  } else if (route !== "terminal") showPage(route);
 }
 
 /** Финал курса: капстоун на реальном сервере. Открыт только после всех уроков и экзаменов. */
@@ -142,7 +150,8 @@ function openCapstoneFlow(): void {
   });
 }
 
-/** Меню актов на узком экране — выезжающая панель (как в english-b2). */
+/* -------------------------------- разделы -------------------------------- */
+/** Боковое меню на узком экране — выезжающая панель (как в english-b2). */
 function setRailOpen(open: boolean): void {
   document.body.classList.toggle("rail-open", open);
   $("#railToggle").setAttribute("aria-expanded", String(open));
@@ -152,10 +161,78 @@ $("#railScrim").onclick = () => setRailOpen(false);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && document.body.classList.contains("rail-open")) setRailOpen(false);
 });
-initTermPanel();
+$("#themeBtn").onclick = () => {
+  toggleTheme();
+  if (route === "settings") showPage("settings");
+};
+
+let route: Route = "today";
+/** Вывод урока в терминале, пока он занят тренажёром: вернём его при выходе из тренажёра. */
+let lessonOut: string | null = null;
+const sandbox: { world: World | null } = { world: null };
+
+function routeFromHash(): Route {
+  const r = location.hash.replace(/^#\/?/, "") as Route;
+  return ROUTES.includes(r) ? r : "today";
+}
+
+function go(r: Route): void {
+  if (location.hash !== "#/" + r) location.hash = "#/" + r;
+  else applyRoute();
+}
+
+function leaveSandbox(): void {
+  if (lessonOut === null) return;
+  $("#out").innerHTML = lessonOut;
+  lessonOut = null;
+  setPrompt(run?.world ?? null);
+  parkTerminal();
+}
+
+function showPage(r: Exclude<Route, "lesson">): void {
+  const el = $("#pageView");
+  if (el.contains($("#termPanel"))) parkTerminal();
+  renderPage(r, el, pageDeps);
+}
+
+function applyRoute(): void {
+  const r = routeFromHash();
+  if (r !== "terminal") leaveSandbox();
+  route = r === "lesson" && !run ? "today" : r;
+  document.body.dataset.route = route;
+  setRailOpen(false);
+  for (const a of document.querySelectorAll<HTMLAnchorElement>("#side a")) {
+    const on = a.dataset.r === route || (route === "lesson" && a.dataset.r === "lessons");
+    a.classList.toggle("active", on);
+    if (on) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  }
+  $("#lessonView").classList.toggle("hide", route !== "lesson");
+  $("#pageView").classList.toggle("hide", route === "lesson");
+  $("#mentorFab").classList.toggle("hide", route !== "lesson" || !run || run.finished);
+  if (route === "lesson") {
+    if (run && !run.finished) enterView();
+    else renderPanel();
+  } else showPage(route);
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", applyRoute);
+
+/** Урок снова на экране: перерисовать карточку (терминал вернётся в неё, если шагу нужен). */
+function enterView(): void {
+  if (!run || run.finished) return;
+  renderPanel();
+  const k = run.step.kind;
+  if (k === "type" || k === "do") {
+    lockInput(false);
+    $("#cmd").focus();
+  }
+}
+
+$("#mentorFab").onclick = explainCurrentStep;
 
 /* --------------------------------- урок --------------------------------- */
-function startLesson(id: string): void {
+function startLesson(id: string, show = true): void {
   const lesson = lessonById(id);
   if (!lesson) return;
   setRailOpen(false);
@@ -183,6 +260,10 @@ function startLesson(id: string): void {
   if (restoring) print(`↺ Прогресс восстановлен — продолжаем с шага ${run.stepIx + 1}.`, "dim");
   print("");
   setPrompt(run.world);
+  if (show && route !== "lesson") {
+    route = "lesson";
+    go("lesson");
+  }
   enterStep();
   renderAll();
 }
@@ -201,8 +282,6 @@ function enterStep(): void {
   }
 
   const needsTyping = step.kind === "type" || step.kind === "do";
-  if (needsTyping || step.kind === "watch") revealTerminal();
-  else yieldToText();
   lockInput(!needsTyping);
   renderPanel();
   if (needsTyping) $("#cmd").focus();
@@ -216,7 +295,7 @@ function persistLessonState(): void {
 }
 
 function renderPanel(): void {
-  if (!run) return;
+  if (!run || run.finished) return;
   persistLessonState();
   renderLessonPanel(run, {
     onAdvance: () => {
@@ -268,7 +347,7 @@ function reachedAct(): number {
 }
 
 /** Повторение — один движок для обязательной сессии и для кнопки «повторение». */
-function openReview(mandatory: boolean, onDone: () => void): boolean {
+function openReview(mandatory: boolean, onDone: () => void, scope?: ReviewScope): boolean {
   const pool = buildReviewPool(LESSONS, TECH_TOPICS, P.done);
   if (!pool.length) return false;
   void import("./ui/review").then(({ openReviewSession }) => {
@@ -286,6 +365,7 @@ function openReview(mandatory: boolean, onDone: () => void): boolean {
       mandatory,
       mandatorySize: REVIEW_SESSION_SIZE,
       onDone,
+      scope,
     });
   });
   return true;
@@ -296,18 +376,23 @@ function showNextLessonScreen(
   next: (typeof LESSONS)[number] | undefined,
 ): void {
   const el = $("#brief");
+  parkTerminal();
+  $("#mentorFab").classList.add("hide");
   if (next) {
     el.innerHTML =
       `<div class="lp-done">🎉</div>` +
       `<div class="lp-say">Урок «${lesson.title}» пройден.\n\nСледующий: ${next.id} — ${next.title}</div>` +
       `<button class="lp-next" id="lpGoNext">Следующий урок →</button>`;
-    document.getElementById("lpGoNext")!.onclick = () => startLesson(next.id);
+    document.getElementById("lpGoNext")!.onclick = () => {
+      startLesson(next.id);
+      $("#mentorFab").classList.remove("hide");
+    };
   } else {
     el.innerHTML =
       `<div class="lp-done">🏆</div>` +
       `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>` +
       `<button class="lp-next" id="lpGetCert">Получить сертификат</button>`;
-    document.getElementById("lpGetCert")!.onclick = () => $("#certBtn").click();
+    document.getElementById("lpGetCert")!.onclick = openCertificate;
   }
 }
 
@@ -321,6 +406,8 @@ function maybeShowMandatoryReview(
     return;
   }
   const el = $("#brief");
+  parkTerminal();
+  $("#mentorFab").classList.add("hide");
   el.innerHTML =
     `<div class="lp-done">🔄</div>` +
     `<div class="lp-say">Урок «${lesson.title}» пройден.\n\n` +
@@ -345,6 +432,7 @@ function completeLesson(): void {
   let credited = 0;
   if (!P.done[lesson.id]) {
     P.done[lesson.id] = true;
+    countLessonToday();
     P.lessonsSinceReview = (P.lessonsSinceReview ?? 0) + 1;
     if (!P.life) P.life = defaultLife();
     // «жизнь»: бонус к XP от техники/настроения + подработка за урок
@@ -373,7 +461,46 @@ function completeLesson(): void {
 }
 
 /* --------------------------------- ввод --------------------------------- */
+/** «Терминал-тренажёр»: команды выполняются в своём мире, урок не проверяется. */
+function handleSandbox(line: string): void {
+  const w = (sandbox.world ??= newWorld());
+  printCommand(w, line);
+  const t = line.trim();
+  if (!t) return;
+  history.push(line);
+  if (t === "clear") return clearTerminal();
+  if (/^(edit|nano|vim)\s+\S/.test(t)) {
+    const r = execLine(w, t);
+    if (r.edit) {
+      openEditor(w, r.edit, (p, content) => {
+        applyFileEdit(w, p, content);
+        print("файл сохранён: " + p, "dim");
+      });
+      return;
+    }
+  }
+  const r = execLine(w, t);
+  if (r.out) print(r.out, r.err ? "err" : null);
+  setPrompt(w);
+}
+
+function mountSandbox(host: HTMLElement): void {
+  if (lessonOut === null) {
+    lessonOut = $("#out").innerHTML;
+    clearTerminal();
+    print(
+      "Песочница: пробуй что угодно. help в уроке подскажет служебные команды; clear — очистить экран.",
+      "dim",
+    );
+  }
+  setPrompt((sandbox.world ??= newWorld()));
+  mountTerminal(host);
+  lockInput(false);
+  $("#cmd").focus();
+}
+
 function handleInput(line: string): void {
+  if (route === "terminal") return handleSandbox(line);
   if (!run) return;
   printCommand(run.world, line);
   const trimmed = line.trim();
@@ -389,7 +516,7 @@ function handleInput(line: string): void {
   }
   if (trimmed === "help") {
     print(
-      "Тебе не нужно помнить команды — карточка справа всегда пишет, что набрать сейчас.\n\n" +
+      "Тебе не нужно помнить команды — карточка урока всегда пишет, что набрать сейчас.\n\n" +
         "Служебное:\n" +
         "  next   — следующий урок (когда текущий пройден)\n" +
         "  clear  — очистить экран\n" +
@@ -404,13 +531,13 @@ function handleInput(line: string): void {
   }
 
   if (run.finished) {
-    print("Урок пройден. Набери  next  или выбери урок слева.", "dim");
+    print("Урок пройден. Набери  next  или выбери урок в разделе «Уроки».", "dim");
     return;
   }
 
   const step = run.step;
   if (step.kind !== "type" && step.kind !== "do") {
-    print("Сейчас печатать не нужно — нажми кнопку в карточке справа.", "dim");
+    print("Сейчас печатать не нужно — нажми кнопку в карточке урока.", "dim");
     return;
   }
 
@@ -552,24 +679,23 @@ $("#out").addEventListener("click", () => {
 function showHow(): void {
   $("#modBody").innerHTML =
     `<h1>${icon("help", 22)}Как проходить</h1>` +
-    `<p>Это не курс с лекциями. Ты идёшь маленькими шагами. Карточка справа всегда говорит ровно одно действие.</p>` +
+    `<p>Это не курс с лекциями. Ты идёшь маленькими шагами. Карточка урока всегда говорит ровно одно действие.</p>` +
     `<ul class="how-list">` +
     `<li>${icon("eye", 16)}<span><b>Смотри</b> — команда выполняется сама, ты читаешь, что вышло, и объяснение.</span></li>` +
-    `<li>${icon("keyboard", 16)}<span><b>Повтори</b> — набери ту же команду в чёрном окне внизу. Кнопка «Вставить» напечатает её за тебя.</span></li>` +
+    `<li>${icon("keyboard", 16)}<span><b>Повтори</b> — набери ту же команду в чёрном окне прямо в карточке. Кнопка «Вставить» напечатает её за тебя.</span></li>` +
     `<li>${icon("target", 16)}<span><b>Задача</b> — сделай похожее сам. Ошибёшься — появится подсказка, потом готовый ответ. Провалить нельзя.</span></li>` +
     `<li>${icon("brain", 16)}<span><b>Вопрос</b> — ответь своими словами, наставник проверит по смыслу.</span></li>` +
     `</ul>` +
     `<label class="how-strict"><input type="checkbox" id="strictChk"${P.strict ? " checked" : ""}> ` +
     `<b>Строгий режим</b> — задача не подсказывает ответ, пока сам не попросишь, и только после нескольких попыток. ` +
     `Так курс реально готовит к собеседованию. Можно включать и выключать в любой момент.</label>` +
-    `<div class="kb">Слева — карта уроков. Прогресс сохраняется сам.</div>` +
+    `<div class="kb">Слева — разделы: «Сегодня», уроки, повторение. Застрял — кнопка «Спросить наставника» внизу справа. Прогресс сохраняется сам.</div>` +
     `<button class="prim" id="modClose">Начать</button>`;
   $("#modOv").classList.remove("hide");
   lockInput(true);
   $<HTMLInputElement>("#strictChk").onchange = (e) => {
     P.strict = (e.target as HTMLInputElement).checked;
-    persist();
-    if (run && !run.finished) startLesson(run.lesson.id);
+    setStrict(P.strict);
   };
   $("#modClose").onclick = () => {
     $("#modOv").classList.add("hide");
@@ -580,21 +706,27 @@ function showHow(): void {
   };
 }
 
-$("#howBtn").onclick = showHow;
-$("#glosBtn").onclick = () => void import("./ui/glossary").then((m) => m.openGlossary());
-$("#charBtn").onclick = () => {
+/** Строгий режим меняет правила шага — текущий урок перезапускаем с сохранённого места. */
+function setStrict(on: boolean): void {
+  P.strict = on;
+  persist();
+  if (run && !run.finished) startLesson(run.lesson.id, route === "lesson");
+}
+
+const openGlossary = (): void => void import("./ui/glossary").then((m) => m.openGlossary());
+const openCharacter = (): void => {
   void import("./ui/character").then(({ openCharacter }) => {
     if (!P.life) P.life = defaultLife();
     openCharacter({ life: P.life, persist });
   });
 };
-$("#lifeBtn").onclick = () => {
+const openLife = (): void => {
   void import("./ui/life").then(({ openLife }) => {
     if (!P.life) P.life = defaultLife();
     openLife({ life: P.life, persist });
   });
 };
-$("#careerBtn").onclick = () => {
+const openCareer = (): void => {
   void import("./ui/career").then(({ openCareer }) => {
     if (!P.jobs) P.jobs = {};
     if (!P.life) P.life = defaultLife();
@@ -613,16 +745,13 @@ $("#careerBtn").onclick = () => {
     });
   });
 };
-$("#ratingBtn").onclick = () => {
+const openRating = (): void => {
   void import("./ui/leaderboard").then(({ openLeaderboard }) => void openLeaderboard());
 };
-$("#ivBtn").onclick = () => {
+const openInterviewFlow = (): void => {
   void import("./ui/interview").then(({ openInterview }) => openInterview(reachedAct()));
 };
-$("#reviewBtn").onclick = () => {
-  if (!openReview(false, renderHud)) toast("Пока нечего повторять — пройди хотя бы один урок");
-};
-$("#certBtn").onclick = () => {
+function openCertificate(): void {
   if (!allLessonsDone(P)) {
     toast("Сертификат откроется, когда пройдены все уроки и экзамены");
     return;
@@ -638,66 +767,25 @@ $("#certBtn").onclick = () => {
       date: new Date().toLocaleDateString("ru-RU", { year: "numeric", month: "long", day: "numeric" }),
     });
   });
-};
-/* Иконки шапки ставим из кода: один набор на всю игру, палитра наследуется
-   от кнопки, и эмодзи с их разнобоем по системам больше нигде нет. */
-for (const [id, name] of [
-  ["glosBtn", "book"],
-  ["charBtn", "user"],
-  ["lifeBtn", "bag"],
-  ["careerBtn", "briefcase"],
-  ["ratingBtn", "medal"],
-  ["ivBtn", "chat"],
-  ["reviewBtn", "repeat"],
-  ["certBtn", "award"],
-  ["certChip", "award"],
-  ["howBtn", "help"],
-  ["resetBtn", "reset"],
-  ["moreBtn", "more"],
-  ["liveBtn", "bolt"],
-] as const) {
-  const b = document.getElementById(id);
-  if (!b) continue;
-  const label = b.textContent!.trim();
-  b.innerHTML = icon(name, 16) + `<span class="tlabel">${label}</span>`;
-  // на узком экране подписи прячутся — имя кнопки остаётся для скринридера и подсказки
-  if (!b.title) b.title = label;
-  b.setAttribute("aria-label", label);
 }
 
+/* Иконка кнопки «настоящий сервер» — из общего набора, как во всей игре. */
+{
+  const b = $("#liveBtn");
+  const label = b.textContent!.trim();
+  b.innerHTML = icon("bolt", 16) + `<span class="tlabel">${label}</span>`;
+  b.title ||= label;
+  b.setAttribute("aria-label", label);
+}
 $("#liveBtn").onclick = openLiveServerFlow;
-$("#certChip").onclick = () => $("#certBtn").click();
 
-/* Меню «ещё»: редкие действия, тема и опасный сброс — не на виду, но в один клик. */
-const moreBtn = $("#moreBtn");
-const moreMenu = $("#moreMenu");
-const setMenu = (open: boolean): void => {
-  moreMenu.classList.toggle("hide", !open);
-  moreBtn.setAttribute("aria-expanded", String(open));
-  if (open) moreMenu.querySelector<HTMLElement>("button")?.focus();
-};
-moreBtn.onclick = (e) => {
-  e.stopPropagation();
-  setMenu(moreMenu.classList.contains("hide"));
-};
-moreMenu.addEventListener("click", (e) => {
-  // выбор темы оставляет меню открытым — видно, что переключилось; остальные пункты закрывают
-  if ((e.target as HTMLElement).closest("[data-theme-opt]")) return;
-  if ((e.target as HTMLElement).closest("button")) setMenu(false);
-});
-document.addEventListener("click", (e) => {
-  if (!moreMenu.classList.contains("hide") && !(e.target as HTMLElement).closest(".menu-wrap"))
-    setMenu(false);
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !moreMenu.classList.contains("hide")) {
-    setMenu(false);
-    moreBtn.focus();
-  }
-});
-initThemeSwitch(moreMenu);
+/** Модалка закрылась — вернуть ввод, если шаг урока его ждёт. */
+function unlockAfterModal(): void {
+  if (route === "terminal") lockInput(false);
+  else if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) lockInput(false);
+}
 
-$("#resetBtn").onclick = () => {
+function confirmReset(): void {
   const done = Object.keys(P.done).length;
   $("#modBody").innerHTML =
     `<h1>Сбросить прогресс?</h1>` +
@@ -718,15 +806,48 @@ $("#resetBtn").onclick = () => {
   $("#rsNo").focus();
   $("#rsNo").onclick = () => {
     $("#modOv").classList.add("hide");
-    if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) lockInput(false);
+    unlockAfterModal();
   };
   $("#rsYes").onclick = () => {
     $("#modOv").classList.add("hide");
     clearProgress();
     P = { xp: 0, done: {}, cur: null, hints: {} };
-    startLesson(LESSONS[0].id);
+    startLesson(LESSONS[0].id, false);
+    go("today");
     toast("Прогресс сброшен");
   };
+}
+
+const pageDeps = {
+  progress: () => P,
+  run: () => run,
+  reviewPool,
+  continueLesson: () => {
+    if (run && !run.finished) go("lesson");
+    else {
+      const nx = LESSONS.find((l) => !P.done[l.id] && isUnlocked(l, P)) ?? LESSONS[0];
+      startLesson(nx.id);
+    }
+  },
+  startLesson: (id: string) => startLesson(id),
+  openCapstone: openCapstoneFlow,
+  openReview: (onlyWrong: boolean) => {
+    const ok = openReview(false, () => renderAll(), onlyWrong ? { kind: "wrong" } : undefined);
+    if (!ok) toast("Пока нечего повторять — пройди хотя бы один урок");
+  },
+  openInterview: openInterviewFlow,
+  openCareer,
+  openLife,
+  openCharacter,
+  openGlossary,
+  openRating,
+  openCertificate,
+  openAccount: () => $("#acctBtn").click(),
+  showHow,
+  confirmReset,
+  setStrict,
+  mountSandbox,
+  renderLessonList: () => renderRail(P, run?.lesson.id ?? null, startLesson, openCapstoneFlow),
 };
 
 /* --------------------------------- старт --------------------------------- */
@@ -740,7 +861,7 @@ sync = initAccount({
     const cloudStep = P.lessonState?.id === target ? P.lessonState.stepIx : 0;
     // урок перезапускаем, только если облако принесло другой урок или продвинулось дальше;
     // иначе синхронизация стирала бы текущее прохождение
-    if (!run || run.lesson.id !== target || cloudStep > run.stepIx) startLesson(target);
+    if (!run || run.lesson.id !== target || cloudStep > run.stepIx) startLesson(target, route === "lesson");
     else renderAll();
   },
   rankOf,
@@ -770,7 +891,7 @@ function showLegacyImport(save: LegacySave): void {
 
   const close = (): void => {
     $("#modOv").classList.add("hide");
-    if (run && !run.finished && (run.step.kind === "type" || run.step.kind === "do")) lockInput(false);
+    unlockAfterModal();
   };
   $("#lgYes").onclick = () => {
     P = applyLegacy(P, save);
@@ -786,7 +907,8 @@ function showLegacyImport(save: LegacySave): void {
   };
 }
 
-startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id);
+startLesson(P.cur && lessonById(P.cur) ? P.cur : LESSONS[0].id, false);
+applyRoute();
 settleCalendar();
 if (!Object.keys(P.done).length) showHow();
 checkDeath();
