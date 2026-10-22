@@ -1,4 +1,6 @@
 import { esc } from "./dom";
+import { icon } from "../data/ui-icons";
+import { avatarSVG, normalizeAppearance } from "../data/avatar";
 import { ACTS, LESSONS } from "../lessons";
 import type { Progress } from "../engine/progress";
 import { nextRank, rankOf, RANKS } from "../engine/progress";
@@ -150,19 +152,19 @@ function today_(el: HTMLElement, d: PageDeps): void {
     `</div>` +
     `<div class="today-grid">` +
     `<div class="card task-card">` +
-    `<div class="tc-ico" aria-hidden="true">🎯</div><div class="tc-body"><b>Цель на день</b>` +
+    `<div class="tc-ico" aria-hidden="true">${icon("target", 28)}</div><div class="tc-body"><b>Цель на день</b>` +
     `<div class="muted">${got} из ${goal} уроков</div>${bar(Math.min(100, pct(got, goal)), got >= goal ? " ok" : "")}` +
     (got >= goal ? `<div class="tc-done">Цель выполнена — отличная работа!</div>` : "") +
     `</div></div>` +
     `<div class="card task-card">` +
-    `<div class="tc-ico" aria-hidden="true">🔁</div><div class="tc-body"><b>Повторение</b>` +
+    `<div class="tc-ico" aria-hidden="true">${icon("repeat", 28)}</div><div class="tc-body"><b>Повторение</b>` +
     `<div class="muted">${reviewN ? `пора повторить: <b>${reviewN}</b>` : counts.fresh ? `новых вопросов: ${counts.fresh}` : "пока нечего повторять"}</div>` +
     (counts.due + counts.wrong + counts.fresh
       ? `<button class="btn" id="tdReview" type="button">Повторить</button>`
       : `<div class="muted small">Вопросы появятся после первого урока.</div>`) +
     `</div></div>` +
     `<div class="card task-card">` +
-    `<div class="tc-ico" aria-hidden="true">🐞</div><div class="tc-body"><b>Мои ошибки</b>` +
+    `<div class="tc-ico" aria-hidden="true">${icon("bug", 28)}</div><div class="tc-body"><b>Мои ошибки</b>` +
     `<div class="muted">${counts.wrong ? `ждут разбора: <b>${counts.wrong}</b>` : "ошибок нет"}</div>` +
     (counts.wrong ? `<a class="btn" href="#/errors">Открыть</a>` : "") +
     `</div></div>` +
@@ -276,7 +278,7 @@ function errors(el: HTMLElement, d: PageDeps): void {
           .map(
             (it) =>
               `<div class="card err-item"><div class="muted small">${esc(it.topic)}</div>` +
-              `<b>${esc(it.q)}</b><div class="err-ans">✓ ${esc(it.options[it.answer])}</div>` +
+              `<b>${esc(it.q)}</b><div class="err-ans">${icon("check", 16)} ${esc(it.options[it.answer])}</div>` +
               (it.why ? `<div class="muted">${esc(it.why)}</div>` : "") +
               `</div>`,
           )
@@ -296,11 +298,35 @@ function interview(el: HTMLElement, d: PageDeps): void {
   el.querySelector<HTMLButtonElement>("#ivGo")!.onclick = d.openInterview;
 }
 
+/** Карточка персонажа: портрет в текущей одежде и три показателя состояния. */
+function charTile(life: NonNullable<Progress["life"]>): string {
+  const look = normalizeAppearance(life.look);
+  const m = (label: string, v: number): string =>
+    `<div class="ch-meter"><span>${label}</span><b>${Math.round(v)}</b>` +
+    `<i style="--v:${Math.max(0, Math.min(100, v))}%"></i></div>`;
+  return (
+    `<button class="card tile char-tile" type="button" id="crChar">` +
+    `<span class="ct-av" aria-hidden="true">${avatarSVG(look, {
+      size: 112,
+      top: life.wear.top,
+      shoes: life.wear.shoes,
+      accessory: life.accessory,
+      hunger: life.hunger,
+      health: life.health,
+      mood: life.mood,
+    })}</span>` +
+    `<span class="ct-body"><b>${esc(look.name || "Персонаж")}</b>` +
+    `<span class="muted">внешность, одежда и самочувствие</span>` +
+    `<span class="ch-meters">${m("Сытость", life.hunger)}${m("Здоровье", life.health)}${m("Настроение", life.mood)}</span></span>` +
+    `</button>`
+  );
+}
+
 function career(el: HTMLElement, d: PageDeps): void {
   const p = d.progress();
   const life = p.life;
   const tile = (id: string, ico: string, title: string, sub: string): string =>
-    `<button class="card tile" type="button" id="${id}"><span class="tile-ico" aria-hidden="true">${ico}</span>` +
+    `<button class="card tile" type="button" id="${id}"><span class="tile-ico" aria-hidden="true">${icon(ico, 32)}</span>` +
     `<b>${title}</b><span class="muted">${sub}</span></button>`;
   el.innerHTML =
     head(
@@ -310,14 +336,14 @@ function career(el: HTMLElement, d: PageDeps): void {
     (life
       ? `<div class="stat-row">` +
         `<div class="card stat"><b>${life.money.toLocaleString("ru-RU")} ₽</b><span>кошелёк</span></div>` +
-        `<div class="card stat"><b>♥ ${Math.round(life.health)}</b><span>здоровье</span></div>` +
+        `<div class="card stat"><b>${icon("heart", 18)} ${Math.round(life.health)}</b><span>здоровье</span></div>` +
         `</div>`
       : "") +
     `<div class="tile-grid">` +
-    tile("crJobs", "💼", "Карьера", "вакансии, офферы и текущая работа") +
-    tile("crLife", "🛍️", "Жизнь", "кошелёк, жильё, покупки") +
-    tile("crChar", "🧑‍💻", "Персонаж", "здоровье, сытость, настроение") +
-    tile("crRating", "🏅", "Рейтинг", "таблица лидеров") +
+    tile("crJobs", "briefcase", "Карьера", "вакансии, офферы и текущая работа") +
+    tile("crLife", "bag", "Жизнь", "кошелёк, жильё, покупки") +
+    tile("crRating", "medal", "Рейтинг", "таблица лидеров") +
+    (life ? charTile(life) : tile("crChar", "user", "Персонаж", "здоровье, сытость, настроение")) +
     `</div>`;
   el.querySelector<HTMLButtonElement>("#crJobs")!.onclick = d.openCareer;
   el.querySelector<HTMLButtonElement>("#crLife")!.onclick = d.openLife;

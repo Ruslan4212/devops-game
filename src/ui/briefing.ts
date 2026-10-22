@@ -44,7 +44,7 @@ export function renderBriefing(run: MissionRun | null, hintsUsed: number, h: Bri
         `</div>`
       : "") +
     `<button class="abtn" id="hintBtn">${icon("bulb", 16)}Подсказка (${hintsUsed}/${m.hints.length})</button>` +
-    `<button class="abtn" id="restartBtn">↻ Начать задание заново</button>`;
+    `<button class="abtn" id="restartBtn">${icon("reset", 16)}Начать задание заново</button>`;
 
   $("#hintBtn").onclick = h.onHint;
   $("#restartBtn").onclick = h.onRestart;

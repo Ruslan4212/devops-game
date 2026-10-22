@@ -32,7 +32,7 @@ import { initEditor, openEditor } from "./ui/editor";
 import { applyFileEdit } from "./engine/editor";
 import { execLine } from "./engine/shell";
 import { judgeCommand } from "./engine/grader";
-import { icon } from "./data/ui-icons";
+import { hydrateIcons, icon } from "./data/ui-icons";
 import type { DoStep } from "./engine/types";
 import { initAccount } from "./sync/account";
 import type { AccountApi } from "./sync/account";
@@ -68,7 +68,7 @@ function settleCalendar(): void {
   const parts: string[] = [`Прошло игровых суток: ${gameDays}`];
   if (credited) parts.push(`зарплата +${credited.toLocaleString("ru-RU")} ₽`);
   if (upkeep) parts.push(`жильё и машина −${upkeep.toLocaleString("ru-RU")} ₽`);
-  print("🗓 " + parts.join(", ") + ".", "dim");
+  print("Календарь: " + parts.join(", ") + ".", "dim");
   persist();
 }
 
@@ -161,6 +161,7 @@ $("#railScrim").onclick = () => setRailOpen(false);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && document.body.classList.contains("rail-open")) setRailOpen(false);
 });
+hydrateIcons();
 $("#themeBtn").onclick = () => {
   toggleTheme();
   if (route === "settings") showPage("settings");
@@ -324,7 +325,7 @@ function applyResult(res: StepResult): void {
     afterStep();
   } else {
     print(res.feedback, "warn");
-    if (run) setTaskStatus(run, { kind: "failed", reason: res.feedback.replace(/^🧑‍🏫\s*/u, "") });
+    if (run) setTaskStatus(run, { kind: "failed", reason: res.feedback.replace(/^Наставник:\s*/u, "") });
     renderPanel();
     $("#cmd").focus();
   }
@@ -380,7 +381,7 @@ function showNextLessonScreen(
   $("#mentorFab").classList.add("hide");
   if (next) {
     el.innerHTML =
-      `<div class="lp-done">🎉</div>` +
+      `<div class="lp-done">${icon("party", 48)}</div>` +
       `<div class="lp-say">Урок «${lesson.title}» пройден.\n\nСледующий: ${next.id} — ${next.title}</div>` +
       `<button class="lp-next" id="lpGoNext">Следующий урок →</button>`;
     document.getElementById("lpGoNext")!.onclick = () => {
@@ -389,7 +390,7 @@ function showNextLessonScreen(
     };
   } else {
     el.innerHTML =
-      `<div class="lp-done">🏆</div>` +
+      `<div class="lp-done">${icon("trophy", 48)}</div>` +
       `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>` +
       `<button class="lp-next" id="lpGetCert">Получить сертификат</button>`;
     document.getElementById("lpGetCert")!.onclick = openCertificate;
@@ -409,7 +410,7 @@ function maybeShowMandatoryReview(
   parkTerminal();
   $("#mentorFab").classList.add("hide");
   el.innerHTML =
-    `<div class="lp-done">🔄</div>` +
+    `<div class="lp-done">${icon("sync", 48)}</div>` +
     `<div class="lp-say">Урок «${lesson.title}» пройден.\n\n` +
     `Пройдено ${REVIEW_EVERY_LESSONS} уроков — самое время освежить старый материал, пока он не забылся.</div>` +
     `<button class="lp-next" id="lpGoReview">Начать повторение →</button>`;
@@ -446,7 +447,7 @@ function completeLesson(): void {
   }
   print("");
   print(
-    `✔ Урок пройден: ${lesson.title}  (+${gainedXp} XP` +
+    `✓ Урок пройден: ${lesson.title}  (+${gainedXp} XP` +
       (credited ? `, +${credited.toLocaleString("ru-RU")} ₽` : "") +
       `)`,
     "ok",
@@ -596,7 +597,7 @@ async function askMentor(
   if (!run) return;
   const lesson = run.lesson;
   lockInput(true);
-  print("🧑‍🏫 Наставник смотрит, что получилось…", "dim");
+  print("Наставник смотрит, что получилось…", "dim");
   setTaskStatus(run, { kind: "checking" });
   renderPanel();
 
@@ -605,13 +606,13 @@ async function askMentor(
   lockInput(false);
 
   if (verdict?.correct) {
-    print("🧑‍🏫 " + verdict.feedback, "ok");
+    print("Наставник: " + verdict.feedback, "ok");
     run.acceptStep();
     afterStep();
     return;
   }
   // наставник не засчитал или недоступен — показываем его разбор либо обычную подсказку
-  applyResult(verdict ? { ...fallback, feedback: "🧑‍🏫 " + verdict.feedback } : fallback);
+  applyResult(verdict ? { ...fallback, feedback: "Наставник: " + verdict.feedback } : fallback);
 }
 
 const input = $<HTMLTextAreaElement>("#cmd");

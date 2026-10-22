@@ -250,6 +250,60 @@ button:disabled {
 .ico {
   flex: none;
 }
+/* подложка duotone: акцентный цвет, контур остаётся currentColor */
+.ico-tone {
+  fill: var(--accent);
+  opacity: 0.28;
+}
+:root[data-theme="dark"] .ico-tone {
+  opacity: 0.4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ico-tone {
+    opacity: 0.4;
+  }
+}
+/* плитки товаров: оттенок по категории */
+.shop-tile {
+  --tile: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--tile) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tile) 30%, var(--border));
+}
+.shop-tile .ico-tone {
+  fill: var(--tile);
+  opacity: 0.55;
+}
+.shop-tile-food {
+  --tile: #f59e0b;
+}
+.shop-tile-clothes {
+  --tile: #8b5cf6;
+}
+.shop-tile-accessory {
+  --tile: #ec4899;
+}
+.shop-tile-home {
+  --tile: #10b981;
+}
+.shop-tile-tech {
+  --tile: #3ba0ff;
+}
+.shop-tile-trip {
+  --tile: #06b6d4;
+}
+.shop-tile-comfort {
+  --tile: #f97316;
+}
+.shop-tile-car {
+  --tile: #64748b;
+}
 
 /* ------------------------------ кнопки ------------------------------
    Четыре варианта: primary (главное действие), secondary, ghost, danger.
@@ -436,6 +490,8 @@ button:disabled {
   gap: var(--s1);
 }
 .icon-btn {
+  display: inline-flex;
+  align-items: center;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -509,7 +565,8 @@ button:disabled {
 }
 .side .si {
   width: 22px;
-  text-align: center;
+  display: inline-grid;
+  place-items: center;
   flex: none;
 }
 .side-badge {
@@ -648,8 +705,8 @@ button:disabled {
 }
 .tc-ico,
 .tile-ico {
-  font-size: 1.6rem;
   line-height: 1;
+  color: var(--accent-text);
 }
 .tc-body {
   flex: 1;
@@ -861,7 +918,8 @@ label.set-row {
   background: var(--accent-hover);
 }
 .fab-ico {
-  font-size: 1.4rem;
+  display: inline-grid;
+  place-items: center;
 }
 
 /* <=820 — как english-b2: боковое меню становится выезжающей панелью */
@@ -1512,7 +1570,8 @@ label.set-row {
   border: 1px solid var(--border-strong);
 }
 .lp-done {
-  font-size: var(--fs-2xl);
+  color: var(--accent-text);
+  line-height: 1;
   margin: var(--s2) 0 var(--s3);
 }
 
@@ -2042,7 +2101,7 @@ label.set-row {
   background: var(--surface-2);
   display: grid;
   place-items: center;
-  font-size: 14px;
+  color: var(--accent-text);
 }
 .iv-bubble {
   background: var(--surface-2);
@@ -2146,39 +2205,98 @@ label.set-row {
 /* ------------------------------ персонаж ------------------------------ */
 .ch-wrap {
   display: flex;
-  gap: var(--s5);
   flex-wrap: wrap;
+  gap: var(--s4);
   margin: var(--s4) 0;
+  align-items: flex-start;
+}
+.ch-preview {
+  margin: 0;
+  flex: 1 1 240px;
+  max-width: 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  box-shadow: var(--shadow-menu);
 }
 .ch-portrait {
-  flex: 0 0 auto;
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  overflow: hidden;
   line-height: 0;
+  max-width: 100%;
 }
-.ch-controls {
-  flex: 1 1 260px;
-  min-width: 240px;
+.ch-portrait svg {
+  max-width: 100%;
+  height: auto;
+  border-radius: 28px;
+}
+.ch-who {
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  color: var(--head);
+}
+.ch-meters {
+  width: 100%;
   display: grid;
   gap: var(--s2);
+}
+.ch-meter {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--s2);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.ch-meter span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ch-meter b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.ch-meter i {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  overflow: hidden;
+  position: relative;
+}
+.ch-meter i::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--v);
+  background: var(--accent);
+  border-radius: var(--r-full);
+}
+.ch-controls {
+  margin: 0;
+  flex: 1 1 260px;
+  min-width: 0;
+  display: grid;
+  gap: var(--s4);
   align-content: start;
 }
 .ch-row {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
   font-size: var(--fs-sm);
 }
-.ch-row > span {
-  flex: 0 0 92px;
+.ch-lab {
   color: var(--text-2);
   font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 .ch-opts {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 .ch-chip,
 .lf-tab {
@@ -2186,9 +2304,10 @@ label.set-row {
   border: 1px solid var(--border-strong);
   color: var(--text);
   border-radius: var(--r-full);
-  min-height: 28px;
-  padding: 0 var(--s3);
-  font-size: var(--fs-xs);
+  min-height: 32px;
+  padding: 0 var(--s4);
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 .ch-chip:hover,
 .lf-tab:hover {
@@ -2199,24 +2318,48 @@ label.set-row {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-weight: 600;
+  font-weight: 700;
 }
 .ch-sw {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--r-full);
-  border: 2px solid var(--border);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong);
   padding: 0;
 }
 .ch-sw.on {
-  border-color: var(--accent);
   box-shadow:
     0 0 0 2px var(--surface),
     0 0 0 4px var(--accent);
 }
 .ch-name {
+  width: 100%;
+  max-width: 280px;
+  padding: 8px var(--s3);
+}
+/* карточка персонажа в «Карьера и жизнь» */
+.char-tile {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: var(--s4) !important;
+  grid-column: 1 / -1;
+}
+.char-tile .ct-av {
+  line-height: 0;
+  flex: 0 0 auto;
+}
+.char-tile .ct-av svg {
+  border-radius: 20px;
+}
+.char-tile .ct-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
   flex: 1;
-  padding: 6px var(--s3);
+}
+.char-tile .ch-meters {
+  max-width: 360px;
 }
 
 /* ------------------------------- жизнь ------------------------------- */

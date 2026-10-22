@@ -50,23 +50,11 @@ describe("причёски различаются силуэтом", () => {
   });
 });
 
-describe("масса волос и шапка причёски не оставляют шва на макушке", () => {
-  // Раньше верх задней массы приближался кривыми Безье, чуть отличными от
-  // дуги шапки, и в стыке на макушке проступала полоска кожи головы. Дуга в
-  // SVG — команда "A rx ry 0 0 1 x y"; у шапки и массы должна быть буквально
-  // одна и та же дуговая команда, а не две похожие.
-  const crownArcs = (svg: string): string[] => svg.match(/A[\d.]+ [\d.]+ 0 0 1 [\d.]+ \d+/g) ?? [];
-
-  it("длинные (м): дуга задней массы совпадает с дугой шапки", () => {
-    const arcs = crownArcs(avatarSVG({ ...defaultAppearance(), hair: 2 }));
-    // хотя бы две ОДИНАКОВЫЕ дуговые команды: одна в заднем слое, одна в переднем
-    expect(new Set(arcs).size).toBeLessThan(arcs.length);
-  });
-
-  it("каре: тот же приём — дуги совпадают, а не просто похожи", () => {
-    // «хвост» использует отдельную форму хвоста, а не общую дугу с шапкой,
-    // поэтому проверяем это только там, где приём применён: длинные и каре
-    const arcs = crownArcs(avatarSVG({ ...defaultAppearance(), sex: "f", hair: 0 }));
-    expect(new Set(arcs).size).toBeLessThan(arcs.length);
+describe("пряди и задний слой волос", () => {
+  it("длинные волосы добавляют слой за плечами и пряди спереди", () => {
+    const short = avatarSVG({ ...defaultAppearance(), sex: "f", hair: 0 });
+    const long = avatarSVG({ ...defaultAppearance(), sex: "f", hair: 2 });
+    expect(long).not.toBe(short);
+    expect(long).toContain("scale(-1 1)");
   });
 });

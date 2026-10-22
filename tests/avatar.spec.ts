@@ -49,7 +49,7 @@ describe("персонаж — портрет", () => {
     expect(svg.startsWith("<svg")).toBe(true);
     expect(svg.endsWith("</svg>")).toBe(true);
     expect(svg).toContain('width="120"');
-    expect(svg).toContain('viewBox="0 0 200 400"');
+    expect(svg).toContain('viewBox="0 0 200 252"');
     expect(svg).toContain("<path");
   });
 
@@ -75,23 +75,18 @@ describe("персонаж — портрет", () => {
     expect(new Set([of(0), of(1), of(2)]).size).toBe(3);
   });
 
-  it("пропорции намеренно «детские»: голова около трети роста", () => {
-    // стиль обучающих приложений строится не на анатомии, а на крупной голове
-    // и больших глазах — правильные 7.5 голов дают сухой манекен
+  it("это портрет по пояс, а не фигура в полный рост", () => {
     const svg = avatarSVG(defaultAppearance());
-    const headRy = Number(/<ellipse cx="100" cy="96" rx="52" ry="(\d+)"/.exec(svg)![1]);
-    const canvas = Number(/viewBox="0 0 \d+ (\d+)"/.exec(svg)![1]);
-    const heads = canvas / (headRy * 2);
-    expect(heads).toBeGreaterThan(2.5);
-    expect(heads).toBeLessThan(4);
+    const [, w, h] = /viewBox="0 0 (\d+) (\d+)"/.exec(svg)!.map(Number);
+    expect(h / w).toBeGreaterThan(1);
+    expect(h / w).toBeLessThan(1.4);
   });
 
-  it("фигура красится плоско: градиент только у фона", () => {
+  it("рисунок красится плоско, без градиентов, с тёмным контуром", () => {
     const svg = avatarSVG(defaultAppearance());
-    // единственный градиент в документе — подложка сцены
-    expect((svg.match(/Gradient/g) ?? []).length).toBeLessThanOrEqual(2);
-    expect(svg).not.toContain("url(#skin");
-    expect(svg).not.toContain("url(#cloth");
+    expect(svg).not.toContain("Gradient");
+    expect(svg).toContain('stroke="#1f2a37"');
+    expect(svg).toContain('stroke-linecap="round"');
   });
 
   it("одежда влияет на цвет", () => {
@@ -132,16 +127,14 @@ describe("персонаж — портрет", () => {
     expect(avatarSVG({ ...defaultAppearance(), hair: 7 }).startsWith("<svg")).toBe(true);
   });
 
-  it("борода заканчивается на подбородке, а не уходит в корпус", () => {
-    // у головы подбородок на y=152; ни одна точка бороды не должна лежать ниже
+  it("борода рисуется поверх лица, но под волосами", () => {
     for (const beardStyle of [0, 1, 2]) {
       const svg = avatarSVG({ ...defaultAppearance(), beard: true, beardStyle });
-      const beardPath = /<g fill="[^"]+"><path d="(M[^"]+)"/.exec(svg)![1];
-      // дуга бороды — та же дуга, что у головы: радиусы совпадают
-      expect(beardPath).toContain("A52 56 0 0 0");
-      // верхний край бороды начинается ниже линии глаз (104)
-      const startY = Number(/^M[\d.]+ ([\d.]+)/.exec(beardPath)![1]);
-      expect(startY).toBeGreaterThan(104);
+      const faceIx = svg.indexOf('fill="#fff"');
+      const beardIx = svg.search(/d="M(60 10[46]|58 100)C/);
+      const hairIx = svg.indexOf(`fill="${HAIRC[0]}" stroke`);
+      expect(beardIx).toBeGreaterThan(faceIx);
+      expect(hairIx).toBeGreaterThan(beardIx);
     }
   });
 

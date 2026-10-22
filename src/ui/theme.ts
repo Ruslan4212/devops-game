@@ -28,7 +28,7 @@ function store(t: ThemeChoice): void {
   applyTheme(t);
 }
 
-/** Кнопка 🌓 в шапке: светлая ↔ тёмная относительно того, что видно сейчас. */
+/** Кнопка темы в шапке: светлая и тёмная относительно того, что видно сейчас. */
 export function toggleTheme(): void {
   const t = readTheme();
   const dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
