@@ -145,7 +145,7 @@ export class LessonRun {
     let feedback = r.err
       ? r.out
       : (step.feedback?.(this.world) ?? "Это выполнилось, но задача шага ещё не закрыта.");
-    if (this.attempts === this.hintAt) feedback += `\n\n💡 Подсказка: ${step.hint}`;
+    if (this.attempts === this.hintAt) feedback += `\n\nПодсказка: ${step.hint}`;
     const reveal = this.attempts >= this.revealAt ? step.answer : undefined;
     if (reveal) feedback += `\n\nНе получается — просто набери это:\n${step.answer}`;
     return { status: "retry", feedback, reveal };
@@ -172,7 +172,7 @@ export class LessonRun {
     this.attempts++;
     const step = this.step as DoStep;
     let feedback = "Файл сохранён, но задача шага ещё не закрыта.";
-    if (step.kind === "do" && this.attempts === this.hintAt) feedback += `\n\n💡 ${step.hint}`;
+    if (step.kind === "do" && this.attempts === this.hintAt) feedback += `\n\nПодсказка: ${step.hint}`;
     return {
       status: "retry",
       feedback,

@@ -155,7 +155,7 @@ const INTERVIEWERS: Record<string, string> = {
 function bubble(who: "lead" | "me", html: string): string {
   return (
     `<div class="iv-msg iv-msg-${who}">` +
-    `<div class="iv-avatar">${who === "lead" ? "🧑‍💻" : "🙂"}</div>` +
+    `<div class="iv-avatar">${icon(who === "lead" ? "userCode" : "mood", 22)}</div>` +
     `<div class="iv-bubble">${html}</div>` +
     `</div>`
   );
@@ -243,7 +243,7 @@ function runInterview(job: Job, d: CareerDeps): void {
       const ta = document.getElementById("crAnswerInput") as HTMLTextAreaElement | null;
       const mine = (ta?.value ?? "").trim();
       transcript.push(bubble("me", esc(mine || "(промолчал)")));
-      transcript.push(bubble("lead", "🧑‍💻 Думает над твоим ответом…"));
+      transcript.push(bubble("lead", "Думает над твоим ответом…"));
       $("#modBody").innerHTML = header() + `<div class="iv-chat">${transcript.join("")}</div>`;
       scrollChatToEnd();
       gradeAnswer({ question: q.q, options: q.options, answerIx: q.answer, explain: q.why, userAnswer: mine })

@@ -42,7 +42,7 @@
         aria-controls="side"
         aria-expanded="false"
       >
-        ☰
+        <span data-ico="menu" aria-hidden="true"></span>
       </button>
       <a class="logo" href="#/today"
         ><i></i><span>Terminal Ops <b>Academy</b></span></a
@@ -54,29 +54,44 @@
       </div>
       <div class="sp" id="topActions">
         <button class="icon-btn" id="themeBtn" type="button" title="Сменить тему" aria-label="Сменить тему">
-          🌓
+          <span data-ico="contrast" aria-hidden="true"></span>
         </button>
       </div>
     </header>
 
     <div class="layout">
       <nav class="side" id="side" aria-label="Разделы">
-        <a href="#/today" data-r="today"><span class="si" aria-hidden="true">📅</span>Сегодня</a>
-        <a href="#/map" data-r="map"><span class="si" aria-hidden="true">🗺️</span>Карта курса</a>
-        <a href="#/lessons" data-r="lessons"><span class="si" aria-hidden="true">📘</span>Уроки</a>
+        <a href="#/today" data-r="today"
+          ><span class="si" data-ico="calendar" aria-hidden="true"></span>Сегодня</a
+        >
+        <a href="#/map" data-r="map"><span class="si" data-ico="map" aria-hidden="true"></span>Карта курса</a>
+        <a href="#/lessons" data-r="lessons"
+          ><span class="si" data-ico="book" aria-hidden="true"></span>Уроки</a
+        >
         <a href="#/terminal" data-r="terminal"
-          ><span class="si" aria-hidden="true">⌨️</span>Терминал-тренажёр</a
+          ><span class="si" data-ico="terminal" aria-hidden="true"></span>Терминал-тренажёр</a
         >
         <a href="#/review" data-r="review"
-          ><span class="si" aria-hidden="true">🔁</span>Повторение<b class="side-badge hide" id="dueBadge"></b
+          ><span class="si" data-ico="repeat" aria-hidden="true"></span>Повторение<b
+            class="side-badge hide"
+            id="dueBadge"
+          ></b
         ></a>
-        <a href="#/errors" data-r="errors"><span class="si" aria-hidden="true">🐞</span>Мои ошибки</a>
-        <a href="#/interview" data-r="interview"
-          ><span class="si" aria-hidden="true">💬</span>Собеседование</a
+        <a href="#/errors" data-r="errors"
+          ><span class="si" data-ico="bug" aria-hidden="true"></span>Мои ошибки</a
         >
-        <a href="#/career" data-r="career"><span class="si" aria-hidden="true">💼</span>Карьера и жизнь</a>
-        <a href="#/progress" data-r="progress"><span class="si" aria-hidden="true">📊</span>Прогресс</a>
-        <a href="#/settings" data-r="settings"><span class="si" aria-hidden="true">⚙️</span>Настройки</a>
+        <a href="#/interview" data-r="interview"
+          ><span class="si" data-ico="chat" aria-hidden="true"></span>Собеседование</a
+        >
+        <a href="#/career" data-r="career"
+          ><span class="si" data-ico="briefcase" aria-hidden="true"></span>Карьера и жизнь</a
+        >
+        <a href="#/progress" data-r="progress"
+          ><span class="si" data-ico="progress" aria-hidden="true"></span>Прогресс</a
+        >
+        <a href="#/settings" data-r="settings"
+          ><span class="si" data-ico="settings" aria-hidden="true"></span>Настройки</a
+        >
       </nav>
       <div class="rail-scrim" id="railScrim"></div>
       <main class="main" id="app">
@@ -127,7 +142,8 @@
       type="button"
       title="Наставник разберёт этот шаг подробнее, с примерами"
     >
-      <span class="fab-ico" aria-hidden="true">🧑‍🏫</span><span class="fab-label">Спросить наставника</span>
+      <span class="fab-ico" data-ico="mentor" aria-hidden="true"></span
+      ><span class="fab-label">Спросить наставника</span>
     </button>
 
     <div class="ov hide" id="edOv">

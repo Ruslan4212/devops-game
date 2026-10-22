@@ -1,3 +1,4 @@
+import { icon } from "../data/ui-icons";
 import { esc } from "./dom";
 import { ACTS, LESSONS } from "../lessons";
 import type { Progress } from "../engine/progress";
@@ -7,6 +8,8 @@ import { isDue, isWrongItem, MAX_BOX } from "../engine/review";
 import type { ReviewItem } from "../engine/review";
 import { allLessonsDone, expandAct } from "./rail";
 import { initThemeSwitch } from "./theme";
+import { avatarCardHtml } from "./character";
+import { defaultLife } from "../engine/life";
 
 /**
  * Страницы разделов бокового меню (как в english-b2): «Сегодня», «Карта курса»,
@@ -150,19 +153,19 @@ function today_(el: HTMLElement, d: PageDeps): void {
     `</div>` +
     `<div class="today-grid">` +
     `<div class="card task-card">` +
-    `<div class="tc-ico" aria-hidden="true">🎯</div><div class="tc-body"><b>Цель на день</b>` +
+    `<div class="tc-ico" aria-hidden="true">${icon("target", 28)}</div><div class="tc-body"><b>Цель на день</b>` +
     `<div class="muted">${got} из ${goal} уроков</div>${bar(Math.min(100, pct(got, goal)), got >= goal ? " ok" : "")}` +
     (got >= goal ? `<div class="tc-done">Цель выполнена — отличная работа!</div>` : "") +
     `</div></div>` +
     `<div class="card task-card">` +
-    `<div class="tc-ico" aria-hidden="true">🔁</div><div class="tc-body"><b>Повторение</b>` +
+    `<div class="tc-ico" aria-hidden="true">${icon("repeat", 28)}</div><div class="tc-body"><b>Повторение</b>` +
     `<div class="muted">${reviewN ? `пора повторить: <b>${reviewN}</b>` : counts.fresh ? `новых вопросов: ${counts.fresh}` : "пока нечего повторять"}</div>` +
     (counts.due + counts.wrong + counts.fresh
       ? `<button class="btn" id="tdReview" type="button">Повторить</button>`
       : `<div class="muted small">Вопросы появятся после первого урока.</div>`) +
     `</div></div>` +
     `<div class="card task-card">` +
-    `<div class="tc-ico" aria-hidden="true">🐞</div><div class="tc-body"><b>Мои ошибки</b>` +
+    `<div class="tc-ico" aria-hidden="true">${icon("bug", 28)}</div><div class="tc-body"><b>Мои ошибки</b>` +
     `<div class="muted">${counts.wrong ? `ждут разбора: <b>${counts.wrong}</b>` : "ошибок нет"}</div>` +
     (counts.wrong ? `<a class="btn" href="#/errors">Открыть</a>` : "") +
     `</div></div>` +
@@ -300,28 +303,31 @@ function career(el: HTMLElement, d: PageDeps): void {
   const p = d.progress();
   const life = p.life;
   const tile = (id: string, ico: string, title: string, sub: string): string =>
-    `<button class="card tile" type="button" id="${id}"><span class="tile-ico" aria-hidden="true">${ico}</span>` +
+    `<button class="card tile" type="button" id="${id}"><span class="tile-ico" aria-hidden="true">${icon(ico, 28)}</span>` +
     `<b>${title}</b><span class="muted">${sub}</span></button>`;
   el.innerHTML =
     head(
       "Карьера и жизнь",
       "Уроки открывают вакансии, зарплата идёт по календарю, а персонажу нужно есть и отдыхать.",
     ) +
+    `<button class="ch-card-btn" type="button" id="crCard" aria-label="Открыть персонажа">${avatarCardHtml(life ?? defaultLife())}</button>` +
     (life
       ? `<div class="stat-row">` +
         `<div class="card stat"><b>${life.money.toLocaleString("ru-RU")} ₽</b><span>кошелёк</span></div>` +
-        `<div class="card stat"><b>♥ ${Math.round(life.health)}</b><span>здоровье</span></div>` +
+        `<div class="card stat"><b>${icon("heart", 18, { filled: true })} ${Math.round(life.health)}</b><span>здоровье</span></div>` +
         `</div>`
       : "") +
     `<div class="tile-grid">` +
-    tile("crJobs", "💼", "Карьера", "вакансии, офферы и текущая работа") +
-    tile("crLife", "🛍️", "Жизнь", "кошелёк, жильё, покупки") +
-    tile("crChar", "🧑‍💻", "Персонаж", "здоровье, сытость, настроение") +
-    tile("crRating", "🏅", "Рейтинг", "таблица лидеров") +
+    tile("crJobs", "briefcase", "Карьера", "вакансии, офферы и текущая работа") +
+    tile("crLife", "bag", "Жизнь", "кошелёк, жильё, покупки") +
+    tile("crChar", "userCode", "Персонаж", "здоровье, сытость, настроение") +
+    tile("crRating", "medal", "Рейтинг", "таблица лидеров") +
     `</div>`;
   el.querySelector<HTMLButtonElement>("#crJobs")!.onclick = d.openCareer;
   el.querySelector<HTMLButtonElement>("#crLife")!.onclick = d.openLife;
   el.querySelector<HTMLButtonElement>("#crChar")!.onclick = d.openCharacter;
+  const crCard = el.querySelector<HTMLButtonElement>("#crCard");
+  if (crCard) crCard.onclick = d.openCharacter;
   el.querySelector<HTMLButtonElement>("#crRating")!.onclick = d.openRating;
 }
 

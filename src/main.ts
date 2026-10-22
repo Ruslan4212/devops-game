@@ -68,7 +68,7 @@ function settleCalendar(): void {
   const parts: string[] = [`Прошло игровых суток: ${gameDays}`];
   if (credited) parts.push(`зарплата +${credited.toLocaleString("ru-RU")} ₽`);
   if (upkeep) parts.push(`жильё и машина −${upkeep.toLocaleString("ru-RU")} ₽`);
-  print("🗓 " + parts.join(", ") + ".", "dim");
+  print("Календарь: " + parts.join(", ") + ".", "dim");
   persist();
 }
 
@@ -195,6 +195,29 @@ function showPage(r: Exclude<Route, "lesson">): void {
   renderPage(r, el, pageDeps);
 }
 
+/** Иконки меню, шапки и плавающей кнопки: в разметке — только data-ico, заливка у активного раздела. */
+const NAV_ICO: Record<string, string> = {
+  today: "calendar",
+  map: "map",
+  lessons: "book",
+  terminal: "terminal",
+  review: "repeat",
+  errors: "bug",
+  interview: "chat",
+  career: "briefcase",
+  progress: "progress",
+  settings: "settings",
+};
+function paintNavIcons(): void {
+  for (const a of document.querySelectorAll<HTMLAnchorElement>("#side a")) {
+    const slot = a.querySelector<HTMLElement>(".si");
+    const name = NAV_ICO[a.dataset.r ?? ""];
+    if (slot && name) slot.innerHTML = icon(name, 20, { filled: a.classList.contains("active") });
+  }
+}
+for (const el of document.querySelectorAll<HTMLElement>("[data-ico]:not(.si)"))
+  el.innerHTML = icon(el.dataset.ico!, el.classList.contains("fab-ico") ? 22 : 20);
+
 function applyRoute(): void {
   const r = routeFromHash();
   if (r !== "terminal") leaveSandbox();
@@ -207,6 +230,7 @@ function applyRoute(): void {
     if (on) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
+  paintNavIcons();
   $("#lessonView").classList.toggle("hide", route !== "lesson");
   $("#pageView").classList.toggle("hide", route === "lesson");
   $("#mentorFab").classList.toggle("hide", route !== "lesson" || !run || run.finished);
@@ -324,7 +348,7 @@ function applyResult(res: StepResult): void {
     afterStep();
   } else {
     print(res.feedback, "warn");
-    if (run) setTaskStatus(run, { kind: "failed", reason: res.feedback.replace(/^🧑‍🏫\s*/u, "") });
+    if (run) setTaskStatus(run, { kind: "failed", reason: res.feedback });
     renderPanel();
     $("#cmd").focus();
   }
@@ -380,7 +404,7 @@ function showNextLessonScreen(
   $("#mentorFab").classList.add("hide");
   if (next) {
     el.innerHTML =
-      `<div class="lp-done">🎉</div>` +
+      `<div class="lp-done">${icon("confetti", 40, { filled: true })}</div>` +
       `<div class="lp-say">Урок «${lesson.title}» пройден.\n\nСледующий: ${next.id} — ${next.title}</div>` +
       `<button class="lp-next" id="lpGoNext">Следующий урок →</button>`;
     document.getElementById("lpGoNext")!.onclick = () => {
@@ -389,7 +413,7 @@ function showNextLessonScreen(
     };
   } else {
     el.innerHTML =
-      `<div class="lp-done">🏆</div>` +
+      `<div class="lp-done">${icon("trophy", 40, { filled: true })}</div>` +
       `<div class="lp-say">Ты прошёл всю программу!\nРанг: ${rankOf(P.xp)}</div>` +
       `<button class="lp-next" id="lpGetCert">Получить сертификат</button>`;
     document.getElementById("lpGetCert")!.onclick = openCertificate;
@@ -409,7 +433,7 @@ function maybeShowMandatoryReview(
   parkTerminal();
   $("#mentorFab").classList.add("hide");
   el.innerHTML =
-    `<div class="lp-done">🔄</div>` +
+    `<div class="lp-done">${icon("refresh", 40)}</div>` +
     `<div class="lp-say">Урок «${lesson.title}» пройден.\n\n` +
     `Пройдено ${REVIEW_EVERY_LESSONS} уроков — самое время освежить старый материал, пока он не забылся.</div>` +
     `<button class="lp-next" id="lpGoReview">Начать повторение →</button>`;
@@ -596,7 +620,7 @@ async function askMentor(
   if (!run) return;
   const lesson = run.lesson;
   lockInput(true);
-  print("🧑‍🏫 Наставник смотрит, что получилось…", "dim");
+  print("Наставник смотрит, что получилось…", "dim");
   setTaskStatus(run, { kind: "checking" });
   renderPanel();
 
@@ -605,13 +629,13 @@ async function askMentor(
   lockInput(false);
 
   if (verdict?.correct) {
-    print("🧑‍🏫 " + verdict.feedback, "ok");
+    print("Наставник: " + verdict.feedback, "ok");
     run.acceptStep();
     afterStep();
     return;
   }
   // наставник не засчитал или недоступен — показываем его разбор либо обычную подсказку
-  applyResult(verdict ? { ...fallback, feedback: "🧑‍🏫 " + verdict.feedback } : fallback);
+  applyResult(verdict ? { ...fallback, feedback: "Наставник: " + verdict.feedback } : fallback);
 }
 
 const input = $<HTMLTextAreaElement>("#cmd");
@@ -916,4 +940,8 @@ checkDeath();
 if (!P.legacyImported) {
   const legacy = readLegacySave();
   if (legacy && worthImporting(legacy)) showLegacyImport(legacy);
+}
+
+if (new URLSearchParams(location.search).has("icons")) {
+  void import("./ui/icons-sheet").then((m) => m.renderIconsSheet(document.body));
 }

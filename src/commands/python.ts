@@ -164,7 +164,7 @@ function analyze(src: string, args: string[], w: World): { out: string; code: nu
     const hasTimeout = /requests\.\w+\([^)]*\btimeout\s*=/.test(src) || /\btimeout\s*=\s*\d/.test(src);
     if (!hasTimeout)
       out.push(
-        "⚠  запрос без timeout= — если сервис зависнет, скрипт будет ждать вечно (крон не завершится)",
+        "[!] запрос без timeout= — если сервис зависнет, скрипт будет ждать вечно (крон не завершится)",
       );
     /* повтор с паузой: for ... in range(N) + time.sleep(...) вокруг вызова */
     const retryMatch = src.match(/for\s+\w+\s+in\s+range\(\s*(\d+)\s*\)/);
@@ -239,7 +239,7 @@ function analyze(src: string, args: string[], w: World): { out: string; code: nu
     const listForm = /subprocess\.\w+\(\s*\[/.test(src);
     if (/shell\s*=\s*True/.test(src) && /f["']/.test(src))
       out.push(
-        "⚠  shell=True с f-строкой — инъекция команд: чужой ввод попадёт прямо в shell. Передавай список аргументов без shell=True.",
+        "[!] shell=True с f-строкой — инъекция команд: чужой ввод попадёт прямо в shell. Передавай список аргументов без shell=True.",
       );
     if (listForm) {
       const bin = (src.match(/subprocess\.\w+\(\s*\[\s*["']([^"']+)["']/) || [])[1] || "cmd";
