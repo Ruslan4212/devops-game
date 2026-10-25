@@ -2,7 +2,7 @@
 // открывать её офлайн (последней загруженной версией), если сети нет.
 // Стратегия — network-first: онлайн всегда отдаём свежий index.html,
 // офлайн — то, что успело закэшироваться при последнем успешном визите.
-const CACHE = "pipeline-shell-v1";
+const CACHE = "pipeline-shell-v2";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", e => {
@@ -19,6 +19,10 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
+  // Новая версия игры (/next/, /play/) живёт рядом и сама отвечает за свои файлы:
+  // кэш этого воркера отдавал бы устаревшую сборку на втором устройстве.
+  const path = new URL(e.request.url).pathname;
+  if (path.includes("/next/") || path.includes("/play/")) return;
   e.respondWith(
     fetch(e.request)
       .then(res => {
