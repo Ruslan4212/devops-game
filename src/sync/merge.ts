@@ -1,3 +1,4 @@
+import { mergeDrill } from "../engine/drill";
 import { mergeLife } from "../engine/life";
 import { mergeReviewStats } from "../engine/review";
 import type { Progress } from "../engine/progress";
@@ -82,6 +83,8 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     reviewStats: mergeReviewStats(a.reviewStats, b.reviewStats),
     // круг «повторить всё» — у той версии, что сохранена позже
     reviewMarathon: newer.reviewMarathon ?? older.reviewMarathon,
+    drill: mergeDrill(a.drill, b.drill),
+    drillGoal: newer.drillGoal ?? older.drillGoal,
     // уроки с последнего повторения — максимум: обязательное повторение не теряется при синхронизации
     lessonsSinceReview: Math.max(a.lessonsSinceReview ?? 0, b.lessonsSinceReview ?? 0),
     // done уже мог "перегнать" lessonState с другого устройства — если урок отмечен

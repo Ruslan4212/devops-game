@@ -1,3 +1,4 @@
+import type { DrillState } from "./drill";
 import type { Life } from "./life";
 import type { LessonState } from "./lesson-run";
 import type { ReviewMarathon, ReviewStats } from "./review";
@@ -31,6 +32,10 @@ export interface Progress {
   reviewStats?: ReviewStats;
   /** незаконченный круг «повторить всё» */
   reviewMarathon?: ReviewMarathon;
+  /** ежедневная практика команд: коробки по каждой команде и счётчик упражнений по дням */
+  drill?: DrillState;
+  /** цель на день — сколько упражнений в практике */
+  drillGoal?: number;
 }
 
 /** Приводит сохранение любой давности к текущей схеме: старые сохранения без истории повторения получают пустую. */

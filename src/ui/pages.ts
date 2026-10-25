@@ -10,6 +10,8 @@ import { allLessonsDone, expandAct } from "./rail";
 import { initThemeSwitch } from "./theme";
 import { avatarCardHtml } from "./character";
 import { defaultLife } from "../engine/life";
+import { dailySummary, renderDaily } from "./daily";
+import { DEFAULT_GOAL, GOALS } from "../engine/drill";
 
 /**
  * Страницы разделов бокового меню (как в english-b2): «Сегодня», «Карта курса»,
@@ -20,6 +22,7 @@ import { defaultLife } from "../engine/life";
  */
 export type Route =
   | "today"
+  | "daily"
   | "map"
   | "lessons"
   | "terminal"
@@ -33,6 +36,7 @@ export type Route =
 
 export const ROUTES: readonly Route[] = [
   "today",
+  "daily",
   "map",
   "lessons",
   "terminal",
@@ -54,6 +58,8 @@ export interface PageDeps {
   startLesson: (id: string) => void;
   openCapstone: () => void;
   openReview: (onlyWrong: boolean) => void;
+  /** сохранить прогресс (локально + в облако) */
+  persist: () => void;
   openInterview: () => void;
   openCareer: () => void;
   openLife: () => void;
@@ -139,6 +145,7 @@ function today_(el: HTMLElement, d: PageDeps): void {
   const step = run && !run.finished ? run.position : null;
   const allDone = allLessonsDone(p);
 
+  const dl = dailySummary(d);
   const reviewN = counts.due + counts.wrong;
   el.innerHTML =
     head("Сегодня", `Ранг: <b>${rankOf(p.xp)}</b> · пройдено ${doneN} из ${total} уроков`) +
@@ -156,6 +163,11 @@ function today_(el: HTMLElement, d: PageDeps): void {
     `<div class="tc-ico" aria-hidden="true">${icon("target", 28)}</div><div class="tc-body"><b>Цель на день</b>` +
     `<div class="muted">${got} из ${goal} уроков</div>${bar(Math.min(100, pct(got, goal)), got >= goal ? " ok" : "")}` +
     (got >= goal ? `<div class="tc-done">Цель выполнена — отличная работа!</div>` : "") +
+    `</div></div>` +
+    `<div class="card task-card">` +
+    `<div class="tc-ico" aria-hidden="true">${icon("bolt", 28)}</div><div class="tc-body"><b>Ежедневная практика</b>` +
+    `<div class="muted">${dl.got} из ${dl.goal} упражнений · серия ${dl.streak}</div>${bar(Math.min(100, pct(dl.got, dl.goal)), dl.got >= dl.goal ? " ok" : "")}` +
+    `<a class="btn primary" href="#/daily">${dl.got >= dl.goal ? "Ещё заход" : "Тренироваться"}</a>` +
     `</div></div>` +
     `<div class="card task-card">` +
     `<div class="tc-ico" aria-hidden="true">${icon("repeat", 28)}</div><div class="tc-body"><b>Повторение</b>` +
@@ -372,6 +384,8 @@ function settings(el: HTMLElement, d: PageDeps): void {
     `<input type="checkbox" class="switch" id="stStrict"${p.strict ? " checked" : ""}></label>` +
     `<div class="card set-row"><div><b>Цель на день</b><div class="muted">Сколько уроков в день хочешь проходить.</div></div>` +
     `<select id="stGoal">${[1, 2, 3, 5, 8].map((n) => `<option value="${n}"${n === dailyGoal() ? " selected" : ""}>${n}</option>`).join("")}</select></div>` +
+    `<div class="card set-row"><div><b>Цель практики</b><div class="muted">Сколько упражнений в день в ежедневной практике.</div></div>` +
+    `<select id="stDrillGoal">${GOALS.map((n) => `<option value="${n}"${n === (p.drillGoal ?? DEFAULT_GOAL) ? " selected" : ""}>${n}</option>`).join("")}</select></div>` +
     `<div class="card set-row"><div><b>Аккаунт</b><div class="muted">Вход нужен, чтобы прогресс был на всех устройствах.</div></div>` +
     `<button class="btn" id="stAcct" type="button">Открыть</button></div>` +
     `<div class="card set-row"><div><b>Как проходить</b><div class="muted">Коротко о шагах урока.</div></div>` +
@@ -383,6 +397,10 @@ function settings(el: HTMLElement, d: PageDeps): void {
     d.setStrict((e.target as HTMLInputElement).checked);
   el.querySelector<HTMLSelectElement>("#stGoal")!.onchange = (e) =>
     writeJson(GOAL_KEY, Number((e.target as HTMLSelectElement).value));
+  el.querySelector<HTMLSelectElement>("#stDrillGoal")!.onchange = (e) => {
+    d.progress().drillGoal = Number((e.target as HTMLSelectElement).value);
+    d.persist();
+  };
   el.querySelector<HTMLButtonElement>("#stAcct")!.onclick = d.openAccount;
   el.querySelector<HTMLButtonElement>("#stHow")!.onclick = d.showHow;
   el.querySelector<HTMLButtonElement>("#stReset")!.onclick = d.confirmReset;
@@ -390,6 +408,7 @@ function settings(el: HTMLElement, d: PageDeps): void {
 
 const PAGES: Record<Exclude<Route, "lesson">, (el: HTMLElement, d: PageDeps) => void> = {
   today: today_,
+  daily: renderDaily,
   map,
   lessons,
   terminal,
