@@ -198,6 +198,7 @@ function showPage(r: Exclude<Route, "lesson">): void {
 /** Иконки меню, шапки и плавающей кнопки: в разметке — только data-ico, заливка у активного раздела. */
 const NAV_ICO: Record<string, string> = {
   today: "calendar",
+  daily: "bolt",
   map: "map",
   lessons: "book",
   terminal: "terminal",
@@ -857,6 +858,7 @@ const pageDeps = {
   progress: () => P,
   run: () => run,
   reviewPool,
+  persist,
   continueLesson: () => {
     if (run && !run.finished) go("lesson");
     else {
