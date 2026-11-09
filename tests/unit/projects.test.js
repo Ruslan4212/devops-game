@@ -44,6 +44,13 @@ test("портфолио показывает только подтверждё�
       fs: { type: "dir", children: {} },
       log: project.tasks.flatMap((task) => task.hint.split("&&").map((cmd) => ({ cmd: cmd.trim(), code: 0 }))),
       toaCommandEvidence: project.tasks.map((task) => ({ command: task.hint.split("&&").at(-1).trim(), code: 0, output: "OK" })),
+      git: { commits: [{ files: ["README.md"] }] },
+      docker: {
+        images: [{ tag: "shop-api:dev" }, { tag: "shop-api:release" }],
+        containers: [{ name: "shop-api", image: "shop-api:dev", state: "running", hostPort: 8080 }, { name: "shop-api", image: "shop-api:release", state: "running", hostPort: 8080 }],
+      },
+      tf: { plan: { add: ["local_file.shop_config"], del: [] } },
+      k8s: { deploys: [{ name: "shop-api", replicas: 2, crash: false }], pods: [{ status: "Running" }], svcs: [{ name: "shop-api", port: 3000 }] },
     };
     if (project.id === "linux" || project.id === "capstone") {
       let node = world.fs;
@@ -75,4 +82,12 @@ test("Linux-проект требует сохранить и проверить
   }
   world.cwd = `${project.directory}/infra`;
   assert.deepEqual(projectTaskCompletion(project, world), [true, true, true]);
+});
+
+test("Docker, Git, Terraform и Kubernetes закрываются по состоянию проекта", () => {
+  const byId = Object.fromEntries(PROJECTS.map((project) => [project.id, project]));
+  assert.deepEqual(projectTaskCompletion(byId.docker, { log: byId.docker.tasks.map((task) => ({ cmd: task.hint.split("&&").at(-1).trim(), code: 0 })), docker: { images: [], containers: [] } }), [true, false, false]);
+  assert.deepEqual(projectTaskCompletion(byId.git, { log: byId.git.tasks.map((task) => ({ cmd: task.hint.split("&&").at(-1).trim(), code: 0 })), git: { commits: [] } }), [true, true, false]);
+  assert.deepEqual(projectTaskCompletion(byId.terraform, { log: byId.terraform.tasks.map((task) => ({ cmd: task.hint.split("&&").at(-1).trim(), code: 0 })), tf: { plan: null } }), [true, true, false]);
+  assert.deepEqual(projectTaskCompletion(byId.kubernetes, { log: byId.kubernetes.tasks.map((task) => ({ cmd: task.hint.split("&&").at(-1).trim(), code: 0 })), k8s: { deploys: [], pods: [], svcs: [] } }), [true, false, false]);
 });
