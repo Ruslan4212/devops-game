@@ -17,7 +17,7 @@ export const PROJECTS = [
     output: "Снимок состояния сервиса и проверка ресурсов хоста.", directory: "/home/devops/shop-services",
     tasks: [
       { title: "Проверь процессы", instruction: "Найди процессы приложения и веб-сервера.", why: "Симптом «сайт не отвечает» ещё не говорит, что именно остановилось.", pattern: "^ps aux$", hint: "ps aux" },
-      { title: "Проверь службу", instruction: "Посмотри состояние shop-api в systemd.", why: "Статус показывает состояние, причину последнего выхода и последние сообщения.", pattern: "^systemctl status shop-api$", hint: "systemctl status shop-api" },
+      { title: "Сохрани статус службы", instruction: "Сохрани статус shop-api в service-status.txt и проверь, что он active.", why: "Сохрани вывод диагностики как артефакт смены и проверь содержимое, а не только код возврата.", pattern: "^cat service-status\\.txt$", hint: "systemctl status shop-api > service-status.txt && cat service-status.txt", verify: (world) => /Active:\s+active \(running\)/i.test(projectFile(world, "/home/devops/shop-services/service-status.txt") || "") },
       { title: "Оцени ресурсы", instruction: "Проверь свободное место на файловых системах.", why: "Заполненный диск часто ломает запись логов, базу и деплой.", pattern: "^df -h$", hint: "df -h" },
     ],
   },
@@ -28,8 +28,8 @@ export const PROJECTS = [
     output: "Запущенная healthcheck-проверка и резервная копия каталога проекта.", directory: "/home/devops/shop-bash",
     tasks: [
       { title: "Изучи скрипт", instruction: "Прочитай скрипт проверки до запуска.", why: "Не запускай неизвестный код вслепую, особенно с правами root.", pattern: "^cat scripts/healthcheck\\.sh$", hint: "cat scripts/healthcheck.sh" },
-      { title: "Подготовь запуск", instruction: "Выдай скрипту право на запуск.", why: "Исполняемый бит позволяет запускать файл как программу без небезопасного chmod 777.", pattern: "^chmod \\+x scripts/healthcheck\\.sh$", hint: "chmod +x scripts/healthcheck.sh" },
-      { title: "Сохрани копию", instruction: "Создай архив проекта в каталоге backups.", why: "Перед опасными изменениями должна быть проверенная точка восстановления.", pattern: "^tar -czf backups/shop\\.tar\\.gz \\.$", hint: "tar -czf backups/shop.tar.gz ." },
+      { title: "Подготовь запуск", instruction: "Выдай скрипту право на запуск и проверь его режим.", why: "Исполняемый бит позволяет запускать файл как программу без небезопасного chmod 777.", pattern: "^chmod \\+x scripts/healthcheck\\.sh$", hint: "chmod +x scripts/healthcheck.sh", verify: (world) => /x/.test(projectFileNode(world, "/home/devops/shop-bash/scripts/healthcheck.sh")?.mode?.slice(0, 3) || "") },
+      { title: "Сохрани копию", instruction: "Создай архив проекта и проверь, что файл архива не пустой.", why: "Перед опасными изменениями должна быть проверенная точка восстановления.", pattern: "^tar -czf backups/shop\\.tar\\.gz \\.$", hint: "tar -czf backups/shop.tar.gz .", verify: (world) => Boolean(projectFile(world, "/home/devops/shop-bash/backups/shop.tar.gz")) },
     ],
   },
   {
@@ -40,7 +40,7 @@ export const PROJECTS = [
     tasks: [
       { title: "Проверь интерфейсы", instruction: "Посмотри сетевые адреса сервера.", why: "Без правильного адреса дальнейшие сетевые проверки бессмысленны.", pattern: "^ip addr$", hint: "ip addr" },
       { title: "Найди слушающие порты", instruction: "Посмотри, какие процессы принимают соединения.", why: "Открытый firewall не поможет, если приложение не слушает нужный порт.", pattern: "^ss -tulpn$", hint: "ss -tulpn" },
-      { title: "Проверь приложение по HTTP", instruction: "Запроси health endpoint магазина.", why: "HTTP-код и заголовки отделяют сетевую проблему от ошибки приложения.", pattern: "^curl -I http://localhost:3000/health$", hint: "curl -I http://localhost:3000/health" },
+      { title: "Проверь приложение по HTTP", instruction: "Запроси health endpoint магазина и проверь HTTP 200.", why: "HTTP-код и заголовки отделяют сетевую проблему от ошибки приложения.", pattern: "^curl -I http://localhost:3000/health$", hint: "curl -I http://localhost:3000/health", outputPattern: "^HTTP/1\\.1 200 OK" },
     ],
   },
   {
@@ -73,7 +73,7 @@ export const PROJECTS = [
     tasks: [
       { title: "Найди workflow", instruction: "Посмотри файлы автоматизации в .github/workflows.", why: "Пайплайн — часть исходного кода, он должен быть видим и проверяем.", pattern: "^ls \\.github/workflows$", hint: "ls .github/workflows" },
       { title: "Проверь этап тестов", instruction: "Найди в workflow запуск тестов.", why: "Релиз без автоматической проверки превращает каждое изменение в риск.", pattern: "^grep -n test \\.github/workflows/deploy\\.yml$", hint: "grep -n test .github/workflows/deploy.yml" },
-      { title: "Проверь конфигурацию релиза", instruction: "Прочитай workflow целиком и найди порядок этапов.", why: "Сборка, тесты и публикация должны выполняться в правильном порядке.", pattern: "^cat \\.github/workflows/deploy\\.yml$", hint: "cat .github/workflows/deploy.yml" },
+      { title: "Сохрани review workflow", instruction: "Сохрани workflow в release-review.yml и проверь, что там есть тесты и сборка.", why: "Артефакт ревью позволяет проверить обязательные gates до публикации.", pattern: "^cat release-review\\.yml$", hint: "cat .github/workflows/deploy.yml > release-review.yml && cat release-review.yml", verify: (world) => /npm test/.test(projectFile(world, "/home/devops/shop-cicd/release-review.yml") || "") && /docker build/.test(projectFile(world, "/home/devops/shop-cicd/release-review.yml") || "") },
     ],
   },
   {
@@ -105,7 +105,7 @@ export const PROJECTS = [
     output: "Подтверждённая причина инцидента и команды для проверки восстановления.", directory: "/home/devops/shop-sre",
     tasks: [
       { title: "Найди ошибки приложения", instruction: "Отфильтруй ошибки в журнале сервиса.", why: "Ищи корреляцию событий, а не делай вывод по одному сообщению.", pattern: "^grep -i error logs/app\\.log$", hint: "grep -i error logs/app.log" },
-      { title: "Восстанови последние события", instruction: "Прочитай последние строки журнала.", why: "Последние события помогают увидеть, что произошло непосредственно перед сбоем.", pattern: "^tail -n 20 logs/app\\.log$", hint: "tail -n 20 logs/app.log" },
+      { title: "Собери временную шкалу", instruction: "Сохрани последние события в incident-timeline.txt и проверь, что там есть ошибка базы.", why: "Отчёт сохраняет последовательность доказательств для передачи смены и постмортема.", pattern: "^cat incident-timeline\\.txt$", hint: "tail -n 20 logs/app.log > incident-timeline.txt && cat incident-timeline.txt", verify: (world) => /ERROR.*database timeout/i.test(projectFile(world, "/home/devops/shop-sre/incident-timeline.txt") || "") },
       { title: "Проверь состояние службы", instruction: "Проверь, восстановился ли shop-api.", why: "Инцидент закрывают после проверки сервиса и пользовательского пути.", pattern: "^systemctl status shop-api$", hint: "systemctl status shop-api" },
     ],
   },
@@ -117,7 +117,7 @@ export const PROJECTS = [
     tasks: [
       { title: "Изучи конфигурацию", instruction: "Прочитай конфигурацию Prometheus и target магазина.", why: "Если target не собирается, панели будут показывать пустые данные.", pattern: "^cat monitoring/prometheus\\.yml$", hint: "cat monitoring/prometheus.yml" },
       { title: "Найди scrape job", instruction: "Найди job, которая собирает метрики приложения.", why: "Явное имя job упрощает запросы и диагностику.", pattern: "^grep -n shop monitoring/prometheus\\.yml$", hint: "grep -n shop monitoring/prometheus.yml" },
-      { title: "Проверь частоту сбора", instruction: "Найди интервал scrape в конфигурации Prometheus.", why: "Слишком редкий сбор задерживает обнаружение инцидента, а слишком частый создаёт лишнюю нагрузку.", pattern: "^grep -n scrape_interval monitoring/prometheus\\.yml$", hint: "grep -n scrape_interval monitoring/prometheus.yml" },
+      { title: "Сохрани интервал сбора", instruction: "Сохрани scrape_interval в review-файл и проверь значение.", why: "Отдельный артефакт конфигурации помогает ревьюить частоту сбора до изменения мониторинга.", pattern: "^cat monitoring/scrape-review\\.txt$", hint: "grep -n scrape_interval monitoring/prometheus.yml > monitoring/scrape-review.txt && cat monitoring/scrape-review.txt", verify: (world) => /scrape_interval:\s*15s/.test(projectFile(world, "/home/devops/shop-prometheus/monitoring/scrape-review.txt") || "") },
     ],
   },
   {
@@ -128,7 +128,7 @@ export const PROJECTS = [
     tasks: [
       { title: "Найди источник данных", instruction: "Проверь настройку datasource для Prometheus.", why: "Панель не покажет данные, если источник указан неверно.", pattern: "^cat monitoring/grafana-datasource\\.yml$", hint: "cat monitoring/grafana-datasource.yml" },
       { title: "Изучи панели", instruction: "Открой JSON дашборда магазина.", why: "Дашборд — тоже конфигурация, её можно хранить и ревьюить как код.", pattern: "^cat monitoring/grafana-dashboard\\.json$", hint: "cat monitoring/grafana-dashboard.json" },
-      { title: "Проверь запросы", instruction: "Найди запрос панели ошибок.", why: "Панель полезна, когда запрос измеряет понятный сигнал и имеет нужные labels.", pattern: "^grep -n shop_errors monitoring/grafana-dashboard\\.json$", hint: "grep -n shop_errors monitoring/grafana-dashboard.json" },
+      { title: "Сохрани запрос панели", instruction: "Сохрани выражение панели ошибок в review-файл и проверь 5xx-фильтр.", why: "Панель полезна, когда запрос измеряет понятный сигнал и имеет нужные labels.", pattern: "^cat monitoring/error-panel-review\\.txt$", hint: "grep -n shop_errors monitoring/grafana-dashboard.json > monitoring/error-panel-review.txt && cat monitoring/error-panel-review.txt", verify: (world) => /status=~/.test(projectFile(world, "/home/devops/shop-grafana/monitoring/error-panel-review.txt") || "") },
     ],
   },
   {
@@ -139,7 +139,7 @@ export const PROJECTS = [
     tasks: [
       { title: "Изучи агента", instruction: "Проверь конфигурацию Zabbix agent.", why: "Неверный Server или hostname мешает серверу получать данные.", pattern: "^cat monitoring/zabbix-agent\\.conf$", hint: "cat monitoring/zabbix-agent.conf" },
       { title: "Проверь имя хоста", instruction: "Найди hostname, под которым сервер зарегистрирован в мониторинге.", why: "Hostname агента должен совпадать с именем узла в Zabbix, иначе данные попадут не к тому хосту.", pattern: "^grep -n Hostname monitoring/zabbix-agent\\.conf$", hint: "grep -n Hostname monitoring/zabbix-agent.conf" },
-      { title: "Проверь пользовательскую проверку", instruction: "Найди health item, который агент публикует для магазина.", why: "Пользовательский item связывает системный мониторинг с доступностью приложения.", pattern: "^grep -n shop\\.health monitoring/zabbix-agent\\.conf$", hint: "grep -n shop.health monitoring/zabbix-agent.conf" },
+      { title: "Сохрани health item", instruction: "Сохрани UserParameter проверки в review-файл и проверь endpoint.", why: "Сверь ключ мониторинга с endpoint приложения, прежде чем привязывать item к триггеру.", pattern: "^cat monitoring/health-item-review\\.txt$", hint: "grep -n shop.health monitoring/zabbix-agent.conf > monitoring/health-item-review.txt && cat monitoring/health-item-review.txt", verify: (world) => /UserParameter=shop\.health,curl -fsS http:\/\/localhost:3000\/health/.test(projectFile(world, "/home/devops/shop-zabbix/monitoring/health-item-review.txt") || "") },
     ],
   },
   {
@@ -150,7 +150,7 @@ export const PROJECTS = [
     tasks: [
       { title: "Изучи реализацию", instruction: "Прочитай скрипт проверки магазина.", why: "Понимай, какие проверки выполняет автоматизация и что она считает ошибкой.", pattern: "^cat scripts/healthcheck\\.py$", hint: "cat scripts/healthcheck.py" },
       { title: "Проверь входные данные", instruction: "Найди в проекте пример JSON статуса.", why: "Структурированные данные нужно проверять по полям, а не поиском случайной подстроки.", pattern: "^cat status\\.json$", hint: "cat status.json" },
-      { title: "Запусти CLI", instruction: "Запусти healthcheck и проверь итоговый статус.", why: "Скрипт пригоден для CI, когда у него предсказуемый вывод и код возврата.", pattern: "^python3 scripts/healthcheck\\.py$", hint: "python3 scripts/healthcheck.py" },
+      { title: "Запусти CLI", instruction: "Запусти healthcheck и проверь итоговый статус.", why: "Скрипт пригоден для CI, когда у него предсказуемый вывод и код возврата.", pattern: "^python3 scripts/healthcheck\\.py$", hint: "python3 scripts/healthcheck.py", outputPattern: "shop-api: healthy" },
     ],
   },
 ];
@@ -163,19 +163,19 @@ export const CAPSTONE = {
   directory: "/home/devops/shop-platform",
   tasks: [
     { title: "Linux: зафиксируй доказательство сбоя", instruction: "Сохрани ошибки приложения в incident-report.txt и прочитай отчёт.", why: "До изменений зафиксируй наблюдаемый симптом как артефакт для расследования и ревью.", pattern: "^cat incident-report\\.txt$", hint: "grep -i error logs/app.log > incident-report.txt && cat incident-report.txt", verify: (world) => /ERROR.*database timeout/i.test(projectFile(world, "/home/devops/shop-platform/incident-report.txt") || "") },
-    { title: "Службы: проверь API", instruction: "Проверь состояние службы магазина.", why: "Сервис должен быть активен до проверки внешнего пути.", pattern: "^systemctl status shop-api$", hint: "systemctl status shop-api" },
-    { title: "Bash: подготовь healthcheck", instruction: "Подготовь скрипт к безопасному запуску.", why: "Быстрый повторяемый preflight ловит очевидные ошибки; давай права только на выполнение.", pattern: "^chmod \\+x scripts/healthcheck\\.sh$", hint: "chmod +x scripts/healthcheck.sh" },
-    { title: "Сети: проверь HTTP", instruction: "Проверь внешний health endpoint.", why: "Внутренний статус процесса не гарантирует доступность для клиента.", pattern: "^curl -I http://localhost:3000/health$", hint: "curl -I http://localhost:3000/health" },
+    { title: "Службы: проверь API", instruction: "Проверь состояние службы магазина.", why: "Сервис должен быть активен до проверки внешнего пути.", pattern: "^systemctl status shop-api$", hint: "systemctl status shop-api", outputPattern: "Active:\\s+active \\(running\\)" },
+    { title: "Bash: подготовь healthcheck", instruction: "Подготовь скрипт к безопасному запуску и проверь право исполнения.", why: "Быстрый повторяемый preflight ловит очевидные ошибки; давай права только на выполнение.", pattern: "^chmod \\+x scripts/healthcheck\\.sh$", hint: "chmod +x scripts/healthcheck.sh", verify: (world) => /x/.test(projectFileNode(world, "/home/devops/shop-platform/scripts/healthcheck.sh")?.mode?.slice(0, 3) || "") },
+    { title: "Сети: проверь HTTP", instruction: "Проверь внешний health endpoint и HTTP 200.", why: "Внутренний статус процесса не гарантирует доступность для клиента.", pattern: "^curl -I http://localhost:3000/health$", hint: "curl -I http://localhost:3000/health", outputPattern: "^HTTP/1\\.1 200 OK" },
     { title: "Git: зафиксируй релиз", instruction: "Создай коммит проекта и проверь чистое рабочее дерево.", why: "Во время инцидента нужна точная версия кода и понятная история изменений.", pattern: "^git status$", hint: 'git init && git add README.md && git commit -m "Подготовка релиза" && git status', verify: (world) => world.git?.commits?.some((commit) => commit.files?.includes("README.md")) === true },
     { title: "Docker: собери и запусти релиз", instruction: "Собери образ release, запусти контейнер и проверь docker ps.", why: "Проверь именно запущенный экземпляр версионированного образа после доставки.", pattern: "^docker ps$", hint: "docker build -t shop-api:release . && docker run -d --name shop-api -p 8080:3000 shop-api:release && docker ps", verify: (world) => world.docker?.containers?.some((container) => container.name === "shop-api" && container.image === "shop-api:release" && container.state === "running") === true },
-    { title: "CI/CD: проверь workflow", instruction: "Просмотри release workflow.", why: "Убедись, что автоматические проверки входят в путь выпуска.", pattern: "^cat \\.github/workflows/deploy\\.yml$", hint: "cat .github/workflows/deploy.yml" },
+    { title: "CI/CD: проверь workflow", instruction: "Просмотри release workflow и подтверди, что в нём есть запуск тестов.", why: "Убедись, что автоматические проверки входят в путь выпуска.", pattern: "^cat \\.github/workflows/deploy\\.yml$", hint: "cat .github/workflows/deploy.yml", outputPattern: "npm test" },
     { title: "Terraform: проверь план", instruction: "Перейди в каталог IaC, инициализируй Terraform и проверь план без нежданных удалений.", why: "Не применяй инфраструктурные изменения, пока не изучил план.", pattern: "^terraform plan$", hint: "cd infra && terraform init && terraform plan", verify: (world) => (world.tf?.plan?.add?.length || 0) > 0 && (world.tf?.plan?.del?.length || 0) === 0 },
     { title: "Kubernetes: примени rollout", instruction: "Вернись в корень проекта, примени Deployment и проверь готовые Pod магазина.", why: "После работы в infra вернись к корню репозитория; новый rollout успешен только когда желаемые реплики готовы.", pattern: "^kubectl get pods$", hint: "cd .. && kubectl apply -f k8s/deployment.yaml && kubectl get pods", verify: (world) => world.k8s?.deploys?.some((deployment) => deployment.name === "shop-api" && deployment.replicas >= 2 && !deployment.crash) === true && world.k8s?.pods?.some((pod) => pod.status === "Running") === true },
-    { title: "SRE: собери доказательства", instruction: "Найди последние ошибки приложения в журнале.", why: "Постмортем начинается с фактов и временной шкалы.", pattern: "^tail -n 20 logs/app\\.log$", hint: "tail -n 20 logs/app.log" },
-    { title: "Prometheus: проверь сбор", instruction: "Проверь scrape interval в конфигурации.", why: "Метрики покажут насыщение и ошибки до массовых жалоб; их частота сбора должна соответствовать задаче.", pattern: "^grep -n scrape_interval monitoring/prometheus\\.yml$", hint: "grep -n scrape_interval monitoring/prometheus.yml" },
-    { title: "Grafana: проверь обзор", instruction: "Найди панель с ошибками магазина.", why: "Дежурному нужен быстрый обзор без ручного поиска по всем системам.", pattern: "^grep -n shop_errors monitoring/grafana-dashboard\\.json$", hint: "grep -n shop_errors monitoring/grafana-dashboard.json" },
-    { title: "Zabbix: проверь health item", instruction: "Убедись, что агент настроен проверять приложение.", why: "Вторая система мониторинга полезна для доступности и сигналов уровня хоста.", pattern: "^grep -n shop\\.health monitoring/zabbix-agent\\.conf$", hint: "grep -n shop.health monitoring/zabbix-agent.conf" },
-    { title: "Python: запусти итоговую проверку", instruction: "Запусти CLI healthcheck как финальный gate.", why: "Один скрипт собирает результаты проверок и может остановить плохой релиз.", pattern: "^python3 scripts/healthcheck\\.py$", hint: "python3 scripts/healthcheck.py" },
+    { title: "SRE: собери доказательства", instruction: "Найди последние ошибки приложения в журнале и подтверди таймаут базы.", why: "Постмортем начинается с фактов и временной шкалы.", pattern: "^tail -n 20 logs/app\\.log$", hint: "tail -n 20 logs/app.log", outputPattern: "ERROR database timeout" },
+    { title: "Prometheus: проверь сбор", instruction: "Проверь scrape interval в конфигурации и фактическое значение 15s.", why: "Метрики покажут насыщение и ошибки до массовых жалоб; их частота сбора должна соответствовать задаче.", pattern: "^grep -n scrape_interval monitoring/prometheus\\.yml$", hint: "grep -n scrape_interval monitoring/prometheus.yml", outputPattern: "scrape_interval:\\s*15s" },
+    { title: "Grafana: проверь обзор", instruction: "Найди панель ошибок и проверь её PromQL-запрос.", why: "Дежурному нужен быстрый обзор без ручного поиска по всем системам.", pattern: "^grep -n shop_errors monitoring/grafana-dashboard\\.json$", hint: "grep -n shop_errors monitoring/grafana-dashboard.json", outputPattern: "shop_errors.*status=~" },
+    { title: "Zabbix: проверь health item", instruction: "Убедись, что агент опрашивает health endpoint магазина.", why: "Вторая система мониторинга полезна для доступности и сигналов уровня хоста.", pattern: "^grep -n shop\\.health monitoring/zabbix-agent\\.conf$", hint: "grep -n shop.health monitoring/zabbix-agent.conf", outputPattern: "UserParameter=shop\\.health,curl -fsS http://localhost:3000/health" },
+    { title: "Python: запусти итоговую проверку", instruction: "Запусти CLI healthcheck как финальный gate и проверь healthy.", why: "Один скрипт собирает результаты проверок и может остановить плохой релиз.", pattern: "^python3 scripts/healthcheck\\.py$", hint: "python3 scripts/healthcheck.py", outputPattern: "shop-api: healthy" },
   ],
 };
 
@@ -209,17 +209,24 @@ function activeId() { try { return localStorage.getItem(ACTIVE_KEY) || ""; } cat
 function findProject(id) { return id === CAPSTONE.id ? CAPSTONE : PROJECTS.find((p) => p.id === id); }
 function reviewFor(project) { return PROJECT_REVIEWS[project.id]; }
 function reviewPassed(project) { try { return localStorage.getItem(REVIEW_PREFIX + project.id) === "passed"; } catch { return false; } }
-function projectFile(world, path) {
+function projectFileNode(world, path) {
   if (!world?.fs || !path) return null;
   const parts = path.split("/").filter(Boolean);
   let node = world.fs;
   for (const part of parts) node = node?.type === "dir" ? node.children?.[part] : null;
-  return node?.type === "file" ? String(node.content ?? "") : null;
+  return node?.type === "file" ? node : null;
+}
+function projectFile(world, path) {
+  const node = projectFileNode(world, path);
+  return node ? String(node.content ?? "") : null;
 }
 function taskSatisfied(task, world) {
   const log = Array.isArray(world?.log) ? world.log : [];
   const commandSucceeded = log.some((entry) => entry?.code === 0 && new RegExp(task.pattern).test(String(entry.cmd || "").trim()));
-  return commandSucceeded && (!task.verify || task.verify(world));
+  if (!commandSucceeded || (task.verify && !task.verify(world))) return false;
+  if (!task.outputPattern) return true;
+  const evidence = Array.isArray(world?.toaCommandEvidence) ? world.toaCommandEvidence : [];
+  return evidence.some((item) => item?.code === 0 && new RegExp(task.pattern).test(String(item.command || "").trim()) && new RegExp(task.outputPattern, "i").test(String(item.output || "")));
 }
 export function projectTaskCompletion(project, world) {
   return project.tasks.map((task) => taskSatisfied(task, world));
