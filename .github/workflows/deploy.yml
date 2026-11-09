@@ -6,7 +6,7 @@ name: Deploy
 # она только проверяет, что закоммиченные сборки не разошлись с исходниками:
 #
 #   index.html      — старая версия, собирается из p*.txt скриптом build.sh
-#   next/index.html — переписанная версия, берётся из ветки vite-rewrite (play/index.html)
+#   next/index.html — версия vite-rewrite/play/index.html с проектным разделом из next/projects.js
 #
 # Если проверка падает — пересобери и закоммить файлы вручную.
 
@@ -35,11 +35,13 @@ jobs:
             exit 1
           fi
 
-      - name: next/index.html совпадает с веткой vite-rewrite
+      - name: next/index.html собран из vite-rewrite и проектного раздела
         run: |
           git fetch origin vite-rewrite --depth=1
-          git show origin/vite-rewrite:play/index.html > /tmp/next.html
-          if ! diff -q /tmp/next.html next/index.html >/dev/null; then
-            echo "::error::next/index.html отстал от ветки vite-rewrite — обнови его из play/index.html и закоммить"
+          git show origin/vite-rewrite:play/index.html > /tmp/next-base.html
+          cp /tmp/next-base.html next/index.html
+          npm run patch:next-projects
+          if ! git diff --quiet -- next/index.html; then
+            echo "::error::next/index.html не соответствует ветке vite-rewrite и проектному патчеру — выполни npm run patch:next-projects и закоммить результат"
             exit 1
           fi

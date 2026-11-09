@@ -28,6 +28,10 @@ const replacements = [
     'Xc(t,i.edit,(r,o)=>{ri(t,r,o),Pe("файл сохранён: "+r,"dim"),window.TOAProjectApp?.persistAfterCommand?.(t,"edit "+r)});return',
   ],
   [
+    'function cf(e){_s===null&&(_s=B("#out").innerHTML,$i(),Pe("Песочница: пробуй что угодно. help в уроке подскажет служебные команды; clear — очистить экран.","dim")),$s(In.world??(In.world=Zr())),Gc(e),Ue(!1),B("#cmd").focus()}function lf(e)',
+    'function cf(e){_s===null&&(_s=B("#out").innerHTML,$i(),Pe("Песочница: пробуй что угодно. help в уроке подскажет служебные команды; clear — очистить экран.","dim")),$s(In.world??(In.world=Zr())),Gc(e),Ue(!1),B("#cmd").focus()}window.TOAProjectApp={newWorld:Zr,mkdir:he,write:W,getWorld:()=>In.world??(In.world=Zr()),setWorld:e=>{In.world=e;if(document.body.dataset.route==="terminal"&&document.querySelector("#out")){$i();$s(e)}},refresh:e=>$s(e),persistAfterCommand:(e,t)=>window.TOAProjects?.persistAfterCommand(e,t)};function lf(e)',
+  ],
+  [
     'refresh:e=>$s(e)};function lf(e)',
     'refresh:e=>$s(e),persistAfterCommand:(e,t)=>window.TOAProjects?.persistAfterCommand(e,t)};function lf(e)',
   ],
