@@ -216,6 +216,25 @@ function completedTasks(project, world = readWorld(project.id)) {
 function projectComplete(project) { return completedTasks(project).every(Boolean) && reviewPassed(project); }
 function allTopicsComplete() { return PROJECTS.every(projectComplete); }
 
+export function buildPortfolioMarkdown({ worlds = {}, reviews = {} } = {}) {
+  const date = new Date().toISOString().slice(0, 10);
+  const sections = [...PROJECTS, CAPSTONE].map((project) => {
+    const world = worlds[project.id] || {};
+    const log = Array.isArray(world.log) ? world.log : [];
+    const evidence = Array.isArray(world.toaCommandEvidence) ? world.toaCommandEvidence : [];
+    const tasks = project.tasks.map((task) => {
+      const pattern = new RegExp(task.pattern);
+      const entry = log.find((item) => item?.code === 0 && pattern.test(String(item.cmd || "").trim()));
+      if (!entry) return `- [ ] ${task.title}`;
+      const result = evidence.find((item) => item.code === 0 && pattern.test(String(item.command || "").trim()));
+      const output = String(result?.output || "Команда выполнена; симулятор не вернул текстовый вывод.").trim().replace(/```/g, "'''");
+      return `- [x] ${task.title} — \`${String(entry.cmd).trim()}\`\n\n  Результат:\n\n  > ${output.replace(/\n/g, "\n  > ")}`;
+    });
+    return `## ${project.title}\n\n**Цель:** ${project.goal}\n\n**Результат:** ${project.output}\n\n**Практика:** ${tasks.join("\n")}\n\n**Проверка понимания:** ${reviews[project.id] ? "пройдена" : "не пройдена"}`;
+  });
+  return `# Портфолио: DevOps-практика на проекте «Магазин Рядом»\n\nСформировано: ${date}\n\nЭто отчёт о шагах, выполненных в учебном виртуальном терминале. Он не подтверждает работу с production-системами.\n\n${sections.join("\n\n---\n\n")}\n`;
+}
+
 const COMMON_FILES = {
   "README.md": "# Магазин Рядом\n\nAPI заказов. Цель учебного проекта — безопасно доставлять изменения и быстро находить сбои.\n",
   "app.js": "// Учебный сервис заказов\nconst service = 'shop-api';\nconsole.log(`${service} ready`);\n",
@@ -275,7 +294,13 @@ function progressFor(project) {
 }
 function stageMarkup(project, tasks, world) {
   const flags = completedTasks(project, world);
-  return tasks.map((task, index) => `<li class="toa-stage ${flags[index] ? "is-done" : ""}"><span class="toa-stage-mark">${flags[index] ? "✓" : String(index + 1)}</span><span><b>${escapeHtml(task.title)}</b><small>${escapeHtml(task.instruction)}</small><details><summary>Зачем это нужно и подсказка</summary><p>${escapeHtml(task.why)}</p><code>${escapeHtml(task.hint)}</code></details></span></li>`).join("");
+  const evidence = Array.isArray(world?.toaCommandEvidence) ? world.toaCommandEvidence : [];
+  return tasks.map((task, index) => {
+    const pattern = new RegExp(task.pattern);
+    const record = [...evidence].reverse().find((item) => item.code === 0 && pattern.test(String(item.command || "").trim()));
+    const proof = record ? `<details><summary>Моя команда и результат</summary><code>${escapeHtml(record.command)}</code><pre class="toa-command-output">${escapeHtml(record.output || "Команда выполнена без текстового вывода.")}</pre></details>` : "";
+    return `<li class="toa-stage ${flags[index] ? "is-done" : ""}"><span class="toa-stage-mark">${flags[index] ? "✓" : String(index + 1)}</span><span><b>${escapeHtml(task.title)}</b><small>${escapeHtml(task.instruction)}</small>${proof}<details><summary>Зачем это нужно и подсказка</summary><p>${escapeHtml(task.why)}</p><code>${escapeHtml(task.hint)}</code></details></span></li>`;
+  }).join("");
 }
 function reviewMarkup(project) {
   const review = reviewFor(project);
@@ -290,7 +315,20 @@ function cardMarkup(project, capstone = false) {
 }
 function mount(container) {
   if (!container) return;
-  container.innerHTML = `<section class="toa-projects"><header class="toa-project-intro"><p class="toa-eyebrow">ПРАКТИКА НА РАБОЧЕМ ПРОЕКТЕ</p><h1>Проекты: от первой команды до production</h1><p>Один учебный бизнес — интернет-магазин «Магазин Рядом». Для каждого акта есть отдельное рабочее место, файлы и задачи в терминале. Команда изменяет виртуальное окружение, а результат сохраняется в этом браузере.</p><p class="toa-honesty"><b>Как устроена практика:</b> это безопасный симулятор, не настоящий сервер. Ошибки и файлы проектов изолированы друг от друга; итоговый capstone объединяет темы в одной среде.</p></header><div class="toa-project-grid">${PROJECTS.map((p) => cardMarkup(p)).join("")}</div><div class="toa-capstone-wrap">${cardMarkup(CAPSTONE, true)}</div></section>`;
+  const reportReady = projectComplete(CAPSTONE);
+  container.innerHTML = `<section class="toa-projects"><header class="toa-project-intro"><p class="toa-eyebrow">ПРАКТИКА НА РАБОЧЕМ ПРОЕКТЕ</p><h1>Проекты: от первой команды до production</h1><p>Один учебный бизнес — интернет-магазин «Магазин Рядом». Для каждого акта есть отдельное рабочее место, файлы и задачи в терминале. Команда изменяет виртуальное окружение, а результат сохраняется в этом браузере.</p><p class="toa-honesty"><b>Как устроена практика:</b> это безопасный симулятор, не настоящий сервер. Ошибки и файлы проектов изолированы друг от друга; итоговый capstone объединяет темы в одной среде.</p>${reportReady ? '<button class="btn primary toa-export-portfolio" type="button" data-export-portfolio>Скачать отчёт-портфолио (.md)</button>' : ""}</header><div class="toa-project-grid">${PROJECTS.map((p) => cardMarkup(p)).join("")}</div><div class="toa-capstone-wrap">${cardMarkup(CAPSTONE, true)}</div></section>`;
+}
+function downloadPortfolio() {
+  if (!projectComplete(CAPSTONE)) return;
+  const worlds = Object.fromEntries([...PROJECTS, CAPSTONE].map((project) => [project.id, readWorld(project.id)]));
+  const reviews = Object.fromEntries([...PROJECTS, CAPSTONE].map((project) => [project.id, reviewPassed(project)]));
+  const blob = new Blob([buildPortfolioMarkdown({ worlds, reviews })], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "devops-portfolio-shop.md";
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function terminalWork(container) {
@@ -319,8 +357,17 @@ function refreshCurrent() {
   const host = document.querySelector("#pageView");
   if (host) terminalWork(host);
 }
-function persistAfterCommand(world, command) {
+function persistAfterCommand(world, command, result) {
   if (world?.toaProjectId) {
+    const lastLog = Array.isArray(world.log) ? world.log.at(-1) : null;
+    world.toaCommandEvidence ||= [];
+    world.toaCommandEvidence.push({
+      command: String(lastLog?.cmd || command || "").trim(),
+      code: Number(result?.code ?? lastLog?.code ?? 0),
+      output: String(result?.out ?? ""),
+      recordedAt: new Date().toISOString(),
+    });
+    world.toaCommandEvidence = world.toaCommandEvidence.slice(-300);
     saveWorld(world);
     window.dispatchEvent(new CustomEvent("toa-project-command", { detail: { projectId: world.toaProjectId, command } }));
   }
@@ -362,6 +409,7 @@ function installStyles() {
   style.textContent = `
     .toa-projects{max-width:1120px;margin:0 auto;padding:8px 0 56px}.toa-project-intro{padding:24px 28px;margin:0 0 18px;border:1px solid var(--line,#273241);border-radius:18px;background:linear-gradient(145deg,rgba(239,125,46,.1),rgba(20,25,34,.94))}.toa-project-intro h1{margin:4px 0 10px;font-size:clamp(26px,4vw,38px)}.toa-project-intro>p:not(.toa-eyebrow){max-width:850px;line-height:1.65;color:var(--muted,#a5afbd)}.toa-eyebrow{margin:0 0 6px;color:var(--accent,#ef8c48);font-size:11px;font-weight:800;letter-spacing:.12em}.toa-honesty{padding:12px 14px;border-left:3px solid var(--accent,#ef8c48);background:rgba(0,0,0,.15)}.toa-project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:14px}.toa-project-card{display:flex;flex-direction:column;gap:12px;padding:20px;border:1px solid var(--line,#273241);border-radius:16px;background:var(--card,#171d27);min-height:265px}.toa-project-card h2{font-size:19px;margin:0}.toa-project-card>p,.toa-work-head p{margin:0;line-height:1.55;color:var(--muted,#a5afbd)}.toa-project-meta{display:flex;justify-content:space-between;gap:10px;color:var(--muted,#a5afbd);font-size:10px;font-weight:800;letter-spacing:.07em}.toa-project-meta span{letter-spacing:0;white-space:nowrap}.toa-output{display:grid;gap:4px;margin-top:auto;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);font-size:13px}.toa-output span{color:var(--muted,#a5afbd);line-height:1.45}.toa-open-project{width:100%;margin-top:4px}.toa-open-project:disabled{opacity:.55;cursor:not-allowed}.toa-capstone-wrap{margin-top:20px}.toa-capstone{border-color:rgba(239,140,72,.65);background:linear-gradient(145deg,rgba(239,125,46,.12),var(--card,#171d27))}.toa-workbench{margin-top:18px!important;padding:20px!important}.toa-work-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.toa-work-head h2{margin:0 0 8px}.toa-work-head>button{white-space:nowrap}.toa-work-progress{display:grid;grid-template-columns:1fr;gap:7px;margin:16px 0}.toa-work-progress progress{width:100%;height:10px;accent-color:var(--accent,#ef8c48)}.toa-current-task,.toa-finished{padding:16px;border:1px solid rgba(239,140,72,.4);border-radius:13px;background:rgba(239,125,46,.07)}.toa-current-task h3,.toa-finished h3{margin:7px 0}.toa-current-task p,.toa-finished p{line-height:1.55}.toa-task-index{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--accent,#ef8c48)}.toa-current-task details,.toa-stage details{margin-top:9px}.toa-current-task details p,.toa-stage details p{color:var(--muted,#a5afbd);line-height:1.5}.toa-current-task code,.toa-stage code{display:inline-block;padding:7px 9px;border-radius:7px;background:#0b0f14;color:#b7e4ca}.toa-terminal-cue{font-size:12px;color:var(--muted,#a5afbd)}.toa-stage-list{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:9px}.toa-stage{display:flex;gap:11px;align-items:flex-start;padding:11px;border:1px solid var(--line,#273241);border-radius:11px}.toa-stage>span:last-child{display:grid;gap:3px}.toa-stage small{font-size:12px;line-height:1.45;color:var(--muted,#a5afbd)}.toa-stage-mark{display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:50%;background:rgba(255,255,255,.08);font-size:12px}.toa-stage.is-done .toa-stage-mark{background:rgba(65,200,148,.18);color:#55d8a6}.toa-stage.is-done b{text-decoration:line-through;opacity:.72}
     .toa-review{margin-top:16px;padding:16px;border:1px solid rgba(93,164,255,.45);border-radius:13px;background:rgba(93,164,255,.07)}.toa-review h3{margin:8px 0}.toa-review>p{line-height:1.5}.toa-review-options{display:grid;gap:8px}.toa-answer-choice{text-align:left;white-space:normal;line-height:1.45}.toa-review-feedback{min-height:1.3em;color:var(--muted,#a5afbd)}
+    .toa-command-output{white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;border-radius:8px;background:#0b0f14;color:#cbd5e1;font:12px/1.5 ui-monospace,monospace}.toa-export-portfolio{margin-top:14px}
     @media(max-width:620px){.toa-project-intro{padding:18px}.toa-work-head{display:grid}.toa-work-head>button{width:100%}.toa-project-card{min-height:0}}
   `;
   document.head.append(style);
@@ -393,6 +441,7 @@ if (typeof window !== "undefined") {
   window.addEventListener("hashchange", () => setTimeout(installNavigation, 0));
   window.addEventListener("toa-project-command", refreshCurrent);
   document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-export-portfolio]")) { downloadPortfolio(); return; }
     const answerButton = event.target.closest("[data-project-answer]");
     if (answerButton) {
       const project = findProject(answerButton.dataset.projectAnswer);

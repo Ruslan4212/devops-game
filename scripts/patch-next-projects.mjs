@@ -20,20 +20,8 @@ const replacements = [
     'function tp(e,t){const p=localStorage.getItem("toa_active_project_v1");e.innerHTML=St(p?"Рабочая среда проекта":"Терминал-тренажёр",p?"Команды выполняются в отдельном рабочем каталоге проекта. Результат каждого шага проверяется автоматически.":"Свободная песочница: пробуй любые команды, ничего не сломаешь. Задания урока здесь не проверяются.")',
   ],
   [
-    's.out&&Pe(s.out,s.err?"err":null),$s(t)}function cf(e)',
-    's.out&&Pe(s.out,s.err?"err":null),$s(t),window.TOAProjectApp?.persistAfterCommand?.(t,e)}function cf(e)',
-  ],
-  [
     'Xc(t,i.edit,(r,o)=>{ri(t,r,o),Pe("файл сохранён: "+r,"dim")});return',
     'Xc(t,i.edit,(r,o)=>{ri(t,r,o),Pe("файл сохранён: "+r,"dim"),window.TOAProjectApp?.persistAfterCommand?.(t,"edit "+r)});return',
-  ],
-  [
-    'function cf(e){_s===null&&(_s=B("#out").innerHTML,$i(),Pe("Песочница: пробуй что угодно. help в уроке подскажет служебные команды; clear — очистить экран.","dim")),$s(In.world??(In.world=Zr())),Gc(e),Ue(!1),B("#cmd").focus()}function lf(e)',
-    'function cf(e){_s===null&&(_s=B("#out").innerHTML,$i(),Pe("Песочница: пробуй что угодно. help в уроке подскажет служебные команды; clear — очистить экран.","dim")),$s(In.world??(In.world=Zr())),Gc(e),Ue(!1),B("#cmd").focus()}window.TOAProjectApp={newWorld:Zr,mkdir:he,write:W,getWorld:()=>In.world??(In.world=Zr()),setWorld:e=>{In.world=e;if(document.body.dataset.route==="terminal"&&document.querySelector("#out")){$i();$s(e)}},refresh:e=>$s(e),persistAfterCommand:(e,t)=>window.TOAProjects?.persistAfterCommand(e,t)};function lf(e)',
-  ],
-  [
-    'refresh:e=>$s(e)};function lf(e)',
-    'refresh:e=>$s(e),persistAfterCommand:(e,t)=>window.TOAProjects?.persistAfterCommand(e,t)};function lf(e)',
   ],
 ];
 
@@ -42,6 +30,32 @@ for (const [before, after] of replacements) {
   if (count === 0 && html.includes(after)) continue;
   if (count !== 1) throw new Error(`Expected one bundle anchor; found ${count}: ${before.slice(0, 80)}`);
   html = html.replace(before, after);
+}
+
+const hookVariants = [
+  's.out&&Pe(s.out,s.err?"err":null),$s(t)}function cf(e)',
+  's.out&&Pe(s.out,s.err?"err":null),$s(t),window.TOAProjectApp?.persistAfterCommand?.(t,e)}function cf(e)',
+  's.out&&Pe(s.out,s.err?"err":null),$s(t),window.TOAProjectApp?.persistAfterCommand?.(t,e,s)}function cf(e)',
+];
+const finalHook = hookVariants[2];
+if (!html.includes(finalHook)) {
+  const matches = hookVariants.slice(0, 2).filter((variant) => html.includes(variant));
+  if (matches.length !== 1) throw new Error(`Expected one terminal persistence hook; found ${matches.length}`);
+  html = html.replace(matches[0], finalHook);
+}
+
+const apiStart = 'function cf(e){_s===null&&(_s=B("#out").innerHTML,$i(),Pe("Песочница: пробуй что угодно. help в уроке подскажет служебные команды; clear — очистить экран.","dim")),$s(In.world??(In.world=Zr())),Gc(e),Ue(!1),B("#cmd").focus()}';
+const apiEnd = 'function lf(e)';
+const apiVariants = [
+  `${apiStart}${apiEnd}`,
+  `${apiStart}window.TOAProjectApp={newWorld:Zr,mkdir:he,write:W,getWorld:()=>In.world??(In.world=Zr()),setWorld:e=>{In.world=e;if(document.body.dataset.route==="terminal"&&document.querySelector("#out")){$i();$s(e)}},refresh:e=>$s(e)};${apiEnd}`,
+  `${apiStart}window.TOAProjectApp={newWorld:Zr,mkdir:he,write:W,getWorld:()=>In.world??(In.world=Zr()),setWorld:e=>{In.world=e;if(document.body.dataset.route==="terminal"&&document.querySelector("#out")){$i();$s(e)}},refresh:e=>$s(e),persistAfterCommand:(e,t)=>window.TOAProjects?.persistAfterCommand(e,t)};${apiEnd}`,
+];
+const finalApi = `${apiStart}window.TOAProjectApp={newWorld:Zr,mkdir:he,write:W,getWorld:()=>In.world??(In.world=Zr()),setWorld:e=>{In.world=e;if(document.body.dataset.route==="terminal"&&document.querySelector("#out")){$i();$s(e)}},refresh:e=>$s(e),persistAfterCommand:(e,t,r)=>window.TOAProjects?.persistAfterCommand(e,t,r)};${apiEnd}`;
+if (!html.includes(finalApi)) {
+  const matches = apiVariants.filter((variant) => html.includes(variant));
+  if (matches.length !== 1) throw new Error(`Expected one terminal API anchor; found ${matches.length}`);
+  html = html.replace(matches[0], finalApi);
 }
 
 const script = '<script type="module" src="./projects.js"></script>';

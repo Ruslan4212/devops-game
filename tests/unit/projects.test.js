@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CAPSTONE, PROJECTS, PROJECT_REVIEWS, projectDataIsValid } from "../../next/projects.js";
+import { buildPortfolioMarkdown, CAPSTONE, PROJECTS, PROJECT_REVIEWS, projectDataIsValid } from "../../next/projects.js";
 
 test("есть отдельный рабочий проект для каждого из 14 актов", () => {
   assert.equal(PROJECTS.length, 14);
@@ -34,4 +34,18 @@ test("каждый проект проверяет понимание решен
     assert.ok(review.answer >= 0 && review.answer < review.options.length, project.id);
     assert.notEqual(review.options[review.answer], review.options[(review.answer + 1) % review.options.length]);
   }
+});
+
+test("портфолио показывает только подтверждённые команды и результаты", () => {
+  const projects = [...PROJECTS, CAPSTONE];
+  const worlds = Object.fromEntries(projects.map((project) => [project.id, {
+    log: project.tasks.map((task) => ({ cmd: task.hint.split("&&").at(-1).trim(), code: 0 })),
+    toaCommandEvidence: project.tasks.map((task) => ({ command: task.hint.split("&&").at(-1).trim(), code: 0, output: "OK" })),
+  }]));
+  const reviews = Object.fromEntries(projects.map((project) => [project.id, true]));
+  const report = buildPortfolioMarkdown({ worlds, reviews });
+  assert.match(report, /# Портфолио: DevOps-практика/);
+  for (const project of projects) assert.ok(report.includes(project.title), project.id);
+  assert.match(report, /Проверка понимания:\*\* пройдена/);
+  assert.match(report, /Результат:[\s\S]*> OK/);
 });

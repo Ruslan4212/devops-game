@@ -17,6 +17,7 @@ test("проектные рабочие места открываются в /ne
   const savedWorld = await page.evaluate(() => JSON.parse(localStorage.getItem("toa_project_world_v1:linux")));
   expect(savedWorld.cwd).toBe("/home/devops/shop-linux");
   expect(savedWorld.log.some((entry) => String(entry.cmd).trim() === "pwd" && entry.code === 0), JSON.stringify(savedWorld.log)).toBe(true);
+  expect(savedWorld.toaCommandEvidence.some((entry) => entry.command === "pwd" && entry.output.includes("/home/devops/shop-linux"))).toBe(true);
 
   await page.reload();
   await expect(page.locator(".toa-workbench h2")).toHaveText("Подготовить рабочее место магазина");
@@ -62,4 +63,10 @@ test("команды из практики каждого проекта вып�
   }
   await page.locator(`[data-project-answer="capstone"][data-answer-index="${capstone.review.answer}"]`).click();
   await expect(page.locator(".toa-finished h3")).toHaveText("Проект завершён");
+  await page.locator("[data-project-home]").click();
+  await expect(page.locator("[data-export-portfolio]")).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await page.locator("[data-export-portfolio]").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("devops-portfolio-shop.md");
 });
