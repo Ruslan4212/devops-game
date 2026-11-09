@@ -193,8 +193,8 @@ async function renderPublicProfile(username){
     <h1 style="font-size:30px;margin:8px 0 2px">${esc37(data.username)}</h1>
     <p class="muted" style="margin:0 0 20px">${esc37(data.rank_name)} · ${data.xp} XP · стрик ${data.streak} дн.</p>
     ${isMiddle?`<div style="margin-bottom:18px;padding:10px 14px;border:1px solid rgba(240,135,63,.4);border-radius:8px;background:rgba(240,135,63,.08);display:flex;align-items:center;gap:10px">
-      <span style="font-size:20px">🏆</span><span style="flex:1;font-size:13.5px">Курс пройден полностью — доступен сертификат</span>
-      <button class="btn ghost sm" id="ppCertBtn">Скачать</button></div>`:""}
+      <span style="font-size:20px">📊</span><span style="flex:1;font-size:13.5px">Достигнут игровой ранг Middle DevOps — доступна сводка учебного прогресса</span>
+      <button class="btn ghost sm" id="ppCertBtn">Скачать сводку</button></div>`:""}
     <div class="stat-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px">
       <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.missions_done}</b><span class="lbl">миссий</span></div>
       <div style="background:var(--panel);padding:14px"><b class="mono" style="font-size:20px;color:var(--amber-2);display:block">${data.labs_done}</b><span class="lbl">лабораторий</span></div>

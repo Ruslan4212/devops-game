@@ -23,6 +23,13 @@ const replacements = [
     'Xc(t,i.edit,(r,o)=>{ri(t,r,o),Pe("файл сохранён: "+r,"dim")});return',
     'Xc(t,i.edit,(r,o)=>{ri(t,r,o),Pe("файл сохранён: "+r,"dim"),window.TOAProjectApp?.persistAfterCommand?.(t,"edit "+r)});return',
   ],
+  [
+    'return["Курс «Terminal Ops Academy» пройден полностью.",',
+    'return["Сводка учебного прогресса в симуляторе.","Не является профессиональной квалификацией или подтверждением опыта в production.",',
+  ],
+  ['i.fillText("СЕРТИФИКАТ О ПРОХОЖДЕНИИ КУРСА",1110,96)', 'i.fillText("СВОДКА УЧЕБНОГО ПРОГРЕССА",1110,96)'],
+  ['i.fillText("MIDDLE DEVOPS",90,232)', 'i.fillText("DEVOPS PRACTICE",90,232)'],
+  ['o.download="terminal-ops-academy-middle-devops.png"', 'o.download="terminal-ops-academy-devops-practice.png"'],
 ];
 
 for (const [before, after] of replacements) {
@@ -30,6 +37,13 @@ for (const [before, after] of replacements) {
   if (count === 0 && html.includes(after)) continue;
   if (count !== 1) throw new Error(`Expected one bundle anchor; found ${count}: ${before.slice(0, 80)}`);
   html = html.replace(before, after);
+}
+
+const simulatedCapstoneLabel = "Капстоун на реальном сервере";
+if (!html.includes("Итоговый проект в симуляторе")) {
+  const count = html.split(simulatedCapstoneLabel).length - 1;
+  if (count < 1) throw new Error("Expected at least one capstone label to clarify the simulator environment");
+  html = html.replaceAll(simulatedCapstoneLabel, "Итоговый проект в симуляторе");
 }
 
 const hookVariants = [

@@ -2,9 +2,9 @@
   "name": "devops-game",
   "private": true,
   "version": "1.0.0",
-  "description": "Инструменты сборки и тестов для Pipeline: путь до Middle DevOps. Сама игра — статический index.html, собираемый из p*.txt (см. build.sh).",
+  "description": "Инструменты сборки и тестов для учебного DevOps-симулятора. Игра собирается из p*.txt в статический index.html.",
   "scripts": {
-    "build": "bash build.sh",
+    "build": "node scripts/build.mjs",
     "patch:next-projects": "node scripts/patch-next-projects.mjs",
     "test:unit": "node --test tests/unit/*.test.js",
     "test:e2e": "playwright test",

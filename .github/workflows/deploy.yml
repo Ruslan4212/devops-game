@@ -29,9 +29,9 @@ jobs:
 
       - name: index.html собран из актуальных p*.txt
         run: |
-          bash build.sh
+          npm run build
           if ! git diff --quiet -- index.html; then
-            echo "::error::index.html отстал от p*.txt — выполни bash build.sh и закоммить результат"
+            echo "::error::index.html отстал от p*.txt — выполни npm run build и закоммить результат"
             exit 1
           fi
 

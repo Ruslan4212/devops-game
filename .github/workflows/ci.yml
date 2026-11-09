@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: bash build.sh
-        run: bash build.sh
+      - name: Собрать сайт кроссплатформенным скриптом
+        run: npm run build
       - name: Проверить, что index.html действительно собрался
         run: test -s index.html
       - name: Загрузить собранный index.html для следующих джобов

@@ -12,7 +12,7 @@ BADGES.push(
 
 function bar(pct,col){return `<div class="xpbar" style="width:100%"><i style="width:${Math.min(100,pct)}%;background:${col||"linear-gradient(90deg,var(--amber),var(--amber-2))"}"></i></div>`}
 
-/* ================= СЕРТИФИКАТ MIDDLE DEVOPS ================= */
+/* ================= СВОДКА УЧЕБНОГО ПРОГРЕССА ================= */
 async function buildCertificateCanvas(stats){
   try{await document.fonts.load('800 64px Archivo');await document.fonts.load('600 20px Manrope');
     await document.fonts.load('500 22px "JetBrains Mono"');}catch(e){}
@@ -31,12 +31,13 @@ async function buildCertificateCanvas(stats){
   x.fillStyle="#f0873f";x.beginPath();x.arc(90,90,6,0,7);x.fill();
   x.fillStyle="#93a0b5";x.font="600 15px 'JetBrains Mono'";x.textBaseline="alphabetic";
   x.fillText("PIPELINE · OPS ACADEMY",112,96);
-  x.fillStyle="#5c6a80";x.textAlign="right";x.fillText("СЕРТИФИКАТ О ПРОХОЖДЕНИИ КУРСА",W-90,96);x.textAlign="left";
-  x.fillStyle="#ffb067";x.font="900 72px Archivo, sans-serif";x.fillText("MIDDLE DEVOPS",90,230);
+  x.fillStyle="#5c6a80";x.textAlign="right";x.fillText("СВОДКА УЧЕБНОГО ПРОГРЕССА",W-90,96);x.textAlign="left";
+  x.fillStyle="#ffb067";x.font="900 72px Archivo, sans-serif";x.fillText("DEVOPS PRACTICE",90,230);
   x.fillStyle="#e8ecf4";x.font="500 22px Manrope, sans-serif";
-  x.fillText("Курс «Pipeline: путь до Middle DevOps» пройден полностью:",90,278);
-  x.fillText("14 миров, "+stats.missions+" миссий, "+stats.labs+" лабораторий, "+stats.bosses+" боевых собеседований.",90,308);
-  x.strokeStyle="rgba(255,255,255,.12)";x.beginPath();x.moveTo(90,344);x.lineTo(W-90,344);x.stroke();
+  x.fillText("Пройденные активности в учебном симуляторе:",90,278);
+  x.fillText("14 миров, "+stats.missions+" миссий, "+stats.labs+" лабораторий и "+stats.bosses+" собеседований.",90,308);
+  x.fillText("Это не профессиональная квалификация и не подтверждение опыта в production.",90,338);
+  x.strokeStyle="rgba(255,255,255,.12)";x.beginPath();x.moveTo(90,368);x.lineTo(W-90,368);x.stroke();
   x.fillStyle="#5c6a80";x.font="600 14px 'JetBrains Mono'";x.fillText("ВЫДАН",90,384);
   x.fillStyle="#ffffff";x.font="800 46px Archivo, sans-serif";x.fillText(stats.username,90,432);
   const cols=[["XP",stats.xp],["МИССИЙ",stats.missions+"/96"],["ЛАБОРАТОРИЙ",stats.labs+"/13"],["БОССОВ",stats.bosses+"/14"],["БЕЙДЖЕЙ",stats.badges+"/25"]];
@@ -57,8 +58,8 @@ async function buildCertificateCanvas(stats){
 }
 async function downloadCertificate(){
   const r=rank();
-  if(r.g!=="middle"){toast("Сертификат откроется по достижении ранга Middle DevOps");return}
-  toast("Готовлю сертификат…");
+  if(r.g!=="middle"){toast("Сводка прогресса откроется после игрового ранга Middle DevOps");return}
+  toast("Готовлю сводку прогресса…");
   const cv=await buildCertificateCanvas({
     username:(typeof ACCOUNT!=="undefined"&&ACCOUNT&&ACCOUNT.username)?ACCOUNT.username:"Player",
     xp:S.xp,missions:Object.keys(S.mis).length,labs:Object.keys(S.labs).length,
@@ -67,21 +68,21 @@ async function downloadCertificate(){
   });
   cv.toBlob(b=>{
     const url=URL.createObjectURL(b);
-    const a=document.createElement("a");a.href=url;a.download="pipeline-middle-devops-certificate.png";
+    const a=document.createElement("a");a.href=url;a.download="pipeline-devops-practice-certificate.png";
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),4000);
-    toast("Сертификат скачан ✓");
+    toast("Сводка прогресса скачана ✓");
   },"image/png");
 }
 async function downloadCertificateFor(stats){
-  toast("Готовлю сертификат…");
+  toast("Готовлю сводку прогресса…");
   const cv=await buildCertificateCanvas(stats);
   cv.toBlob(b=>{
     const url=URL.createObjectURL(b);
-    const a=document.createElement("a");a.href=url;a.download="pipeline-middle-devops-certificate.png";
+    const a=document.createElement("a");a.href=url;a.download="pipeline-devops-learning-progress.png";
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),4000);
-    toast("Сертификат скачан ✓");
+    toast("Сводка прогресса скачана ✓");
   },"image/png");
 }
 
@@ -136,7 +137,7 @@ function viewHero(){
            :`<p class="muted" style="margin:0 0 12px">Работы пока нет. Загляни в «Карьеру» — там есть вакансии по твоему уровню.</p>`}
         <div style="max-width:340px">${bar(nx?((o-r.min)/(nx.min-r.min)*100):100)}
         <div class="lbl" style="margin-top:6px">общий уровень ${o} ${nx?`· до «${nx.n}» ещё ${nx.min-o}`:"· максимум достигнут"}</div></div>
-        ${r.g==="middle"?`<button class="btn" data-act="cert" style="margin-top:14px">🏆 Скачать сертификат Middle DevOps</button>`:""}
+        ${r.g==="middle"?`<button class="btn" data-act="cert" style="margin-top:14px">Скачать сводку учебного прогресса</button>`:""}
       </div>
       <div style="min-width:190px">
         <div class="lbl">кратко</div>
