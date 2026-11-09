@@ -42,6 +42,12 @@ test("команды из практики каждого проекта вып�
       await page.locator("#cmd").press("Enter");
       await expect(page.locator(".toa-work-progress"), `${project.id}, шаг ${index + 1}: ${project.tasks[index].hint}`).toContainText(`Практика: ${index + 1} из ${project.tasks.length} шагов`);
     }
+    if (project.id === "linux") {
+      await page.locator(`[data-project-answer="${project.id}"][data-answer-index="${(project.review.answer + 1) % 3}"]`).click();
+      await expect(page.locator(".toa-review-feedback")).toContainText("Пока неверно");
+    }
+    await page.locator(`[data-project-answer="${project.id}"][data-answer-index="${project.review.answer}"]`).click();
+    await expect(page.locator(".toa-finished h3")).toHaveText("Проект завершён");
     await page.locator("[data-project-home]").click();
     await expect(page.locator("#pageView")).toBeVisible();
   }
@@ -49,10 +55,11 @@ test("команды из практики каждого проекта вып�
   await expect(page.locator('[data-project="capstone"]')).toBeEnabled();
   await page.locator('[data-project="capstone"]').click();
   const capstone = await page.evaluate(() => window.TOAProjects.capstoneCatalog());
-  for (let index = 0; index < capstone.length; index++) {
-    await page.locator("#cmd").fill(capstone[index].hint);
+  for (let index = 0; index < capstone.tasks.length; index++) {
+    await page.locator("#cmd").fill(capstone.tasks[index].hint);
     await page.locator("#cmd").press("Enter");
-    await expect(page.locator(".toa-work-progress"), `capstone, шаг ${index + 1}: ${capstone[index].hint}`).toContainText(`Практика: ${index + 1} из ${capstone.length} шагов`);
+    await expect(page.locator(".toa-work-progress"), `capstone, шаг ${index + 1}: ${capstone.tasks[index].hint}`).toContainText(`Практика: ${index + 1} из ${capstone.tasks.length} шагов`);
   }
+  await page.locator(`[data-project-answer="capstone"][data-answer-index="${capstone.review.answer}"]`).click();
   await expect(page.locator(".toa-finished h3")).toHaveText("Проект завершён");
 });

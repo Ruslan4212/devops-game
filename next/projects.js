@@ -179,8 +179,27 @@ export const CAPSTONE = {
   ],
 };
 
+export const PROJECT_REVIEWS = {
+  linux: { question: "В логах найдена ошибка сохранения заказа. Какой следующий шаг надёжнее?", options: ["Сразу перезапустить весь сервер", "Сопоставить время ошибки с состоянием API и базы, собрать дополнительные признаки", "Удалить старые логи, чтобы освободить место"], answer: 1, explain: "Одна запись — сигнал, а не доказанная первопричина. Сначала сопоставь события и влияние на запрос." },
+  services: { question: "systemd показывает enabled, но сервис inactive. Что это означает?", options: ["Сервис точно работает", "Сервис включён в автозапуск, но сейчас остановлен", "Порт сервиса открыт"], answer: 1, explain: "enabled управляет запуском при старте системы; active показывает состояние прямо сейчас." },
+  bash: { question: "Скрипт должен запускаться владельцем. Какие права обычно нужны?", options: ["777 — всем полный доступ", "Только право исполнения владельцу, без лишнего доступа остальным", "000 — чтобы никто не изменил файл"], answer: 1, explain: "Принцип минимальных прав: не выдавай доступ всем, если скрипт запускает только владелец." },
+  network: { question: "curl не получает ответ от API. Как диагностировать проблему?", options: ["Проверить только DNS и сразу менять конфигурацию", "Проверить адрес, маршрут, слушающий порт и HTTP-ответ по слоям", "Перезагрузить сервер, не собирая данные"], answer: 1, explain: "Проверки по слоям сужают область отказа: адрес и маршрут, порт, затем само приложение." },
+  git: { question: "Зачем перед commit смотреть git status?", options: ["Чтобы увидеть, какие файлы попадут в коммит и что останется незакоммиченным", "Чтобы автоматически отправить изменения в production", "Чтобы удалить историю предыдущих коммитов"], answer: 0, explain: "status показывает рабочее дерево и индекс. Коммит должен содержать осознанно выбранные изменения." },
+  docker: { question: "Чем образ отличается от контейнера?", options: ["Образ — шаблон приложения, контейнер — запущенный экземпляр этого шаблона", "Контейнер — файл Dockerfile", "Это два названия одного и того же объекта"], answer: 0, explain: "Образ собирают и версионируют; контейнер запускают из образа и наблюдают за его состоянием." },
+  cicd: { question: "Тесты в pipeline завершились с ошибкой. Что должен сделать релизный процесс?", options: ["Остановить публикацию и показать причину сбоя", "Опубликовать образ и исправить тесты позже", "Повторять deploy, пока не повезёт"], answer: 0, explain: "Тесты — gate перед публикацией. Не выпускай артефакт, если обязательная проверка не прошла." },
+  terraform: { question: "В terraform plan видно удаление production-базы, которого не ждали. Что делать?", options: ["Применить план, чтобы синхронизировать состояние", "Остановиться и выяснить причину плана до apply", "Удалить state-файл и повторить apply"], answer: 1, explain: "Plan — возможность обнаружить риск до изменения инфраструктуры. Не применяй неожиданный план." },
+  kubernetes: { question: "Что делает Deployment, если одна из двух реплик Pod перестала быть Ready?", options: ["Контроллер стремится вернуть число готовых реплик к желаемому состоянию", "Кластер автоматически исправляет исходный код приложения", "Service удаляет остальные Pod"], answer: 0, explain: "Deployment задаёт желаемое число реплик; контроллер поддерживает его и сообщает о проблемных Pod." },
+  sre: { question: "Во время инцидента какой порядок действий полезнее?", options: ["Найти виноватого, затем проверить пользовательский эффект", "Снизить ущерб, восстановить сервис, зафиксировать факты и провести разбор причин", "Удалить алерты, чтобы команда могла продолжить работу"], answer: 1, explain: "Сначала безопасность пользователей и восстановление. Затем факты, временная шкала и системные меры без поиска виноватого." },
+  prometheus: { question: "Что произойдёт, если Prometheus не может scrape target?", options: ["Появятся свежие значения метрик из приложения", "Target станет недоступным/неуспешным, а новые samples не поступят", "Grafana автоматически исправит endpoint"], answer: 1, explain: "Проверь статус target, доступность endpoint, labels и scrape-конфигурацию. Старые точки не означают, что сбор продолжается." },
+  grafana: { question: "Панель Grafana пустая, хотя Prometheus работает. Что проверить первым?", options: ["Datasource, запрос панели и совпадение labels", "Цветовую тему браузера", "Увеличить ширину панели, не проверяя запрос"], answer: 0, explain: "Дашборд отображает результат запроса к datasource. Проверь подключение и фильтры запроса до оформления." },
+  zabbix: { question: "В Zabbix нет данных с агента, хотя сам агент запущен. Что проверить?", options: ["Совпадают ли Hostname, адрес сервера и item key", "Переназначить агенту случайный hostname", "Отключить все triggers"], answer: 0, explain: "Сервер связывает данные с конкретным host и items. Несовпадение имени, доступности или ключа ломает сбор." },
+  python: { question: "Почему healthcheck CLI должен возвращать ненулевой код при отказе базы?", options: ["Чтобы CI и автоматизация могли остановить небезопасный релиз", "Чтобы скрыть детали ошибки от дежурного", "Потому что любой Python-скрипт должен завершаться кодом 1"], answer: 0, explain: "Код возврата — контракт с автоматизацией: 0 означает успех, ненулевой код сообщает о неуспехе." },
+  capstone: { question: "Какой порядок лучше защищает production при выпуске версии?", options: ["Сразу применить инфраструктуру, затем собрать образ и посмотреть алерты", "Проверить код и тесты, собрать версионированный образ, изучить план, развернуть и проверить health/метрики", "Изменить production вручную, чтобы не ждать pipeline"], answer: 1, explain: "Безопасный релиз связывает проверенный код, неизменяемый артефакт, просмотренный план, контролируемый rollout и проверку пользовательского пути." },
+};
+
 const STORAGE_PREFIX = "toa_project_world_v1:";
 const ACTIVE_KEY = "toa_active_project_v1";
+const REVIEW_PREFIX = "toa_project_review_v1:";
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 function readWorld(id) {
@@ -188,11 +207,13 @@ function readWorld(id) {
 }
 function activeId() { try { return localStorage.getItem(ACTIVE_KEY) || ""; } catch { return ""; } }
 function findProject(id) { return id === CAPSTONE.id ? CAPSTONE : PROJECTS.find((p) => p.id === id); }
+function reviewFor(project) { return PROJECT_REVIEWS[project.id]; }
+function reviewPassed(project) { try { return localStorage.getItem(REVIEW_PREFIX + project.id) === "passed"; } catch { return false; } }
 function completedTasks(project, world = readWorld(project.id)) {
   const log = Array.isArray(world?.log) ? world.log : [];
   return project.tasks.map((task) => log.some((entry) => entry?.code === 0 && new RegExp(task.pattern).test(String(entry.cmd || "").trim())));
 }
-function projectComplete(project) { return completedTasks(project).every(Boolean); }
+function projectComplete(project) { return completedTasks(project).every(Boolean) && reviewPassed(project); }
 function allTopicsComplete() { return PROJECTS.every(projectComplete); }
 
 const COMMON_FILES = {
@@ -256,10 +277,16 @@ function stageMarkup(project, tasks, world) {
   const flags = completedTasks(project, world);
   return tasks.map((task, index) => `<li class="toa-stage ${flags[index] ? "is-done" : ""}"><span class="toa-stage-mark">${flags[index] ? "✓" : String(index + 1)}</span><span><b>${escapeHtml(task.title)}</b><small>${escapeHtml(task.instruction)}</small><details><summary>Зачем это нужно и подсказка</summary><p>${escapeHtml(task.why)}</p><code>${escapeHtml(task.hint)}</code></details></span></li>`).join("");
 }
+function reviewMarkup(project) {
+  const review = reviewFor(project);
+  return `<div class="toa-review"><span class="toa-task-index">ПРОВЕРКА ПОНИМАНИЯ</span><h3>${escapeHtml(review.question)}</h3><p>Выбери объяснение, которое лучше всего подходит к этому проекту.</p><div class="toa-review-options">${review.options.map((option, index) => `<button class="btn toa-answer-choice" type="button" data-project-answer="${escapeHtml(project.id)}" data-answer-index="${index}">${escapeHtml(option)}</button>`).join("")}</div><p class="toa-review-feedback" aria-live="polite"></p></div>`;
+}
 function cardMarkup(project, capstone = false) {
   const progress = progressFor(project);
   const locked = capstone && !allTopicsComplete();
-  return `<article class="toa-project-card ${capstone ? "toa-capstone" : ""}"><div class="toa-project-meta">${capstone ? "ИТОГОВЫЙ ПРОЕКТ" : `АКТ ${project.act} · ${escapeHtml(project.topic)}`}<span>${progress.done}/${progress.total} шагов</span></div><h2>${escapeHtml(project.title)}</h2><p>${escapeHtml(project.goal)}</p><div class="toa-output"><b>Результат</b><span>${escapeHtml(project.output)}</span></div><button class="btn toa-open-project" type="button" data-project="${escapeHtml(project.id)}" ${locked ? "disabled" : ""}>${locked ? "Сначала заверши 14 проектов по темам" : progress.done === progress.total ? "Продолжить проект" : "Открыть рабочее место"}</button></article>`;
+  const checked = reviewPassed(project);
+  const nextAction = progress.done === progress.total && !checked ? "Пройти проверку понимания" : progress.done === progress.total && checked ? "Проект завершён · открыть" : "Открыть рабочее место";
+  return `<article class="toa-project-card ${capstone ? "toa-capstone" : ""}"><div class="toa-project-meta">${capstone ? "ИТОГОВЫЙ ПРОЕКТ" : `АКТ ${project.act} · ${escapeHtml(project.topic)}`}<span>${progress.done}/${progress.total} шагов${checked ? " · понимание ✓" : ""}</span></div><h2>${escapeHtml(project.title)}</h2><p>${escapeHtml(project.goal)}</p><div class="toa-output"><b>Результат</b><span>${escapeHtml(project.output)}</span></div><button class="btn toa-open-project" type="button" data-project="${escapeHtml(project.id)}" ${locked ? "disabled" : ""}>${locked ? "Сначала заверши 14 проектов по темам" : nextAction}</button></article>`;
 }
 function mount(container) {
   if (!container) return;
@@ -276,6 +303,7 @@ function terminalWork(container) {
   const progress = progressFor(project);
   const nextIndex = progress.flags.indexOf(false);
   const next = nextIndex < 0 ? null : project.tasks[nextIndex];
+  const checked = reviewPassed(project);
   let panel = container.querySelector(".toa-workbench");
   if (!panel) {
     panel = document.createElement("section");
@@ -283,7 +311,7 @@ function terminalWork(container) {
     const termCard = container.querySelector(".sandbox-card");
     (termCard || container).insertAdjacentElement("afterend", panel);
   }
-  panel.innerHTML = `<div class="toa-work-head"><div><p class="toa-eyebrow">${id === CAPSTONE.id ? "ИТОГОВЫЙ ПРОЕКТ" : `ПРОЕКТ · АКТ ${project.act}`}</p><h2>${escapeHtml(project.title)}</h2><p>${escapeHtml(project.goal)}</p></div><button class="btn" type="button" data-project-home>К списку проектов</button></div><div class="toa-work-progress"><span>Практика: ${progress.done} из ${progress.total} шагов</span><progress max="${progress.total}" value="${progress.done}"></progress></div>${next ? `<div class="toa-current-task"><span class="toa-task-index">ШАГ ${nextIndex + 1}</span><h3>${escapeHtml(next.title)}</h3><p>${escapeHtml(next.instruction)}</p><details><summary>Зачем это нужно и подсказка</summary><p>${escapeHtml(next.why)}</p><code>${escapeHtml(next.hint)}</code></details><p class="toa-terminal-cue">Выполни команду в терминале выше. Шаг отметится после успешного выполнения.</p></div>` : `<div class="toa-finished"><h3>Проект завершён</h3><p>${escapeHtml(project.output)}</p>${id !== CAPSTONE.id ? `<p>Теперь перейди к следующему проекту по теме. Итоговый capstone откроется после завершения всех 14 тематических проектов.</p>` : "<p>Ты провёл сервис через подготовку, релиз, эксплуатацию и диагностику.</p>"}</div>`}<ol class="toa-stage-list">${stageMarkup(project, project.tasks, currentWorld)}</ol>`;
+  panel.innerHTML = `<div class="toa-work-head"><div><p class="toa-eyebrow">${id === CAPSTONE.id ? "ИТОГОВЫЙ ПРОЕКТ" : `ПРОЕКТ · АКТ ${project.act}`}</p><h2>${escapeHtml(project.title)}</h2><p>${escapeHtml(project.goal)}</p></div><button class="btn" type="button" data-project-home>К списку проектов</button></div><div class="toa-work-progress"><span>Практика: ${progress.done} из ${progress.total} шагов · ${checked ? "проверка понимания пройдена" : "проверка понимания впереди"}</span><progress max="${progress.total}" value="${progress.done}"></progress></div>${next ? `<div class="toa-current-task"><span class="toa-task-index">ШАГ ${nextIndex + 1}</span><h3>${escapeHtml(next.title)}</h3><p>${escapeHtml(next.instruction)}</p><details><summary>Зачем это нужно и подсказка</summary><p>${escapeHtml(next.why)}</p><code>${escapeHtml(next.hint)}</code></details><p class="toa-terminal-cue">Выполни команду в терминале выше. Шаг отметится после успешного выполнения.</p></div>` : checked ? `<div class="toa-finished"><h3>Проект завершён</h3><p>${escapeHtml(project.output)}</p>${id !== CAPSTONE.id ? `<p>Теперь переходи к следующему проекту по теме. Итоговый capstone откроется после завершения всех 14 тематических проектов и проверок понимания.</p>` : "<p>Ты провёл сервис через подготовку, релиз, эксплуатацию и диагностику.</p>"}</div>` : reviewMarkup(project)}<ol class="toa-stage-list">${stageMarkup(project, project.tasks, currentWorld)}</ol>`;
 }
 
 function refreshCurrent() {
@@ -333,6 +361,7 @@ function installStyles() {
   style.id = "toa-project-styles";
   style.textContent = `
     .toa-projects{max-width:1120px;margin:0 auto;padding:8px 0 56px}.toa-project-intro{padding:24px 28px;margin:0 0 18px;border:1px solid var(--line,#273241);border-radius:18px;background:linear-gradient(145deg,rgba(239,125,46,.1),rgba(20,25,34,.94))}.toa-project-intro h1{margin:4px 0 10px;font-size:clamp(26px,4vw,38px)}.toa-project-intro>p:not(.toa-eyebrow){max-width:850px;line-height:1.65;color:var(--muted,#a5afbd)}.toa-eyebrow{margin:0 0 6px;color:var(--accent,#ef8c48);font-size:11px;font-weight:800;letter-spacing:.12em}.toa-honesty{padding:12px 14px;border-left:3px solid var(--accent,#ef8c48);background:rgba(0,0,0,.15)}.toa-project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:14px}.toa-project-card{display:flex;flex-direction:column;gap:12px;padding:20px;border:1px solid var(--line,#273241);border-radius:16px;background:var(--card,#171d27);min-height:265px}.toa-project-card h2{font-size:19px;margin:0}.toa-project-card>p,.toa-work-head p{margin:0;line-height:1.55;color:var(--muted,#a5afbd)}.toa-project-meta{display:flex;justify-content:space-between;gap:10px;color:var(--muted,#a5afbd);font-size:10px;font-weight:800;letter-spacing:.07em}.toa-project-meta span{letter-spacing:0;white-space:nowrap}.toa-output{display:grid;gap:4px;margin-top:auto;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);font-size:13px}.toa-output span{color:var(--muted,#a5afbd);line-height:1.45}.toa-open-project{width:100%;margin-top:4px}.toa-open-project:disabled{opacity:.55;cursor:not-allowed}.toa-capstone-wrap{margin-top:20px}.toa-capstone{border-color:rgba(239,140,72,.65);background:linear-gradient(145deg,rgba(239,125,46,.12),var(--card,#171d27))}.toa-workbench{margin-top:18px!important;padding:20px!important}.toa-work-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.toa-work-head h2{margin:0 0 8px}.toa-work-head>button{white-space:nowrap}.toa-work-progress{display:grid;grid-template-columns:1fr;gap:7px;margin:16px 0}.toa-work-progress progress{width:100%;height:10px;accent-color:var(--accent,#ef8c48)}.toa-current-task,.toa-finished{padding:16px;border:1px solid rgba(239,140,72,.4);border-radius:13px;background:rgba(239,125,46,.07)}.toa-current-task h3,.toa-finished h3{margin:7px 0}.toa-current-task p,.toa-finished p{line-height:1.55}.toa-task-index{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--accent,#ef8c48)}.toa-current-task details,.toa-stage details{margin-top:9px}.toa-current-task details p,.toa-stage details p{color:var(--muted,#a5afbd);line-height:1.5}.toa-current-task code,.toa-stage code{display:inline-block;padding:7px 9px;border-radius:7px;background:#0b0f14;color:#b7e4ca}.toa-terminal-cue{font-size:12px;color:var(--muted,#a5afbd)}.toa-stage-list{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:9px}.toa-stage{display:flex;gap:11px;align-items:flex-start;padding:11px;border:1px solid var(--line,#273241);border-radius:11px}.toa-stage>span:last-child{display:grid;gap:3px}.toa-stage small{font-size:12px;line-height:1.45;color:var(--muted,#a5afbd)}.toa-stage-mark{display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:50%;background:rgba(255,255,255,.08);font-size:12px}.toa-stage.is-done .toa-stage-mark{background:rgba(65,200,148,.18);color:#55d8a6}.toa-stage.is-done b{text-decoration:line-through;opacity:.72}
+    .toa-review{margin-top:16px;padding:16px;border:1px solid rgba(93,164,255,.45);border-radius:13px;background:rgba(93,164,255,.07)}.toa-review h3{margin:8px 0}.toa-review>p{line-height:1.5}.toa-review-options{display:grid;gap:8px}.toa-answer-choice{text-align:left;white-space:normal;line-height:1.45}.toa-review-feedback{min-height:1.3em;color:var(--muted,#a5afbd)}
     @media(max-width:620px){.toa-project-intro{padding:18px}.toa-work-head{display:grid}.toa-work-head>button{width:100%}.toa-project-card{min-height:0}}
   `;
   document.head.append(style);
@@ -341,20 +370,21 @@ function installStyles() {
 export function projectDataIsValid() {
   const ids = new Set();
   for (const project of [...PROJECTS, CAPSTONE]) {
-    if (ids.has(project.id) || project.tasks.length < 3) return false;
+    const review = PROJECT_REVIEWS[project.id];
+    if (ids.has(project.id) || project.tasks.length < 3 || !review || review.options.length !== 3 || review.answer < 0 || review.answer >= review.options.length) return false;
     ids.add(project.id);
     for (const task of project.tasks) {
       try { new RegExp(task.pattern); } catch { return false; }
       if (!task.title || !task.instruction || !task.why || !task.hint) return false;
     }
   }
-  return PROJECTS.length === 14 && CAPSTONE.tasks.length === 14;
+  return PROJECTS.length === 14 && CAPSTONE.tasks.length === 14 && Object.keys(PROJECT_REVIEWS).length === 15;
 }
 
 export const ProjectApp = {
   mount, activate, terminalWork, persistAfterCommand, refreshCurrent,
-  catalog: () => PROJECTS.map(({ id, title, tasks }) => ({ id, title, tasks: tasks.map(({ title: taskTitle, hint }) => ({ title: taskTitle, hint })) })),
-  capstoneCatalog: () => CAPSTONE.tasks.map(({ title, hint }) => ({ title, hint })),
+  catalog: () => PROJECTS.map((project) => ({ id: project.id, title: project.title, tasks: project.tasks.map(({ title, hint }) => ({ title, hint })), review: reviewFor(project) })),
+  capstoneCatalog: () => ({ tasks: CAPSTONE.tasks.map(({ title, hint }) => ({ title, hint })), review: reviewFor(CAPSTONE) }),
 };
 
 if (typeof window !== "undefined") {
@@ -363,6 +393,21 @@ if (typeof window !== "undefined") {
   window.addEventListener("hashchange", () => setTimeout(installNavigation, 0));
   window.addEventListener("toa-project-command", refreshCurrent);
   document.addEventListener("click", (event) => {
+    const answerButton = event.target.closest("[data-project-answer]");
+    if (answerButton) {
+      const project = findProject(answerButton.dataset.projectAnswer);
+      const review = project && reviewFor(project);
+      if (!project || !review || !completedTasks(project).every(Boolean)) return;
+      const feedback = answerButton.closest(".toa-review")?.querySelector(".toa-review-feedback");
+      if (Number(answerButton.dataset.answerIndex) === review.answer) {
+        localStorage.setItem(REVIEW_PREFIX + project.id, "passed");
+        if (feedback) feedback.textContent = review.explain;
+        setTimeout(() => terminalWork(document.querySelector("#pageView")), 250);
+      } else if (feedback) {
+        feedback.textContent = "Пока неверно. Вернись к задаче и объяснению «зачем», затем попробуй ещё раз.";
+      }
+      return;
+    }
     const projectButton = event.target.closest("[data-project]");
     if (projectButton) {
       const id = projectButton.dataset.project;
