@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildPortfolioMarkdown, CAPSTONE, PROJECTS, PROJECT_REVIEWS, projectDataIsValid, projectTaskCompletion } from "../../next/projects.js";
+import { buildPortfolioMarkdown, CAPSTONE, PROJECTS, PROJECT_REVIEWS, projectDataIsValid, projectTaskCompletion, summarizeProjectProgress } from "../../next/projects.js";
 
 test("есть отдельный рабочий проект для каждого из 14 актов", () => {
   assert.equal(PROJECTS.length, 14);
@@ -34,6 +34,17 @@ test("каждый проект проверяет понимание решен
     assert.ok(review.answer >= 0 && review.answer < review.options.length, project.id);
     assert.notEqual(review.options[review.answer], review.options[(review.answer + 1) % review.options.length]);
   }
+});
+
+test("сводка маршрута считает только подтверждённые шаги и проверки", () => {
+  const progress = summarizeProjectProgress({ worlds: {}, reviews: {} });
+  assert.equal(progress.topicTasksDone, 0);
+  assert.equal(progress.topicTasksTotal, 42);
+  assert.equal(progress.topicsDone, 0);
+  assert.equal(progress.reviewsDone, 0);
+  assert.equal(progress.capstoneTasksDone, 0);
+  assert.equal(progress.capstoneTasksTotal, 14);
+  assert.equal(progress.topics.length, 14);
 });
 
 test("портфолио показывает только подтверждённые команды и результаты", () => {

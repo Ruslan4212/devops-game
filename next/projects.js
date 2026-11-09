@@ -231,6 +231,22 @@ function taskSatisfied(task, world) {
 export function projectTaskCompletion(project, world) {
   return project.tasks.map((task) => taskSatisfied(task, world));
 }
+export function summarizeProjectProgress({ worlds = {}, reviews = {} } = {}) {
+  const topics = PROJECTS.map((project) => {
+    const tasksDone = projectTaskCompletion(project, worlds[project.id]).filter(Boolean).length;
+    return { id: project.id, act: project.act, title: project.title, tasksDone, tasksTotal: project.tasks.length, reviewPassed: Boolean(reviews[project.id]) };
+  });
+  const capstoneDone = projectTaskCompletion(CAPSTONE, worlds[CAPSTONE.id]).filter(Boolean).length;
+  return {
+    topicTasksDone: topics.reduce((sum, project) => sum + project.tasksDone, 0),
+    topicTasksTotal: topics.reduce((sum, project) => sum + project.tasksTotal, 0),
+    topicsDone: topics.filter((project) => project.tasksDone === project.tasksTotal && project.reviewPassed).length,
+    reviewsDone: topics.filter((project) => project.reviewPassed).length,
+    capstoneTasksDone: capstoneDone,
+    capstoneTasksTotal: CAPSTONE.tasks.length,
+    topics,
+  };
+}
 function completedTasks(project, world = readWorld(project.id)) {
   return projectTaskCompletion(project, world);
 }
@@ -335,10 +351,28 @@ function cardMarkup(project, capstone = false) {
   const nextAction = progress.done === progress.total && !checked ? "Пройти проверку понимания" : progress.done === progress.total && checked ? "Проект завершён · открыть" : "Открыть рабочее место";
   return `<article class="toa-project-card ${capstone ? "toa-capstone" : ""}"><div class="toa-project-meta">${capstone ? "ИТОГОВЫЙ ПРОЕКТ" : `АКТ ${project.act} · ${escapeHtml(project.topic)}`}<span>${progress.done}/${progress.total} шагов${checked ? " · понимание ✓" : ""}</span></div><h2>${escapeHtml(project.title)}</h2><p>${escapeHtml(project.goal)}</p><div class="toa-output"><b>Результат</b><span>${escapeHtml(project.output)}</span></div><button class="btn toa-open-project" type="button" data-project="${escapeHtml(project.id)}" ${locked ? "disabled" : ""}>${locked ? "Сначала заверши 14 проектов по темам" : nextAction}</button></article>`;
 }
+function roadmapMarkup() {
+  const worlds = Object.fromEntries([...PROJECTS, CAPSTONE].map((project) => [project.id, readWorld(project.id)]));
+  const reviews = Object.fromEntries([...PROJECTS, CAPSTONE].map((project) => [project.id, reviewPassed(project)]));
+  const summary = summarizeProjectProgress({ worlds, reviews });
+  const nextProject = summary.topics.find((project) => project.tasksDone < project.tasksTotal || !project.reviewPassed);
+  const current = nextProject ? `Следующий шаг — акт ${nextProject.act}: ${escapeHtml(nextProject.title)}` : "Все тематические проекты готовы — переходи к итоговому capstone";
+  const phases = [
+    { title: "Разобраться в системе", range: "Акты 1–5", start: 1, end: 5 },
+    { title: "Собрать и доставить", range: "Акты 6–9", start: 6, end: 9 },
+    { title: "Эксплуатировать и улучшать", range: "Акты 10–14", start: 10, end: 14 },
+  ];
+  const phaseMarkup = phases.map((phase) => {
+    const projects = summary.topics.filter((project) => project.act >= phase.start && project.act <= phase.end);
+    const done = projects.filter((project) => project.tasksDone === project.tasksTotal && project.reviewPassed).length;
+    return `<div class="toa-roadmap-phase"><b>${escapeHtml(phase.title)}</b><span>${phase.range} · ${done}/${projects.length} проектов</span></div>`;
+  }).join("");
+  return `<section class="toa-roadmap" aria-label="Прогресс практического курса"><div class="toa-roadmap-top"><div><p class="toa-eyebrow">ПРАКТИЧЕСКИЙ МАРШРУТ</p><h2>${summary.topicsDone} из 14 проектов завершено</h2><p>${current}</p></div><div class="toa-roadmap-count"><b>${summary.topicTasksDone}/${summary.topicTasksTotal}</b><span>шагов · ${summary.reviewsDone}/14 проверок</span></div></div><progress max="${summary.topicTasksTotal}" value="${summary.topicTasksDone}" aria-label="Выполненные шаги тематических проектов"></progress><div class="toa-roadmap-phases">${phaseMarkup}</div><p class="toa-capstone-note">Затем — общий проект: ${summary.capstoneTasksDone}/${summary.capstoneTasksTotal} шагов. Он откроется после всех тем и проверок понимания.</p></section>`;
+}
 function mount(container) {
   if (!container) return;
   const reportReady = projectComplete(CAPSTONE);
-  container.innerHTML = `<section class="toa-projects"><header class="toa-project-intro"><p class="toa-eyebrow">ПРАКТИКА НА РАБОЧЕМ ПРОЕКТЕ</p><h1>Проекты: от первой команды до production</h1><p>Один учебный бизнес — интернет-магазин «Магазин Рядом». Для каждого акта есть отдельное рабочее место, файлы и задачи в терминале. Команда изменяет виртуальное окружение, а результат сохраняется в этом браузере.</p><p class="toa-honesty"><b>Как устроена практика:</b> это безопасный симулятор, не настоящий сервер. Ошибки и файлы проектов изолированы друг от друга; итоговый capstone объединяет темы в одной среде.</p>${reportReady ? '<button class="btn primary toa-export-portfolio" type="button" data-export-portfolio>Скачать отчёт-портфолио (.md)</button>' : ""}</header><div class="toa-project-grid">${PROJECTS.map((p) => cardMarkup(p)).join("")}</div><div class="toa-capstone-wrap">${cardMarkup(CAPSTONE, true)}</div></section>`;
+  container.innerHTML = `<section class="toa-projects"><header class="toa-project-intro"><p class="toa-eyebrow">ПРАКТИКА НА РАБОЧЕМ ПРОЕКТЕ</p><h1>Проекты: от первой команды до production</h1><p>Один учебный бизнес — интернет-магазин «Магазин Рядом». Для каждого акта есть отдельное рабочее место, файлы и задачи в терминале. Команда изменяет виртуальное окружение, а результат сохраняется в этом браузере.</p><p class="toa-honesty"><b>Как устроена практика:</b> это безопасный симулятор, не настоящий сервер. Ошибки и файлы проектов изолированы друг от друга; итоговый capstone объединяет темы в одной среде.</p>${reportReady ? '<button class="btn primary toa-export-portfolio" type="button" data-export-portfolio>Скачать отчёт-портфолио (.md)</button>' : ""}</header>${roadmapMarkup()}<div class="toa-project-grid">${PROJECTS.map((p) => cardMarkup(p)).join("")}</div><div class="toa-capstone-wrap">${cardMarkup(CAPSTONE, true)}</div></section>`;
 }
 function downloadPortfolio() {
   if (!projectComplete(CAPSTONE)) return;
@@ -434,6 +468,7 @@ function installStyles() {
     .toa-command-output{white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;border-radius:8px;background:#0b0f14;color:#cbd5e1;font:12px/1.5 ui-monospace,monospace}.toa-export-portfolio{margin-top:14px}
     @media(max-width:620px){.toa-project-intro{padding:18px}.toa-work-head{display:grid}.toa-work-head>button{width:100%}.toa-project-card{min-height:0}}
   `;
+  style.textContent += `.toa-roadmap{margin:0 0 20px;padding:20px;border:1px solid rgba(93,164,255,.35);border-radius:16px;background:linear-gradient(135deg,rgba(93,164,255,.09),rgba(20,25,34,.95))}.toa-roadmap-top{display:flex;align-items:center;justify-content:space-between;gap:16px}.toa-roadmap h2{margin:2px 0 5px;font-size:21px}.toa-roadmap-top p:not(.toa-eyebrow){margin:0;color:var(--muted,#a5afbd);line-height:1.5}.toa-roadmap-count{display:grid;gap:2px;text-align:right}.toa-roadmap-count b{font-size:20px}.toa-roadmap-count span,.toa-roadmap-phase span,.toa-capstone-note{color:var(--muted,#a5afbd);font-size:12px}.toa-roadmap>progress{width:100%;height:9px;margin:16px 0 12px;accent-color:#5da4ff}.toa-roadmap-phases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.toa-roadmap-phase{display:grid;gap:4px;padding:11px;border:1px solid var(--line,#273241);border-radius:10px;background:rgba(0,0,0,.14)}.toa-capstone-note{margin:12px 0 0;line-height:1.5}@media(max-width:620px){.toa-roadmap{padding:16px}.toa-roadmap-top{align-items:flex-start;flex-direction:column}.toa-roadmap-count{text-align:left}.toa-roadmap-phases{grid-template-columns:1fr}}`;
   document.head.append(style);
 }
 

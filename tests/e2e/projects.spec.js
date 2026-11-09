@@ -3,6 +3,8 @@ const { test, expect } = require("@playwright/test");
 test("проектные рабочие места открываются в /next и сохраняют практику", async ({ page }) => {
   await page.goto("/next/#/projects");
   if (await page.locator("#modClose").isVisible()) await page.locator("#modClose").click();
+  await expect(page.locator(".toa-roadmap h2")).toHaveText("0 из 14 проектов завершено");
+  await expect(page.locator(".toa-capstone-note")).toContainText("0/14 шагов");
   await expect(page.getByRole("heading", { name: "Проекты: от первой команды до production" })).toBeVisible();
   await expect(page.locator(".toa-project-card")).toHaveCount(15);
 
