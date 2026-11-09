@@ -7,7 +7,7 @@ export const PROJECTS = [
     tasks: [
       { title: "Проверь рабочую папку", instruction: "Убедись, что работаешь в каталоге проекта, а не в случайной директории.", why: "Команда в неверном каталоге может изменить не тот сервис.", pattern: "^pwd$", hint: "pwd" },
       { title: "Составь карту файлов", instruction: "Найди конфигурацию, код, скрипты и журналы магазина.", why: "Структура проекта подсказывает, где искать настройки и доказательства сбоя.", pattern: "^(find \. -type f|ls -la)$", hint: "find . -type f" },
-      { title: "Найди ошибку в журнале", instruction: "Отфильтруй записи уровня error в логе приложения.", why: "Сначала собираем факты из логов, потом выбираем исправление.", pattern: "^grep -i error logs/app\\.log$", hint: "grep -i error logs/app.log" },
+      { title: "Сохрани и проверь отчёт", instruction: "Отфильтруй ошибки приложения, сохрани их в incident-report.txt и прочитай файл.", why: "После записи проверь содержимое артефакта: успешный код команды сам по себе не доказывает, что файл полезен.", pattern: "^cat incident-report\\.txt$", hint: "grep -i error logs/app.log > incident-report.txt && cat incident-report.txt", verify: (world) => /ERROR.*database timeout/i.test(projectFile(world, "/home/devops/shop-linux/incident-report.txt") || "") },
     ],
   },
   {
@@ -162,7 +162,7 @@ export const CAPSTONE = {
   output: "Проверенный план релиза и эксплуатации магазина с диагностикой отказа.",
   directory: "/home/devops/shop-platform",
   tasks: [
-    { title: "Linux: проверь дерево релиза", instruction: "Убедись, что в каталоге есть приложение и конфигурация.", why: "Перед релизом зафиксируй состав артефакта.", pattern: "^(find \. -type f|ls -la)$", hint: "find . -type f" },
+    { title: "Linux: зафиксируй доказательство сбоя", instruction: "Сохрани ошибки приложения в incident-report.txt и прочитай отчёт.", why: "До изменений зафиксируй наблюдаемый симптом как артефакт для расследования и ревью.", pattern: "^cat incident-report\\.txt$", hint: "grep -i error logs/app.log > incident-report.txt && cat incident-report.txt", verify: (world) => /ERROR.*database timeout/i.test(projectFile(world, "/home/devops/shop-platform/incident-report.txt") || "") },
     { title: "Службы: проверь API", instruction: "Проверь состояние службы магазина.", why: "Сервис должен быть активен до проверки внешнего пути.", pattern: "^systemctl status shop-api$", hint: "systemctl status shop-api" },
     { title: "Bash: подготовь healthcheck", instruction: "Подготовь скрипт к безопасному запуску.", why: "Быстрый повторяемый preflight ловит очевидные ошибки; давай права только на выполнение.", pattern: "^chmod \\+x scripts/healthcheck\\.sh$", hint: "chmod +x scripts/healthcheck.sh" },
     { title: "Сети: проверь HTTP", instruction: "Проверь внешний health endpoint.", why: "Внутренний статус процесса не гарантирует доступность для клиента.", pattern: "^curl -I http://localhost:3000/health$", hint: "curl -I http://localhost:3000/health" },
@@ -209,9 +209,23 @@ function activeId() { try { return localStorage.getItem(ACTIVE_KEY) || ""; } cat
 function findProject(id) { return id === CAPSTONE.id ? CAPSTONE : PROJECTS.find((p) => p.id === id); }
 function reviewFor(project) { return PROJECT_REVIEWS[project.id]; }
 function reviewPassed(project) { try { return localStorage.getItem(REVIEW_PREFIX + project.id) === "passed"; } catch { return false; } }
-function completedTasks(project, world = readWorld(project.id)) {
+function projectFile(world, path) {
+  if (!world?.fs || !path) return null;
+  const parts = path.split("/").filter(Boolean);
+  let node = world.fs;
+  for (const part of parts) node = node?.type === "dir" ? node.children?.[part] : null;
+  return node?.type === "file" ? String(node.content ?? "") : null;
+}
+function taskSatisfied(task, world) {
   const log = Array.isArray(world?.log) ? world.log : [];
-  return project.tasks.map((task) => log.some((entry) => entry?.code === 0 && new RegExp(task.pattern).test(String(entry.cmd || "").trim())));
+  const commandSucceeded = log.some((entry) => entry?.code === 0 && new RegExp(task.pattern).test(String(entry.cmd || "").trim()));
+  return commandSucceeded && (!task.verify || task.verify(world));
+}
+export function projectTaskCompletion(project, world) {
+  return project.tasks.map((task) => taskSatisfied(task, world));
+}
+function completedTasks(project, world = readWorld(project.id)) {
+  return projectTaskCompletion(project, world);
 }
 function projectComplete(project) { return completedTasks(project).every(Boolean) && reviewPassed(project); }
 function allTopicsComplete() { return PROJECTS.every(projectComplete); }
@@ -225,7 +239,7 @@ export function buildPortfolioMarkdown({ worlds = {}, reviews = {} } = {}) {
     const tasks = project.tasks.map((task) => {
       const pattern = new RegExp(task.pattern);
       const entry = log.find((item) => item?.code === 0 && pattern.test(String(item.cmd || "").trim()));
-      if (!entry) return `- [ ] ${task.title}`;
+      if (!taskSatisfied(task, world)) return `- [ ] ${task.title}`;
       const result = evidence.find((item) => item.code === 0 && pattern.test(String(item.command || "").trim()));
       const output = String(result?.output || "Команда выполнена; симулятор не вернул текстовый вывод.").trim().replace(/```/g, "'''");
       return `- [x] ${task.title} — \`${String(entry.cmd).trim()}\`\n\n  Результат:\n\n  > ${output.replace(/\n/g, "\n  > ")}`;

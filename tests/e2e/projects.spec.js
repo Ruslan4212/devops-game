@@ -20,8 +20,24 @@ test("проектные рабочие места открываются в /ne
   expect(savedWorld.toaCommandEvidence.some((entry) => entry.command === "pwd" && entry.output.includes("/home/devops/shop-linux"))).toBe(true);
 
   await page.reload();
+  if (await page.locator("#modClose").isVisible()) await page.locator("#modClose").click();
   await expect(page.locator(".toa-workbench h2")).toHaveText("Подготовить рабочее место магазина");
   await expect(page.locator(".toa-work-progress")).toContainText("Практика: 1 из 3 шагов");
+
+  await page.locator('[data-r="projects"]').click();
+  await page.locator('[data-project="linux"]').click();
+  await expect(page.locator("#cmd")).toBeEnabled();
+  await page.locator("#cmd").fill("find . -type f");
+  await page.locator("#cmd").press("Enter");
+  await expect(page.locator(".toa-work-progress")).toContainText("Практика: 2 из 3 шагов");
+  await page.locator("#cmd").fill("grep -i error logs/app.log");
+  await page.locator("#cmd").press("Enter");
+  await expect(page.locator(".toa-work-progress")).toContainText("Практика: 2 из 3 шагов");
+  await page.locator("#cmd").fill("grep -i error logs/app.log > incident-report.txt && cat incident-report.txt");
+  await page.locator("#cmd").press("Enter");
+  await expect(page.locator(".toa-review")).toBeVisible();
+  const report = await page.evaluate(() => JSON.parse(localStorage.getItem("toa_project_world_v1:linux")));
+  expect(report.fs.children.home.children.devops.children["shop-linux"].children["incident-report.txt"].content).toContain("ERROR database timeout");
 });
 
 test("сквозной проект закрыт, пока не пройдены тематические проекты", async ({ page }) => {

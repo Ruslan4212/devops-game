@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildPortfolioMarkdown, CAPSTONE, PROJECTS, PROJECT_REVIEWS, projectDataIsValid } from "../../next/projects.js";
+import { buildPortfolioMarkdown, CAPSTONE, PROJECTS, PROJECT_REVIEWS, projectDataIsValid, projectTaskCompletion } from "../../next/projects.js";
 
 test("есть отдельный рабочий проект для каждого из 14 актов", () => {
   assert.equal(PROJECTS.length, 14);
@@ -38,14 +38,41 @@ test("каждый проект проверяет понимание решен
 
 test("портфолио показывает только подтверждённые команды и результаты", () => {
   const projects = [...PROJECTS, CAPSTONE];
-  const worlds = Object.fromEntries(projects.map((project) => [project.id, {
-    log: project.tasks.map((task) => ({ cmd: task.hint.split("&&").at(-1).trim(), code: 0 })),
-    toaCommandEvidence: project.tasks.map((task) => ({ command: task.hint.split("&&").at(-1).trim(), code: 0, output: "OK" })),
-  }]));
+  const makeWorld = (project) => {
+    const world = {
+      cwd: project.directory,
+      fs: { type: "dir", children: {} },
+      log: project.tasks.flatMap((task) => task.hint.split("&&").map((cmd) => ({ cmd: cmd.trim(), code: 0 }))),
+      toaCommandEvidence: project.tasks.map((task) => ({ command: task.hint.split("&&").at(-1).trim(), code: 0, output: "OK" })),
+    };
+    if (project.id === "linux" || project.id === "capstone") {
+      let node = world.fs;
+      for (const part of [...project.directory.slice(1).split("/"), "incident-report.txt"]) {
+        node.children[part] = part === "incident-report.txt" ? { type: "file", content: "ERROR database timeout" } : { type: "dir", children: {} };
+        node = node.children[part];
+      }
+    }
+    return world;
+  };
+  const worlds = Object.fromEntries(projects.map((project) => [project.id, makeWorld(project)]));
   const reviews = Object.fromEntries(projects.map((project) => [project.id, true]));
   const report = buildPortfolioMarkdown({ worlds, reviews });
   assert.match(report, /# Портфолио: DevOps-практика/);
   for (const project of projects) assert.ok(report.includes(project.title), project.id);
   assert.match(report, /Проверка понимания:\*\* пройдена/);
   assert.match(report, /Результат:[\s\S]*> OK/);
+});
+
+test("Linux-проект требует сохранить и проверить реальное содержимое отчёта", () => {
+  const project = PROJECTS.find((item) => item.id === "linux");
+  const world = { cwd: project.directory, fs: { type: "dir", children: {} }, log: project.tasks.flatMap((task) => task.hint.split("&&").map((cmd) => ({ cmd: cmd.trim(), code: 0 }))) };
+  assert.deepEqual(projectTaskCompletion(project, world), [true, true, false]);
+
+  let node = world.fs;
+  for (const part of [...project.directory.slice(1).split("/"), "incident-report.txt"]) {
+    node.children[part] = part === "incident-report.txt" ? { type: "file", content: "ERROR database timeout" } : { type: "dir", children: {} };
+    node = node.children[part];
+  }
+  world.cwd = `${project.directory}/infra`;
+  assert.deepEqual(projectTaskCompletion(project, world), [true, true, true]);
 });
